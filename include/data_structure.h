@@ -1,8 +1,8 @@
-#ifndef _MCTDHB_datatype_h
-#define _MCTDHB_datatype_h
+#ifndef _data_structure_h
+#define _data_structure_h
 
 #include <complex.h>
-#include "MCTDHB_configurations.h"
+#include "manybody_configurations.h"
 
 
 
@@ -14,7 +14,7 @@
 
 
 
-struct _MCTDHBsetup
+struct _EquationDataPkg
 {
 
     int 
@@ -26,25 +26,25 @@ struct _MCTDHBsetup
         ** NCmat; // NCmat[n][m] # with n particles / m orbitals
 
     double
-        dx,     // space step
-        xi,     // initial position discretized value
-        xf,     // final position discretized value
-        a2,     // factor multiplying d2 / dx2
-        inter,  // know as g, contact interaction strength
-        * V;    // Array with the values of one-particle potential
+        dx,       // space step
+        xi,       // initial position discretized value
+        xf,       // final position discretized value
+        a2,       // factor multiplying d2 / dx2
+        inter,    // know as g, contact interaction strength
+        * V;      // Array with the values of one-particle potential
 
     double complex
-        a1;     // factor multiplying d / dx (pure imaginary)
+        a1;       // factor multiplying d / dx (pure imaginary)
 
 };
 
-typedef struct _MCTDHBsetup * MCTDHBsetup;
+typedef struct _EquationDataPkg * EqDataPkg;
 
 
 
 
 
-struct _MCTDHBmaster
+struct _ManyBodyDataPkg
 {
 
     int
@@ -65,7 +65,7 @@ struct _MCTDHBmaster
 
 };
 
-typedef struct _MCTDHBmaster * MCTDHBmaster;
+typedef struct _ManyBodyDataPkg * ManyBodyPkg;
 
 
 
@@ -81,14 +81,15 @@ typedef struct _MCTDHBmaster * MCTDHBmaster;
 
 
 
-MCTDHBsetup AllocMCTDHBdata (int Npar,int Morb,int Mpos,double xi,double xf,
-            double a2,double inter,double * V,double complex a1);
+EqDataPkg PackEqData(int,int,int,double,double,double,double,Rarray,doublec);
 
-MCTDHBmaster AllocMCTDHBmaster (int Npar,int Morb,int Mpos);
+void dpkgEqData(EqDataPkg, double *, doublec *, Rarray, double *);
 
-void EraseMCTDHBmaster (MCTDHBmaster);
+ManyBodyPkg AllocManyBodyPkg(int,int,int);
 
-void EraseMCTDHBdata (MCTDHBsetup);
+void ReleaseManyBodyDataPkg (ManyBodyPkg);
+
+void ReleaseEqDataPkg (EqDataPkg);
 
 
 

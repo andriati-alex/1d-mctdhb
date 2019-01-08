@@ -74,9 +74,6 @@ void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 
 
 
-double MeanQuadraticR(int n, Carray f, double dx);
-/** Mean quadratic radius for symmetric domain **/
-
 double complex SquaredRampl(int n, Carray f, Carray g, double dx);
 /** Quantum Mechanical Matrix element of r^2 operator < f | r^2 | g > **/
 

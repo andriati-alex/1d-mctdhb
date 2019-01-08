@@ -1,11 +1,11 @@
-#include "../include/MCTDHB_observables.h"
+#include "observables.h"
 
 
 
 
 
 void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
-     double complex a1, Rarray V, Cmatrix Ho)
+     doublec a1, Rarray V, Cmatrix Ho)
 {
 
 /** Configure one-body hamiltonian matrix elements in a chosen orbital basis
@@ -23,21 +23,15 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
   *
   * This shall work for a numerical implementation like 1 / dx
   *
-  ****************************************************************************
-  *
-**/
+  ***************************************************************************/
 
 
     int i,
         j,
         k;
 
-
-
     double complex
         part;
-
-
 
     Carray
         ddxi  = carrDef(Mpos),
@@ -90,7 +84,8 @@ void SetupHo (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
 
 
 
-void SetupHint(int Morb,int Mpos,Cmatrix Omat,double dx,double g,Carray Hint)
+void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
+     Carray Hint)
 {
 
 /** Configure two-body hamiltonian matrix elements in a chosen orbital basis
@@ -98,9 +93,7 @@ void SetupHint(int Morb,int Mpos,Cmatrix Omat,double dx,double g,Carray Hint)
   *
   * Output parameter : Hint
   *
-  ****************************************************************************
-  *
-**/
+  *************************************************************************/
 
     int i,
         k,
@@ -111,10 +104,8 @@ void SetupHint(int Morb,int Mpos,Cmatrix Omat,double dx,double g,Carray Hint)
         M2,
         M3;
 
-
     double complex
         Integral;
-
 
     Carray
         toInt;
@@ -140,7 +131,7 @@ void SetupHint(int Morb,int Mpos,Cmatrix Omat,double dx,double g,Carray Hint)
                                    Omat[q][i] * Omat[l][i];
                     }
 
-                    Integral = g * Csimps(Mpos, toInt, dx);
+                    Integral = g * Csimps(Mpos,toInt,dx);
 
                     Hint[k + s * M + q * M2 + l * M3] = Integral;
                     Hint[k + s * M + l * M2 + q * M3] = Integral;
@@ -159,17 +150,14 @@ void SetupHint(int Morb,int Mpos,Cmatrix Omat,double dx,double g,Carray Hint)
 
 
 
-double complex Energy (int Morb, Cmatrix rho1, Carray rho2,
-               Cmatrix Ho, Carray Hint)
+doublec Energy (int Morb, Cmatrix rho1, Carray rho2, Cmatrix Ho, Carray Hint)
 {
 
 /** Compute and return the energy given the one/two-body density
   * matrices needed for any observable and the  hamiltonian  one
-  * and two-body matrices elements
+  * and two-body matrices elements to be contracted in sums
   *
-  ****************************************************************
-  *
-**/
+  *************************************************************/
 
     int
         i,
@@ -185,18 +173,21 @@ double complex Energy (int Morb, Cmatrix rho1, Carray rho2,
 
     z = 0;
     w = 0;
+
     for (k = 0; k < Morb; k++)
     {
         for (l = 0; l < Morb; l++)
         {
-            w += rho1[k][l] * Ho[k][l];
+
+            w = w + rho1[k][l] * Ho[k][l];
+
             for (s = 0; s < Morb; s++)
             {
                 for (q = 0; q < Morb; q++)
                 {
                     i = k + l * Morb + s * Morb*Morb + q * Morb*Morb*Morb;
                     j = k + l * Morb + q * Morb*Morb + s * Morb*Morb*Morb;
-                    z += rho2[i] * Hint[j];
+                    z = z + rho2[i] * Hint[j];
                 }
             }
         }
@@ -210,15 +201,11 @@ double complex Energy (int Morb, Cmatrix rho1, Carray rho2,
 
 
 
-double complex KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
-     double complex a1, Cmatrix rho )
+doublec KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
+        Cmatrix rho)
 {
 
-/** Return mean value of second order derivative term in Hamiltonian
-  *
-  ******************************************************************
-  *
-**/
+/** Return mean value of second order derivative term in Hamiltonian **/
 
     int i,
         j,
@@ -265,8 +252,8 @@ double complex KinectE (int Morb, int Mpos, Cmatrix Omat, double dx, double a2,
 
 
 
-double complex PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx,
-     Rarray V, Cmatrix rho )
+doublec PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx, Rarray V,
+        Cmatrix rho)
 {
 
     int i,
@@ -306,8 +293,8 @@ double complex PotentialE (int Morb, int Mpos, Cmatrix Omat, double dx,
 
 
 
-double complex TwoBodyE(int Morb, int Mpos, Cmatrix Omat, double dx, double g,
-     Carray rho)
+doublec TwoBodyE(int Morb, int Mpos, Cmatrix Omat, double dx, double g,
+        Carray rho)
 {
 
     int i,
@@ -365,7 +352,7 @@ double complex TwoBodyE(int Morb, int Mpos, Cmatrix Omat, double dx, double g,
 
 
 
-double complex Virial(MCTDHBsetup mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
+doublec Virial(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 {
 
     int
@@ -387,7 +374,7 @@ double complex Virial(MCTDHBsetup mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 
 
 
-    kinect = KinectE(Morb, Mpos, Orb, dx, a2, a1, rho1);
+    kinect = KinectE(Morb, Mpos, Orb, dx, a2, rho1);
     potential = PotentialE(Morb, Mpos, Orb, dx, V, rho1);
     interacting = TwoBodyE(Morb, Mpos, Orb, dx, g, rho2);
 
@@ -399,7 +386,7 @@ double complex Virial(MCTDHBsetup mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 
 
 
-double MCMeanQuadraticR(MCTDHBsetup mc, Cmatrix Orb, Cmatrix rho1)
+double MeanQuadraticR(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1)
 {
 
     int

@@ -215,7 +215,7 @@ else : raise IOError('\n\nInitial function name not implemented.\n\n');
 
 #################              Record Data              ###################
 
-folder = str(Path.home()) + '/AndriatiLibrary/annular-bec/input/';
+folder = str(Path.home()) + '/AndriatiLibrary/1d-mctdhb/input/';
 
 np.savetxt(folder + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt(folder + Id_name + '_coef.dat', C.T, fmt='%.15E');

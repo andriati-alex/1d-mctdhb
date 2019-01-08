@@ -1,6 +1,6 @@
 #include <string.h>
-#include "../include/MCTDHB_integrator.h"
-#include "../include/linear_potential.h"
+#include "integrator_routine.h"
+#include "linear_potential.h"
 
 
 
@@ -266,8 +266,8 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
 
 
 
-MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
-            double * dt, int * N, char Vname [])
+EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
+          int * N, char Vname [])
 {
 
     int
@@ -323,7 +323,7 @@ MCTDHBsetup SetupData(FILE * paramFile, FILE * confFile, Rarray x,
 
     a1 = 0 + imag * I;
 
-    return AllocMCTDHBdata(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
+    return PackEqData(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
 
 }
 
@@ -419,12 +419,12 @@ int main(int argc, char * argv[])
 
 
 
-    MCTDHBsetup
+    EqDataPkg
         mc;
 
 
 
-    MCTDHBmaster
+    ManyBodyPkg
         S;
 
 
@@ -510,7 +510,7 @@ int main(int argc, char * argv[])
     {
         if (timeinfo != 'i' && timeinfo != 'I')
         {
-            printf("\n\n\t!   Invalid first argument   !\n");
+            printf("\n\n\t!   Invalid first argument   !\n\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -629,7 +629,7 @@ int main(int argc, char * argv[])
 
     if (paramFile == NULL) // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -648,7 +648,7 @@ int main(int argc, char * argv[])
 
     if (orb_file == NULL)  // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -667,7 +667,7 @@ int main(int argc, char * argv[])
 
     if (coef_file == NULL)  // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -710,7 +710,7 @@ int main(int argc, char * argv[])
 
 
 
-    S = AllocMCTDHBmaster(Npar,Morb,Mdx + 1);
+    S = AllocManyBodyPkg(Npar,Morb,Mdx + 1);
 
     // Setup orbitals
     // --------------
@@ -887,7 +887,7 @@ int main(int argc, char * argv[])
         case 1:
 
             start = omp_get_wtime();
-            s = MC_IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
+            s = IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -897,7 +897,7 @@ int main(int argc, char * argv[])
         case 2:
 
             start = omp_get_wtime();
-            s = MC_IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
+            s = IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -907,7 +907,7 @@ int main(int argc, char * argv[])
         case 3:
 
             start = omp_get_wtime();
-            s = MC_IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
+            s = IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -925,7 +925,7 @@ int main(int argc, char * argv[])
         // record orbital data
 
         strcat(fname, "_orb_imagtime.dat");
-        cmat_txt(fname, Morb, 1, Mdx + 1, 1, S->Omat);
+        cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
 
         // Record Coeficients Data
 
@@ -982,7 +982,7 @@ int main(int argc, char * argv[])
         sprintf(strnum, "%d", i + 1);
 
         // release old data
-        EraseMCTDHBdata(mc);
+        ReleaseEqDataPkg(mc);
 
         // setup new parameters
         mc = SetupData(paramFile, confFile, x, &dt, &N, potname);
@@ -1171,7 +1171,7 @@ int main(int argc, char * argv[])
             case 1:
 
                 start = omp_get_wtime();
-                s = MC_IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
+                s = IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
@@ -1182,7 +1182,7 @@ int main(int argc, char * argv[])
             case 2:
 
                 start = omp_get_wtime();
-                s = MC_IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
+                s = IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
@@ -1193,7 +1193,7 @@ int main(int argc, char * argv[])
             case 3:
 
                 start = omp_get_wtime();
-                s = MC_IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
+                s = IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
@@ -1212,7 +1212,7 @@ int main(int argc, char * argv[])
             // record orbital data
 
             strcat(fname, "_orb_imagtime.dat");
-            cmat_txt(fname, Morb, 1, Mdx + 1, 1, S->Omat);
+            cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
 
             // Record Coeficients Data
 
@@ -1261,8 +1261,8 @@ int main(int argc, char * argv[])
     fclose(paramFile);
     fclose(coef_file);
 
-    EraseMCTDHBdata(mc);
-    EraseMCTDHBmaster(S);
+    ReleaseEqDataPkg(mc);
+    ReleaseManyBodyDataPkg(S);
     free(x);
     free(E);
     free(vir);

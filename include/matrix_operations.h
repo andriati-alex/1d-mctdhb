@@ -61,7 +61,7 @@ CCSmat tri2CCS(int n, Carray upper, Carray lower, Carray mid);
 
 
 
-CCSmat Cyclic2CCS(int n, Carray upper, Carray lower, Carray mid);
+CCSmat cyclic2CCS(int n, Carray upper, Carray lower, Carray mid);
 /*      Fill in CCS format given tridiagonal cyclic system      */
 
 

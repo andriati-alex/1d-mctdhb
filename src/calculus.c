@@ -310,43 +310,6 @@ void dxFD(int n, Carray f, double dx, Carray dfdx)
 
 
 
-double MeanQuadraticR(int n, Carray f, double dx)
-{
-
-/** Compute Mean Quadratic Radius of a complex function/distribution.
-  * Assume the simmetric domain, [xi,xf] with xf = -xi **/
-
-    int
-        i;
-
-    double
-        r;
-
-    Rarray
-        ToInt;
-
-    ToInt = rarrDef(n);
-
-    r = - dx * (n - 1) * 0.5; // First discretized point of domain
-
-    for (i = 0; i < n; i ++)
-    {
-        ToInt[i] = (creal(f[i])*creal(f[i]) + cimag(f[i])*cimag(f[i])) * r*r;
-        r = r + dx;
-    }
-
-    r = sqrt(Rsimps(n, ToInt, dx));
-
-    free(ToInt);
-
-    return r;
-
-}
-
-
-
-
-
 double complex SquaredRampl(int n, Carray f, Carray g, double dx)
 {
 

@@ -1,5 +1,5 @@
-#ifndef _MCTDHB_integrator_h
-#define _MCTDHB_integrator_h
+#ifndef _integrator_routine_h
+#define _integrator_routine_h
 
 #ifdef _OPENMP
     #include <omp.h>
@@ -7,9 +7,10 @@
 
 #include <string.h>
 
-#include "MCTDHB_datatype.h"
-#include "MCTDHB_observables.h"
-#include "MCTDHB_configurations.h"
+#include "data_structure.h"
+#include "observables.h"
+#include "manybody_configurations.h"
+#include "inout.h"
 #include "matrix_operations.h"
 #include "tridiagonal_solver.h"
 
@@ -60,107 +61,69 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-void MCNLTRAP_dOdt (MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
-     Cmatrix Ho, Carray Hint, Cmatrix rho1, Carray rho2);
+void NLTRAP_dOdt(EqDataPkg, Cmatrix , Cmatrix, Cmatrix, Carray, Cmatrix,
+     Carray);
 
 
 
 
 
-void MCNL_dOdt (MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
-     Cmatrix Ho, Carray Hint, Cmatrix rho1, Carray rho2);
+void NL_dOdt(EqDataPkg, Cmatrix, Cmatrix, Cmatrix, Carray, Cmatrix, Carray);
 
 
 
 
 
-void MC_dCdt
-(   // Compute time derivative of coefficient
-    MCTDHBsetup MC,
-    Carray C,
-    Cmatrix Ho,
-    Carray Hint,
-    Carray dCdt
-);
+void dCdt(EqDataPkg, Carray, Cmatrix, Carray, Carray);
 
 
 
 
 
-int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
     int lm, Carray diag, Carray offdiag, Cmatrix lvec);
 
 
 
 
 
-double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C);
+double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C);
 
 
 
 
 
-void LanczosIntegrator
-(   // Evolve nonlinear part of orbitals coupled with coeficients
-    MCTDHBsetup MC,
-    Cmatrix orb, // End up modified by the evolution
-    Carray C,    // End up modified by the evolution
-    double complex dt
-);
+void LanczosIntegrator(EqDataPkg, Cmatrix, Carray, double complex);
 
 
 
 
 
-void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt);
-
-
-
-
-/*
-void MC_NL_IRK4
-(   // Evolve nonlinear part with imaginary time
-    MCTDHBsetup MC,
-    Cmatrix Orb,
-    Carray C,
-    double complex dt
-);
-*/
+void NL_TRAP_C_RK4 (EqDataPkg, ManyBodyPkg, double complex);
 
 
 
 
 
-void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt);
+void NL_C_RK4 (EqDataPkg, ManyBodyPkg, double complex);
 
 
 
 
 
-void MCLP_CNSM
-(   // Evolve a time-step the linear part of PDE(orbitals)
-    int Mpos,
-    int Morb,
-    CCSmat cnmat, // Matrix from CN approach(discretization)
-    Carray upper, // Upper diagonal
-    Carray lower, // Lower diagonal
-    Carray mid,   // Main diagonal of tridiagonal system
-    Cmatrix Orb
-);
+void LP_CNSM(int, int, CCSmat, Carray, Carray, Carray, Cmatrix);
 
 
 
 
 
-void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper,
-     Carray lower, Carray mid, Cmatrix Orb);
+void LP_CNLU(int, int, CCSmat, Carray, Carray, Carray, Cmatrix);
 
 
 
 
 
-void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
-     Carray exp_der, Cmatrix Orb);
+void LP_FFT (int, int, DFTI_DESCRIPTOR_HANDLE *, Carray, Cmatrix);
 
 
 
@@ -176,24 +139,19 @@ void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 
-int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup, MCTDHBmaster, Carray E,
-     Carray virial, double dT, int Nsteps);
+int IMAG_RK4_FFTRK4(EqDataPkg, ManyBodyPkg, Carray, Carray, double, int);
 
 
 
 
 
-int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup, MCTDHBmaster , Carray E,
-     Carray virial, double dT, int Nsteps, int cyclic);
+int IMAG_RK4_CNSMRK4(EqDataPkg,ManyBodyPkg,Carray,Carray,double,int,int);
 
 
 
 
 
-int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup, MCTDHBmaster, Carray E,
-     Carray virial, double dT, int Nsteps, int cyclic);
-
-
+int IMAG_RK4_CNLURK4(EqDataPkg,ManyBodyPkg,Carray,Carray,double,int,int);
 
 
 

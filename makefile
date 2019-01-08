@@ -8,33 +8,33 @@
 obj_linalg = array_memory.o 	  \
 			 array_operations.o   \
 			 matrix_operations.o  \
-			 rmatrix_operations.o \
 		   	 iterative_solver.o   \
 			 tridiagonal_solver.o
 
-obj_mctdhb = $(obj_linalg)           \
-			 calculus.o              \
-			 linear_potential.o      \
-		 	 MCTDHB_configurations.o \
-			 MCTDHB_datatype.o       \
-			 MCTDHB_observables.o    \
-		 	 MCTDHB_integrator.o
+obj_mctdhb = $(obj_linalg)             \
+			 inout.o                   \
+			 calculus.o                \
+			 linear_potential.o        \
+		 	 manybody_configurations.o \
+			 data_structure.o          \
+			 observables.o             \
+		 	 integrator_routine.o
 
 linalg_header = include/array.h 			 \
 				include/array_memory.h		 \
 				include/array_operations.h   \
 				include/matrix_operations.h  \
-				include/rmatrix_operations.h \
 	  		    include/tridiagonal_solver.h \
 				include/iterative_solver.h
 
-mctdhb_header = $(linalg_header) 	    	    \
-				include/calculus.h		        \
-		 		include/linear_potential.h      \
-				include/MCTDHB_configurations.h \
-				include/MCTDHB_datatype.h       \
-				include/MCTDHB_observables.h    \
-				include/MCTDHB_integrator.h
+mctdhb_header = $(linalg_header) 	    	      \
+				inout.h                           \
+				include/calculus.h		          \
+		 		include/linear_potential.h        \
+				include/manybody_configurations.h \
+				include/data_structure.h          \
+				include/observables.h             \
+				include/integrator_routine.h
 
 
 
@@ -48,10 +48,10 @@ mctdhb_header = $(linalg_header) 	    	    \
 
 
 
-MCTDHB_time : libmctdhb.a exe/MCTDHB_time.c include/MCTDHB_integrator.h
-	icc -o MCTDHB_time exe/MCTDHB_time.c -L${MKLROOT}/lib/intel64 \
-		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lm -qopenmp \
-		-L./lib -lmctdhb -O3
+MCTDHB_time : libmctdhb.a exe/time_evolution.c include/integrator_routine.h
+	icc -o MCTDHB_time exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
+		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -qopenmp \
+		-L./lib -I./include -lmctdhb -lm -O3
 
 
 
@@ -73,60 +73,65 @@ libmctdhb.a : $(obj_mctdhb)
 # ---------------------------
 
 array_memory.o : src/array_memory.c
-	icc -c -O3 src/array_memory.c
+	icc -c -O3 -I./include src/array_memory.c
 
 
 
 array_operations.o : src/array_operations.c
-	icc -c -O3 -qopenmp src/array_operations.c
+	icc -c -O3 -qopenmp -I./include src/array_operations.c -lm
 
 
 
 matrix_operations.o : src/matrix_operations.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
-		src/matrix_operations.c
+		-I./include src/matrix_operations.c
 
 
 
 tridiagonal_solver.o : src/tridiagonal_solver.c
-	icc -c -O3 -qopenmp src/tridiagonal_solver.c
+	icc -c -O3 -qopenmp -I./include src/tridiagonal_solver.c
 
 
 
 iterative_solver.o : src/iterative_solver.c
-	icc -c -O3 -qopenmp src/iterative_solver.c
+	icc -c -O3 -qopenmp -I./include src/iterative_solver.c
 
 
 
 linear_potential.o : src/linear_potential.c
-	icc -c -O3 src/linear_potential.c
+	icc -c -O3 -I./include src/linear_potential.c
 
 
 
 calculus.o : src/calculus.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		src/calculus.c
+		-I./include src/calculus.c -lm
 
 
 
-MCTDHB_integrator.o : src/MCTDHB_integrator.c
+integrator_routine.o : src/integrator_routine.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
-		src/MCTDHB_integrator.c
+		-I./include src/integrator_routine.c
 
 
 
-MCTDHB_configurations.o : src/MCTDHB_configurations.c
-	icc -c -O3 -qopenmp src/MCTDHB_configurations.c
+manybody_configurations.o : src/manybody_configurations.c
+	icc -c -O3 -qopenmp -I./include src/manybody_configurations.c
 
 
 
-MCTDHB_observables.o : src/MCTDHB_observables.c
-	icc -c -O3 -qopenmp src/MCTDHB_observables.c
+observables.o : src/observables.c
+	icc -c -O3 -qopenmp -I./include src/observables.c -lm
 
 
 
-MCTDHB_datatype.o : src/MCTDHB_datatype.c
-	icc -c -O3 src/MCTDHB_datatype.c
+data_structure.o : src/data_structure.c
+	icc -c -O3 -I./include src/data_structure.c
+
+
+
+inout.o : src/inout.c
+	icc -c -O3 -I./include src/inout.c
 
 
 

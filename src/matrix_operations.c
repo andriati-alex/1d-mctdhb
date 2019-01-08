@@ -225,7 +225,7 @@ CCSmat CNmat(int M, double dx, doublec dt, double a2, doublec a1, double inter,
     else        { lower[M-2] = 0;                                        }
 
     // Store in CCS format
-    Mat = Cyclic2CCS(M - 1, upper, lower, mid);
+    Mat = cyclic2CCS(M - 1, upper, lower, mid);
 
 
 

@@ -1,4 +1,4 @@
-#include "../include/MCTDHB_configurations.h"
+#include "manybody_configurations.h"
 
 
 
@@ -9,7 +9,7 @@
  *       AUXILIAR FUNCTIONS TO CONFIGURE NUMBER OCCUPATION STATES
  *       --------------------------------------------------------
  *
- * A configuration is defined as one of the possibles occupation number 
+ * A configuration is defined as one of the possibles occupation number
  * states (Fock vectors).  This is  a  combinatorial problem  on how to
  * fill  "M"  different Single-Particle States (SPS)  with N  available
  * particles.  The routines below  implements a mapping  between  these

@@ -1,4 +1,4 @@
-#include "../include/MCTDHB_integrator.h"
+#include "integrator_routine.h"
 
 
 
@@ -9,8 +9,8 @@
 
 
 
-double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
-               Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
+doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
+        Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
 {
 
 /** For a orbital 'k' computed at discretized position 'n' calculate
@@ -104,7 +104,7 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-void MCNLTRAP_dOdt(MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
+void NLTRAP_dOdt(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt,
      Cmatrix Ho, Carray Hint, Cmatrix rho1, Carray rho2)
 {
 
@@ -121,10 +121,7 @@ void MCNLTRAP_dOdt(MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
         s,
         j,
         M  = MC->Morb,
-        N  = MC->Npar,
-        Mpos  = MC->Mpos,
-        ** IF = MC->IF,
-        ** NCmat = MC->NCmat;
+        Mpos  = MC->Mpos;
 
 
 
@@ -191,8 +188,8 @@ void MCNLTRAP_dOdt(MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
 
 
 
-void MCNL_dOdt (MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
-     Cmatrix Ho, Carray Hint, Cmatrix rho1, Carray rho2)
+void NL_dOdt (EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix Ho, Carray Hint,
+     Cmatrix rho1, Carray rho2)
 {
 
 //  Time derivative of the set of orbitals due exclusively  to nonlinear
@@ -208,10 +205,7 @@ void MCNL_dOdt (MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
         s,
         j,
         M = MC->Morb,
-        N = MC->Npar,
-        Mpos  = MC->Mpos,
-        ** IF = MC->IF,
-        ** NCmat = MC->NCmat;
+        Mpos  = MC->Mpos;
 
 
 
@@ -276,7 +270,7 @@ void MCNL_dOdt (MCTDHBsetup MC, Cmatrix Orb, Cmatrix dOdt,
 
 
 
-void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
+void dCdt (EqDataPkg MC, Carray C, Cmatrix Ho, Carray Hint, Carray der)
 {
 
 //  Time derivative of coefficients from the expansion in configuration
@@ -287,9 +281,9 @@ void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 
     int i;
 
-    applyHconf(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, Ho, Hint, dCdt);
+    applyHconf(MC->Npar, MC->Morb, MC->NCmat, MC->IF, C, Ho, Hint, der);
 
-    for (i = 0; i < MC->nc; i++) dCdt[i] = - I * dCdt[i];
+    for (i = 0; i < MC->nc; i++) der[i] = - I * der[i];
 }
 
 
@@ -301,7 +295,7 @@ void MC_dCdt (MCTDHBsetup MC, Carray C, Cmatrix Ho, Carray Hint, Carray dCdt)
 
 
 
-int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
+int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
     int lm, Carray diag, Carray offdiag, Cmatrix lvec)
 {
 
@@ -405,7 +399,7 @@ int lanczos(MCTDHBsetup MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
+double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 {
 
 //  Find the lowest Eigenvalue using Lanczos tridiagonal decomposition
@@ -540,7 +534,7 @@ double LanczosGround (int Niter, MCTDHBsetup MC, Cmatrix Orb, Carray C)
 
 
 
-void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+void LanczosIntegrator (EqDataPkg MC, Cmatrix Orb, Carray C, doublec dt)
 {
 
 //  Integrate Coefficients in a imaginary time-step dt using Lanczos
@@ -704,12 +698,12 @@ void LanczosIntegrator (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt
 
 
 
-void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
+void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
 {
 
 //  (M)ulti-(C)onfiguration (N)on (L)inear part + (TRAP) potential
 //  and  (C)oefficients  solver  for  (I)maginary  time-step  with
-//  (R)unge-(K)utta method of 4-th order : MC_NLTRAPC_IRK4
+//  (R)unge-(K)utta method of 4-th order : NL_TRAP_C_RK4
 //
 //  INPUT/OUTPUT :
 //      C   - End up advanced in dt
@@ -737,7 +731,7 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
     Carray
         Ck,
-        dCdt,
+        Cder,
         Carg;
 
     Cmatrix
@@ -765,7 +759,7 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
     Carg = carrDef(nc);
 
-    dCdt = carrDef(nc);
+    Cder = carrDef(nc);
     
     Ck = carrDef(nc);
     
@@ -781,14 +775,14 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K1
     // ------------------------------------------------------------------
 
-    MCNLTRAP_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, S->C, S->Ho, S->Hint, dCdt);
+    NLTRAP_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, S->C, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K1 contribution
-        Ck[i] = dCdt[i];
+        Ck[i] = Cder[i];
         // Prepare next argument to compute K2
-        Carg[i] = S->C[i] + dCdt[i] * 0.5 * dt;
+        Carg[i] = S->C[i] + Cder[i] * 0.5 * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -816,14 +810,14 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K2
     // ------------------------------------------------------------------
 
-    MCNLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K2 contribution
-        Ck[i] += 2 * dCdt[i];
+        Ck[i] += 2 * Cder[i];
         // Prepare next argument to compute K3
-        Carg[i] = S->C[i] + dCdt[i] * 0.5 * dt;
+        Carg[i] = S->C[i] + Cder[i] * 0.5 * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -850,14 +844,14 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K3
     // ------------------------------------------------------------------
 
-    MCNLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K3 contribution
-        Ck[i] += 2 * dCdt[i];
+        Ck[i] += 2 * Cder[i];
         // Prepare next argument to compute K4
-        Carg[i] = S->C[i] + dCdt[i] * dt;
+        Carg[i] = S->C[i] + Cder[i] * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -884,12 +878,12 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K4
     // ------------------------------------------------------------------
 
-    MCNLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NLTRAP_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K4 contribution
-        Ck[i] += dCdt[i];
+        Ck[i] += Cder[i];
     }
 
     for (k = 0; k < Morb; k++)
@@ -919,7 +913,7 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
 
     free(Ck);
-    free(dCdt);
+    free(Cder);
     free(Carg);
 
     cmatFree(Morb, dOdt);
@@ -937,7 +931,7 @@ void MC_NLTRAPC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
 
 /*
-void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
+void MC_NL_IRK4 (EqDataPkg MC, Cmatrix Orb, Carray C, double complex dt)
 {
 
 //  (M)ulti-(C)onfiguration (N)on-(L)inear part solver for  (I)maginary
@@ -970,7 +964,7 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     // COMPUTE K1
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, C, Orb, dOdt, Ho, Hint);
+    NL_dOdt(MC, C, Orb, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -990,7 +984,7 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     // COMPUTE K2
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
+    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -1010,7 +1004,7 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     // COMPUTE K3
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
+    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -1030,7 +1024,7 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
     // COMPUTE K4
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
+    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
     for (k = 0; k < M; k++)
     {
         for (j = 0; j < Mpos; j++)
@@ -1069,12 +1063,12 @@ void MC_NL_IRK4 (MCTDHBsetup MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
-void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
+void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
 {
 
 //  (M)ulti-(C)onfiguration (N)on (L)inear part and  (C)oefficients
 //  solver for (I)maginary time-step with (R)unge-(K)utta method of
-//  4-th order : MC_NLC_IRK4
+//  4-th order : NL_C_RK4
 //
 //  INPUT/OUTPUT :
 //      C   - End up advanced in dt
@@ -1102,7 +1096,7 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
     Carray
         Ck,
-        dCdt,
+        Cder,
         Carg;
 
     Cmatrix
@@ -1130,7 +1124,7 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
     Carg = carrDef(nc);
 
-    dCdt = carrDef(nc);
+    Cder = carrDef(nc);
     
     Ck = carrDef(nc);
     
@@ -1146,14 +1140,14 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K1 and add its contribution in Ck and Ok
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, S->C, S->Ho, S->Hint, dCdt);
+    NL_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, S->C, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K1 contribution
-        Ck[i] = dCdt[i];
+        Ck[i] = Cder[i];
         // Prepare next argument to compute K2
-        Carg[i] = S->C[i] + dCdt[i] * 0.5 * dt;
+        Carg[i] = S->C[i] + Cder[i] * 0.5 * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -1180,14 +1174,14 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K2 and add its contribution in Ck and Ok
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K2 contribution
-        Ck[i] += 2 * dCdt[i];
+        Ck[i] += 2 * Cder[i];
         // Prepare next argument to compute K3
-        Carg[i] = S->C[i] + dCdt[i] * 0.5 * dt;
+        Carg[i] = S->C[i] + Cder[i] * 0.5 * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -1214,14 +1208,14 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K3 and add its contribution in Ck and Ok
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K3 contribution
-        Ck[i] += 2 * dCdt[i];
+        Ck[i] += 2 * Cder[i];
         // Prepare next argument to compute K4
-        Carg[i] = S->C[i] + dCdt[i] * dt;
+        Carg[i] = S->C[i] + Cder[i] * dt;
     }
 
     for (k = 0; k < Morb; k++)
@@ -1248,12 +1242,12 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     // COMPUTE K4 and add its contribution in Ck and Ok
     // ------------------------------------------------------------------
 
-    MCNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
-    MC_dCdt(MC, Carg, S->Ho, S->Hint, dCdt);
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    dCdt(MC, Carg, S->Ho, S->Hint, Cder);
 
     for (i = 0; i < nc; i++)
     {   // Add K4 contribution
-        Ck[i] += dCdt[i];
+        Ck[i] += Cder[i];
     }
 
     for (k = 0; k < Morb; k++)
@@ -1283,7 +1277,7 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
     }
 
     free(Ck);
-    free(dCdt);
+    free(Cder);
     free(Carg);
     
     cmatFree(Morb, dOdt);
@@ -1300,13 +1294,13 @@ void MC_NLC_IRK4 (MCTDHBsetup MC, MCTDHBmaster S, double complex dt)
 
 
 
-void MCLP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
+void LP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
      Carray lower, Carray mid, Cmatrix Orb)
 {
 
 //  (M)ulti-(C)onfiguration  (L)inear  (P)art  solver by
 //  (C)rank-(N)icolson with (S)herman-(M)orrison formula
-//  to a cyclic-tridiagonal system : MCLP_CNSM
+//  to a cyclic-tridiagonal system : LP_CNSM
 //  ----------------------------------------------------
 //  Given a complex matrix with orbitals  organized  in
 //  each  row,  Solve  cyclic-tridiagonal  system  that
@@ -1341,7 +1335,7 @@ void MCLP_CNSM (int Mpos, int Morb, CCSmat cnmat, Carray upper,
 
 
 
-void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
+void LP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
      Carray mid, Cmatrix Orb )
 {
 
@@ -1383,7 +1377,7 @@ void MCLP_CNLU (int Mpos, int Morb, CCSmat cnmat, Carray upper, Carray lower,
 
 
 
-void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
+void LP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
      Carray exp_der, Cmatrix Orb)
 {
 
@@ -1449,8 +1443,8 @@ void MCLP_FFT (int Mpos, int Morb, DFTI_DESCRIPTOR_HANDLE * desc,
 
 
 
-int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
-    Carray virial, double dT, int Nsteps)
+int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
+    double dT, int Nsteps)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1548,11 +1542,11 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Store the initial energy
     E[0] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
     virial[0] = Virial(MC, S->Omat, S->rho1, S->rho2);
-    R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+    R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
@@ -1561,14 +1555,14 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     for (i = 0; i < Nsteps; i++)
     {
 
-        MCLP_FFT(Mpos, Morb, &desc, exp_der, S->Omat);
+        LP_FFT(Mpos, Morb, &desc, exp_der, S->Omat);
 
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
-        MC_NLTRAPC_IRK4(MC, S, dt);
+        NL_TRAP_C_RK4(MC, S, dt);
 
-        MCLP_FFT(Mpos, Morb, &desc, exp_der, S->Omat);
+        LP_FFT(Mpos, Morb, &desc, exp_der, S->Omat);
 
 
 
@@ -1611,9 +1605,9 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
         }
 
 
@@ -1621,7 +1615,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
         // Store energy
         E[i + 1] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
-        R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+        R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
 
 
@@ -1646,9 +1640,9 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, S->C, 1.0);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
 
             printf("\nProcess ended before because \n");
             printf("\n\t1. Energy stop decreasing  \n");
@@ -1679,7 +1673,7 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
     
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
     
@@ -1699,8 +1693,8 @@ int MC_IMAG_RK4_FFTRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
 
 
 
-int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
-     Carray virial, double dT, int Nsteps, int cyclic)
+int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
+    double dT, int Nsteps, int cyclic)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -1770,11 +1764,11 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Store the initial energy
     E[0] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
     virial[0] = Virial(MC, S->Omat, S->rho1, S->rho2);
-    R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+    R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
     
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
@@ -1788,7 +1782,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     for (i = 0; i < Nsteps; i++)
     {
 
-        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+        LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
         // The boundary
         if (cyclic)
@@ -1801,11 +1795,11 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
 
 
 
-        MC_NLC_IRK4(MC, S, dt);
+        NL_C_RK4(MC, S, dt);
 
 
 
-        MCLP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+        LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
         // The boundary
         if (cyclic)
@@ -1856,9 +1850,9 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
         }
 
 
@@ -1866,7 +1860,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
         // Store energy
         E[i + 1] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
-        R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+        R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
 
 
@@ -1893,9 +1887,9 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, S->C, 1.0);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
 
             printf("\nProcess ended before because \n");
             printf("\n\t1. Energy stop decreasing  \n");
@@ -1924,7 +1918,7 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
 
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 
@@ -1945,8 +1939,8 @@ int MC_IMAG_RK4_CNSMRK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
 
 
 
-int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
-    Carray virial, double dT, int Nsteps, int cyclic)
+int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
+    double dT, int Nsteps, int cyclic)
 {
 
 /** Multi-Configuration Imaginary time propagation
@@ -2012,11 +2006,11 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Store the initial energy
     E[0] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
     virial[0] = Virial(MC, S->Omat, S->rho1, S->rho2);
-    R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+    R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
     printf("\n\n\t Nstep         Energy/particle         Virial");
     printf("               sqrt<R^2>");
-    SepLine();
+    sepline();
     printf("\n\t%6d       %15.7E", 0, creal(E[0]));
     printf("         %15.7E       %7.4lf", creal(virial[0]), R2);
 
@@ -2030,7 +2024,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     for (i = 0; i < Nsteps; i++)
     {
 
-        MCLP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+        LP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
         // The boundary
         if (cyclic)
@@ -2045,11 +2039,11 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
 
 
 
-        MC_NLC_IRK4(MC, S, dt);
+        NL_C_RK4(MC, S, dt);
 
 
 
-        MCLP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+        LP_CNLU(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
         // The boundary
         if (cyclic)
@@ -2100,9 +2094,9 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
         }
 
 
@@ -2110,7 +2104,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
         // Store energy
         E[i + 1] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
-        R2 = MCMeanQuadraticR(MC, S->Omat, S->rho1);
+        R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
 
 
@@ -2139,9 +2133,9 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
             // Renormalize coeficients
             renormalizeVector(nc, S->C, 1.0);
 
-            SepLine();
+            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            SepLine();
+            sepline();
 
             printf("\nProcess ended before because \n");
             printf("\n\t1. Energy stop decreasing  \n");
@@ -2170,7 +2164,7 @@ int MC_IMAG_RK4_CNLURK4 (MCTDHBsetup MC, MCTDHBmaster S, Carray E,
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
 
-    SepLine();
+    sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
 

@@ -1,16 +1,23 @@
-#include "../include/MCTDHB_datatype.h"
+#include "data_structure.h"
 
 
 
-MCTDHBsetup AllocMCTDHBdata ( int Npar,int Morb,int Mpos,double xi,double xf,
-            double a2,double inter,double * V,double complex a1 )
+EqDataPkg PackEqData(int Npar,int Morb,int Mpos,double xi,double xf,
+          double a2,double inter,Rarray V,doublec a1)
 {
 
 /** Return pointer to a basic data structure with all needed information
-  * to solve the MCTDHB variational equations.
+  * to solve the MCTDHB variational equations.i
 **/
 
-    MCTDHBsetup MC = (MCTDHBsetup) malloc(sizeof(struct _MCTDHBsetup));
+    EqDataPkg MC = (EqDataPkg) malloc(sizeof(struct _EquationDataPkg));
+
+    if (MC == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail for EqData structure\n\n");
+        exit(EXIT_FAILURE);
+    }
+
     MC->Npar = Npar;
     MC->Morb = Morb;
     MC->Mpos = Mpos;
@@ -24,6 +31,7 @@ MCTDHBsetup AllocMCTDHBdata ( int Npar,int Morb,int Mpos,double xi,double xf,
     MC->nc = NC(Npar, Morb);
     MC->NCmat = MountNCmat(Npar, Morb);
     MC->IF = MountFocks(Npar, Morb, MC->NCmat);
+
     return MC;
 }
 
@@ -31,14 +39,33 @@ MCTDHBsetup AllocMCTDHBdata ( int Npar,int Morb,int Mpos,double xi,double xf,
 
 
 
-MCTDHBmaster AllocMCTDHBmaster (int Npar,int Morb,int Mpos)
+void dpkgEqData(EqDataPkg MC, double * a2, doublec * a1, Rarray V, double * g)
+{
+    * a2 = MC->a2;
+    * a1 = MC->a1;
+    * g  = MC->inter;
+    V = MC->V;
+}
+
+
+
+
+
+ManyBodyPkg AllocManyBodyPkg(int Npar,int Morb,int Mpos)
 {
 
-/** A master structure with all orbital/coefficients dependent quantities
-  * updated iteratively in time steps.
+/** A master structure with all information that defines solution
+  * to the MCTDHB equations
 **/
 
-    MCTDHBmaster S = (MCTDHBmaster) malloc(sizeof(struct _MCTDHBmaster));
+    ManyBodyPkg S = (ManyBodyPkg) malloc(sizeof(struct _ManyBodyDataPkg));
+
+    if (S == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail ManyBody structure\n\n");
+        exit(EXIT_FAILURE);
+    }
+
     S->Npar = Npar;
     S->Morb = Morb;
     S->Mpos = Mpos;
@@ -49,6 +76,7 @@ MCTDHBmaster AllocMCTDHBmaster (int Npar,int Morb,int Mpos)
     S->rho2 = carrDef(Morb * Morb * Morb * Morb);
     S->Ho   = cmatDef(Morb,Morb);
     S->Hint = carrDef(Morb * Morb * Morb * Morb);
+
     return S;
 }
 
@@ -56,7 +84,7 @@ MCTDHBmaster AllocMCTDHBmaster (int Npar,int Morb,int Mpos)
 
 
 
-void EraseMCTDHBmaster (MCTDHBmaster S)
+void ReleaseManyBodyDataPkg (ManyBodyPkg S)
 {
     cmatFree(S->Morb,S->Ho);
     cmatFree(S->Morb,S->rho1);
@@ -71,7 +99,7 @@ void EraseMCTDHBmaster (MCTDHBmaster S)
 
 
 
-void EraseMCTDHBdata (MCTDHBsetup MC)
+void ReleaseEqDataPkg (EqDataPkg MC)
 {
     int i;
 
