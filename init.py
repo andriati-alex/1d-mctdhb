@@ -1,14 +1,14 @@
 
 import sys;
 import numpy as np;
-import MCTDHBmodule as mc;
+import mcanalysis as mc;
 import scipy.special as ss;
 
 from scipy.integrate import simps;
 from math import pi;
 from math import sqrt;
 from math import factorial as fac;
-from pathlib import Path;
+from os import getcwd;
 
 
 
@@ -215,7 +215,7 @@ else : raise IOError('\n\nInitial function name not implemented.\n\n');
 
 #################              Record Data              ###################
 
-folder = str(Path.home()) + '/AndriatiLibrary/1d-mctdhb/input/';
+folder = './input/';
 
 np.savetxt(folder + Id_name + '_orb.dat', Orb.T, fmt='%.15E');
 np.savetxt(folder + Id_name + '_coef.dat', C.T, fmt='%.15E');
