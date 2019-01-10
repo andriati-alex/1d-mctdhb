@@ -341,3 +341,39 @@ double complex SquaredRampl(int n, Carray f, Carray g, double dx)
     return r;
 
 }
+
+
+
+
+
+int NonVanishingId(int n, Carray f, double dx, double tol)
+{
+
+/** Given a simmetric distribution in a domain [xi,xf] with  xi = -xf
+  * return the index where it is non vanishing in terms  of  L2  norm
+  * of the chunk that has been integrated and then can be safely left
+  * out from the description up to a given 'tol'. Assumes || f || = 1
+  * and that n > 5 at least. The chunks have equal size of (n/25)  4%
+  * of the lenght of domain.
+**/
+
+    int i;
+
+    double chunkNorm;
+
+    Rarray chunkAbs2;
+
+    i = 10;
+
+    chunkNorm = 1.0;
+
+    chunkAbs2 = rarrDef(n);
+
+    carrAbs2(n, f, chunkAbs2);
+
+    while(sqrt(Rsimps(i, chunkAbs2, dx)) < tol) i = i + (n / 25);
+
+    if (i == 10) return 0;
+
+    return i - (n / 25);
+}

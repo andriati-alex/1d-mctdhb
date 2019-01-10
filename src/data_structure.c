@@ -3,12 +3,16 @@
 
 
 EqDataPkg PackEqData(int Npar,int Morb,int Mpos,double xi,double xf,
-          double a2,double inter,Rarray V,doublec a1)
+          double a2,double inter,doublec a1,char Vname[],double p[])
 {
 
 /** Return pointer to a basic data structure with all needed information
-  * to solve the MCTDHB variational equations.i
+  * to solve the MCTDHB variational equations.
 **/
+
+    Rarray x = rarrDef(Mpos);
+
+    rarrFillInc(Mpos, xi, (xf - xi) / (Mpos - 1), x);
 
     EqDataPkg MC = (EqDataPkg) malloc(sizeof(struct _EquationDataPkg));
 
@@ -27,10 +31,20 @@ EqDataPkg PackEqData(int Npar,int Morb,int Mpos,double xi,double xf,
     MC->inter = inter;
     MC->a2 = a2;
     MC->a1 = a1;
-    MC->V = V;
-    MC->nc = NC(Npar, Morb);
+    MC->nc = NC(Npar,Morb);
     MC->NCmat = MountNCmat(Npar, Morb);
     MC->IF = MountFocks(Npar, Morb, MC->NCmat);
+
+    MC->p[0] = p[0];
+    MC->p[1] = p[1];
+    MC->p[2] = p[2];
+    strcpy(MC->Vname,Vname);
+
+    MC->V = rarrDef(Mpos);
+
+    GetPotential(Mpos, Vname, x, MC->V, p[0], p[1], p[2]);
+
+    free(x);
 
     return MC;
 }

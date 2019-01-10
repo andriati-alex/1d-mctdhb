@@ -77,4 +77,8 @@ void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 double complex SquaredRampl(int n, Carray f, Carray g, double dx);
 /** Quantum Mechanical Matrix element of r^2 operator < f | r^2 | g > **/
 
+
+
+int NonVanishingId(int n, Carray f, double dx, double tol);
+
 #endif

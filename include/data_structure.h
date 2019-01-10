@@ -1,7 +1,8 @@
 #ifndef _data_structure_h
 #define _data_structure_h
 
-#include <complex.h>
+#include <string.h>
+#include "linear_potential.h"
 #include "manybody_configurations.h"
 
 
@@ -16,6 +17,9 @@
 
 struct _EquationDataPkg
 {
+
+    char
+        Vname[80]; // One-Body potential
 
     int 
         nc,       // Total # of configurations(Fock states)
@@ -32,6 +36,9 @@ struct _EquationDataPkg
         a2,       // factor multiplying d2 / dx2
         inter,    // know as g, contact interaction strength
         * V;      // Array with the values of one-particle potential
+
+    double
+        p[3];     // Parameters to generate one-particle potential values
 
     double complex
         a1;       // factor multiplying d / dx (pure imaginary)
@@ -81,7 +88,8 @@ typedef struct _ManyBodyDataPkg * ManyBodyPkg;
 
 
 
-EqDataPkg PackEqData(int,int,int,double,double,double,double,Rarray,doublec);
+EqDataPkg PackEqData(int,int,int,double,double,double,double,doublec,
+          char [],double []);
 
 void dpkgEqData(EqDataPkg, double *, doublec *, Rarray, double *);
 

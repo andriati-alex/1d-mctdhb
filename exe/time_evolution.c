@@ -266,7 +266,7 @@ void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
 
 
 
-EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
+EqDataPkg SetupData(FILE * paramFile, FILE * confFile, double * dt,
           int * N, char Vname [])
 {
 
@@ -277,9 +277,6 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
         Morb;
 
     double
-        p1,
-        p2,
-        p3,
         xi,
         xf,
         dx,
@@ -287,11 +284,11 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
         imag,
         inter;
 
+    double
+        p[3];
+
     double complex
         a1;
-
-    Rarray
-        V;
 
 
 
@@ -302,8 +299,6 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
                &Npar, &Morb, &Mdx, &xi, &xf, dt, N);
 
     dx = (xf - xi) / Mdx;
-
-    V = rarrDef(Mdx + 1);
 
     printf("\n\nConfiguration Done\n");
 
@@ -317,13 +312,11 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, Rarray x, double * dt,
     // -------------------------
 
     k = fscanf(paramFile, "%lf %lf %lf %lf %lf %lf",
-               &a2, &imag, &inter, &p1, &p2, &p3);
-
-    GetPotential(Mdx + 1, Vname, x, V, p1, p2, p3);
+               &a2, &imag, &inter, &p[0], &p[1], &p[2]);
 
     a1 = 0 + imag * I;
 
-    return PackEqData(Npar, Morb, Mdx + 1, xi, xf, a2, inter, V, a1);
+    return PackEqData(Npar, Morb, Mdx + 1, xi, xf, a2, inter, a1, Vname, p);
 
 }
 
@@ -703,7 +696,7 @@ int main(int argc, char * argv[])
            READ DATA TO SETUP EQUATION PARAMETERS AND INITIAL CONDITIONS
        ==================================================================== */
 
-    mc = SetupData(paramFile, confFile, x, &dt, &N, potname);
+    mc = SetupData(paramFile, confFile, &dt, &N, potname);
 
     E   = carrDef(N + 1); // to store energy
     vir = carrDef(N + 1); // check consistency by Virial Theorem
@@ -985,7 +978,7 @@ int main(int argc, char * argv[])
         ReleaseEqDataPkg(mc);
 
         // setup new parameters
-        mc = SetupData(paramFile, confFile, x, &dt, &N, potname);
+        mc = SetupData(paramFile, confFile, &dt, &N, potname);
 
         free(E);
         free(vir);

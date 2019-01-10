@@ -2,6 +2,71 @@
 
 
 
+void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
+{
+
+    int
+        i,
+        j,
+        Morb,
+        Mpos,
+        minId;
+
+    double
+        xi,
+        xf,
+        dx,
+        oldxf,
+        oldxi,
+        olddx;
+
+    Rarray
+        x;
+
+// IF the system is not trapped do nothing
+
+    if (strcmp(mc->Vname, "harmonic") != 0) return;
+
+    Morb = mc->Morb;
+    Mpos = mc->Mpos;
+    minId = Mpos;
+    oldxi = mc->xi;
+    oldxf = mc->xf;
+    olddx = mc->dx;
+
+    x = rarrDef(Mpos);
+
+    for (i = 0; i < Morb; i++)
+    {
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-11);
+        if ( minId > j ) minId = j;
+    }
+
+    if (minId == 0) return;
+
+    xi = oldxi + minId * olddx;
+    xf = oldxf - minId * olddx;
+    dx = (xf - xi) / (Mpos - 1);
+
+// SETUP new discretized positions and domain limits
+
+    rarrFillInc(Mpos, xi, dx, x);
+    mc->xi = xi;
+    mc->xf = xf;
+    mc->dx = dx;
+
+    sepline();
+    printf("\n\t\tDomain resized to [%.2lf,%.2lf]\n", x[0], x[Mpos-1]);
+    sepline();
+
+// SETUP new one-body potential in discretized positions
+
+    GetPotential(Mpos, mc->Vname, x, mc->V, mc->p[0], mc->p[1], mc->p[2]);
+
+    free(x);
+}
+
+
 
 
 
@@ -1581,15 +1646,16 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 2 )
+// After half of time steps that must be evolved  do a
+// fixed  orbital  basis  diagonalization  to  quicker
+// convergence. Restrict the number  of iterations  in
+// lanczos routine to avoid massive memory usage.  Try
+// to use 200 iterations unless either it exceeds half
+// of the dimension of configuration space  or  if  it
+// exceeds a memory Threshold.
+
+        if ( i == Nsteps / 3 )
         {
-            // After half of time steps that must be evolved do a
-            // fixed orbital  basis  diagonalization  to  quicker
-            // convergence. Restrict the number of iterations  in
-            // lanczos routine to avoid massive memory usage. Try
-            // to use 200 iterations unless either it exceeds half
-            // of the dimension of configuration space or if it
-            // exceeds a memory Threshold.
 
             if (200 * nc < 5E7)
             {
@@ -1608,6 +1674,7 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             sepline();
+
         }
 
 
@@ -1623,7 +1690,7 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
 
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
         {
 
             p = DftiFreeDescriptor(&desc);
@@ -1641,20 +1708,15 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             renormalizeVector(nc, S->C, 1.0);
 
             sepline();
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            printf("\n\t\tFianl Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
-            printf("\nProcess ended before because \n");
-            printf("\n\t1. Energy stop decreasing  \n");
+            printf("\nProcess ended before because ");
+            printf("energy stop decreasing\n\n");
 
             if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
             {
-                printf("\n\t2. Achieved virial accuracy\n\n");
-                return i + 1;
-            } else
-            {
-                printf("\n\t2. Not so good virial value ");
-                printf("achieved. Try smaller time-step\n\n");
+                printf("Achieved good virial accuracy\n\n");
             }
 
             return i + 1;
@@ -1672,11 +1734,13 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     E[Nsteps] = LanczosGround( k, MC, S->Omat, S->C );
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
-    
+
+    sepline();
+    printf("\n\t\tFianl Energy = %.7E\n", creal(E[Nsteps]));
     sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");
-    
+
     p = DftiFreeDescriptor(&desc);
     free(exp_der);
 
@@ -1819,6 +1883,7 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+        // Update quantities that depends on orbitals and coefficients
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
         OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
@@ -1826,15 +1891,14 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 2 )
+//  After some time steps that must be evolved do a fixed orbital  basis
+//  diagonalization  to  hurry up  convergence.  Restrict the number  of
+//  iterations in lanczos routine to avoid massive memory usage. Try  to
+//  use 200 iterations unless either it exceeds half of the dimension of
+//  configuration space or if it exceeds a memory Threshold.
+
+        if ( i == Nsteps / 3 )
         {
-            // After half of time steps that must be evolved do a
-            // fixed orbital  basis  diagonalization  to  quicker
-            // convergence. Restrict the number of iterations  in
-            // lanczos routine to avoid massive memory usage. Try
-            // to use 200 iterations unless either it exceeds half
-            // of the dimension of configuration space or if it
-            // exceeds a memory Threshold.
 
             if (200 * nc < 5E7)
             {
@@ -1857,7 +1921,6 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        // Store energy
         E[i + 1] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
@@ -1867,8 +1930,12 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
         printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
 
+
+
+// CHECK IF THE ENERGY HAS STABILIZED TO STOP PROCESS
+
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
         {
 
             CCSFree(cnmat);
@@ -1888,23 +1955,21 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             renormalizeVector(nc, S->C, 1.0);
 
             sepline();
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            printf("\n\t\tFinal Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
-            printf("\nProcess ended before because \n");
-            printf("\n\t1. Energy stop decreasing  \n");
+            printf("\nProcess ended before because ");
+            printf("energy stop decreasing.\n\n");
 
             if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
             {
-                printf("\n\t2. Achieved virial accuracy\n\n");
-            } else
-            {
-                printf("\n\t2. Not so good virial value ");
-                printf("achieved. Try smaller time-step\n\n");
+                printf("Achieved good virial accuracy\n\n");
             }
 
             return i + 1;
         }
+
+
     }
 
     if (200 * nc < 5E7)
@@ -1915,11 +1980,12 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     else k = 5E7 / nc;
 
     E[Nsteps] = LanczosGround( k, MC, S->Omat, S->C );
-    // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
 
     sepline();
-    printf("\nProcess ended without achieving");
+    printf("\n\t\tFinal Energy = %.7E\n", creal(E[Nsteps]));
+    sepline();
+    printf("\nProcess ended without achieving desired");
     printf(" stability and/or accuracy\n\n");
 
     CCSFree(cnmat);
@@ -2070,15 +2136,14 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 2 )
+//  After some time steps that must be evolved do a fixed orbital  basis
+//  diagonalization  to  hurry up  convergence.  Restrict the number  of
+//  iterations in lanczos routine to avoid massive memory usage. Try  to
+//  use 200 iterations unless either it exceeds half of the dimension of
+//  configuration space or if it exceeds a memory Threshold.
+
+        if ( i == Nsteps / 3 )
         {
-            // After half of time steps that must be evolved do a
-            // fixed orbital  basis  diagonalization  to  quicker
-            // convergence. Restrict the number of iterations  in
-            // lanczos routine to avoid massive memory usage. Try
-            // to use 200 iterations unless either it exceeds half
-            // of the dimension of configuration space or if it
-            // exceeds a memory Threshold.
 
             if (200 * nc < 5E7)
             {
@@ -2097,11 +2162,11 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             sepline();
+
         }
 
 
 
-        // Store energy
         E[i + 1] = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
@@ -2114,7 +2179,7 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         
         
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 7E-11)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
         {
 
             CCSFree(cnmat);
@@ -2134,21 +2199,17 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             renormalizeVector(nc, S->C, 1.0);
 
             sepline();
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
+            printf("\n\t\tFinal Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
-            printf("\nProcess ended before because \n");
-            printf("\n\t1. Energy stop decreasing  \n");
+            printf("\nProcess ended before because ");
+            printf("Energy stop decreasing.\n\n");
 
             if ( fabs( creal(virial[i+1]) / creal(E[i+1]) ) < 1E-3 )
             {
-                printf("\n\t2. Achieved virial accuracy\n\n");
-            } else
-            {
-                printf("\n\t2. Not so good virial value ");
-                printf("achieved. Try smaller time-step\n\n");
+                printf("Achieved good virial accuracy\n\n");
             }
-            
+
             return i + 1;
         }
     }
@@ -2164,6 +2225,8 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
 
+    sepline();
+    printf("\n\t\tFinal Energy = %.7E\n", creal(E[Nsteps]));
     sepline();
     printf("\nProcess ended without achieving");
     printf(" stability and/or accuracy\n\n");

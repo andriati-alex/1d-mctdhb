@@ -24,6 +24,9 @@
 
 
 
+void ResizeDomain(EqDataPkg mc, ManyBodyPkg S);
+/** In case of trapped system resize domain if needed **/
+
 
 
 /* ==========================================================================
