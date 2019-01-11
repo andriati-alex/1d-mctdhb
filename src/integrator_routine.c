@@ -21,6 +21,11 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
         olddx;
 
     Rarray
+        real,
+        imag,
+        real_intpol,
+        imag_intpol,
+        oldx,
         x;
 
 // IF the system is not trapped do nothing
@@ -35,14 +40,21 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     olddx = mc->dx;
 
     x = rarrDef(Mpos);
+    oldx = rarrDef(Mpos);
+    real = rarrDef(Mpos);
+    imag = rarrDef(Mpos);
+    real_intpol = rarrDef(Mpos);
+    imag_intpol = rarrDef(Mpos);
+
+    rarrFillInc(Mpos, oldxi, olddx, oldx);
 
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-11);
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-9);
         if ( minId > j ) minId = j;
     }
 
-    if (minId == 0) return;
+    if (100 * abs(x[minId] - oldxi) / (oldxf - oldxi) < 7.5) return;
 
     xi = oldxi + minId * olddx;
     xf = oldxf - minId * olddx;
@@ -63,7 +75,32 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     GetPotential(Mpos, mc->Vname, x, mc->V, mc->p[0], mc->p[1], mc->p[2]);
 
+// INTERPOLATE to compute function in the new shrinked omain
+
+    for (i = 0; i < Morb; i ++)
+    {
+        // separe real and imaginary part
+        carrRealPart(Mpos, S->Omat[i], real);
+        carrImagPart(Mpos, S->Omat[i], imag);
+
+        // Interpolate in real and imaginary part
+        lagrange(Mpos, 4, oldx, real, Mpos, x, real_intpol);
+        lagrange(Mpos, 4, oldx, imag, Mpos, x, imag_intpol);
+
+        // Update orbital
+        for (j = 0; j < Mpos; j ++)
+        {
+            S->Omat[i][j] = real_intpol[j] + I * imag_intpol[j];
+        }
+    }
+
     free(x);
+    free(oldx);
+    free(real);
+    free(imag);
+    free(real_intpol);
+    free(imag_intpol);
+
 }
 
 
@@ -1646,16 +1683,41 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-// After half of time steps that must be evolved  do a
-// fixed  orbital  basis  diagonalization  to  quicker
-// convergence. Restrict the number  of iterations  in
-// lanczos routine to avoid massive memory usage.  Try
-// to use 200 iterations unless either it exceeds half
-// of the dimension of configuration space  or  if  it
-// exceeds a memory Threshold.
-
         if ( i == Nsteps / 3 )
         {
+
+//  After some time evolved check if initial domain is  suitable  for the
+//  current working orbitals, to avoid oversized domain, a useless length
+//  where the functions are zero anyway
+
+            ResizeDomain(MC, S);
+
+            dx = MC->dx;
+
+            // Loss of Norm => undefined behavior on orthogonality
+            Ortonormalize(Morb, Mpos, dx, S->Omat);
+
+            SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+            SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+            // Reconfigure linear part solver that depends on dx
+            // ---------------------------------------------------------------
+            for (j = 0; j < m; j++)
+            {
+                if (j <= (m-1)/2) { freq = (2 * PI * j) / (m * dx);       }
+                else              { freq = (2 * PI * (j - m)) / (m * dx); }
+                // exponential of derivative operators in half time-step
+                exp_der[j] = cexp(-0.5*dT * (I*a1*freq - a2*freq*freq));
+            }
+            // ---------------------------------------------------------------
+
+
+
+//  After some time steps that must be evolved do a fixed orbital  basis
+//  diagonalization  to  hurry up  convergence.  Restrict the number  of
+//  iterations in lanczos routine to avoid massive memory usage. Try  to
+//  use 200 iterations unless either it exceeds half of the dimension of
+//  configuration space or if it exceeds a memory Threshold.
 
             if (200 * nc < 5E7)
             {
@@ -1671,7 +1733,6 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             sepline();
 
@@ -1891,14 +1952,35 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+        if ( i == Nsteps / 3 )
+        {
+
+//  After some time evolved check if initial domain is  suitable  for the
+//  current working orbitals, to avoid oversized domain, a useless length
+//  where the functions are zero anyway
+
+            ResizeDomain(MC, S);
+
+            dx = MC->dx;
+
+            // Loss of Norm => undefined behavior on orthogonality
+            Ortonormalize(Morb, Mpos, dx, S->Omat);
+
+            SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+            SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+            CCSFree(cnmat);
+
+            // re-onfigure again the Crank-Nicolson Finite-difference matrix
+            cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
+
+
+
 //  After some time steps that must be evolved do a fixed orbital  basis
 //  diagonalization  to  hurry up  convergence.  Restrict the number  of
 //  iterations in lanczos routine to avoid massive memory usage. Try  to
 //  use 200 iterations unless either it exceeds half of the dimension of
 //  configuration space or if it exceeds a memory Threshold.
-
-        if ( i == Nsteps / 3 )
-        {
 
             if (200 * nc < 5E7)
             {
@@ -1914,9 +1996,9 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             sepline();
+
         }
 
 
@@ -2136,14 +2218,35 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+        if ( i == Nsteps / 3 )
+        {
+
+//  After some time evolved check if initial domain is  suitable  for the
+//  current working orbitals, to avoid oversized domain, a useless length
+//  where the functions are zero anyway
+
+            ResizeDomain(MC, S);
+
+            dx = MC->dx;
+
+            // Loss of Norm => undefined behavior on orthogonality
+            Ortonormalize(Morb, Mpos, dx, S->Omat);
+
+            SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+            SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+            CCSFree(cnmat);
+
+            // re-onfigure again the Crank-Nicolson Finite-difference matrix
+            cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
+
+
+
 //  After some time steps that must be evolved do a fixed orbital  basis
 //  diagonalization  to  hurry up  convergence.  Restrict the number  of
 //  iterations in lanczos routine to avoid massive memory usage. Try  to
 //  use 200 iterations unless either it exceeds half of the dimension of
 //  configuration space or if it exceeds a memory Threshold.
-
-        if ( i == Nsteps / 3 )
-        {
 
             if (200 * nc < 5E7)
             {
@@ -2152,14 +2255,13 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             }
             else k = 5E7 / nc;
 
-            E[i + 1] = LanczosGround( k, MC, S->Omat,S->C );
+            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
             // Renormalize coeficients
             renormalizeVector(nc, S->C, 1.0);
-            
+
             OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
             TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-            sepline();
             printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
             sepline();
 

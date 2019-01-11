@@ -13,6 +13,7 @@
 #include "inout.h"
 #include "matrix_operations.h"
 #include "tridiagonal_solver.h"
+#include "interpolation.h"
 
 
 

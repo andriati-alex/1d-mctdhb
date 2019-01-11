@@ -13,6 +13,7 @@ obj_linalg = array_memory.o 	  \
 
 obj_mctdhb = $(obj_linalg)             \
 			 inout.o                   \
+			 interpolation.o           \
 			 calculus.o                \
 			 linear_potential.o        \
 		 	 manybody_configurations.o \
@@ -28,7 +29,8 @@ linalg_header = include/array.h 			 \
 				include/iterative_solver.h
 
 mctdhb_header = $(linalg_header) 	    	      \
-				inout.h                           \
+				include/inout.h                   \
+				include/interpolation.h           \
 				include/calculus.h		          \
 		 		include/linear_potential.h        \
 				include/manybody_configurations.h \
@@ -132,6 +134,11 @@ data_structure.o : src/data_structure.c
 
 inout.o : src/inout.c
 	icc -c -O3 -I./include src/inout.c
+
+
+
+interpolation.o : src/interpolation.c
+	icc -c -O3 -I./include src/interpolation.c
 
 
 
