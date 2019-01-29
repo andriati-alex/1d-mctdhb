@@ -54,7 +54,19 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
         if ( minId > j ) minId = j;
     }
 
-    if (100 * abs(x[minId] - oldxi) / (oldxf - oldxi) < 7.5) return;
+// Check if it is woth to resize the domain.
+
+    if (100 * abs(oldx[minId] - oldxi) / (oldxf - oldxi) < 7.5)
+    {
+        free(x);
+        free(oldx);
+        free(real);
+        free(imag);
+        free(real_intpol);
+        free(imag_intpol);
+
+        return;
+    }
 
     xi = oldxi + minId * olddx;
     xf = oldxf - minId * olddx;
