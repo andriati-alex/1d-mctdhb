@@ -377,5 +377,5 @@ int NonVanishingId(int n, Carray f, double dx, double tol)
 
     if (i == 10) return 0;
 
-    return i - (n / 50);
+    return i - (n / 25);
 }

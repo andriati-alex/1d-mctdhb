@@ -118,11 +118,160 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
 
     for (k = 0; k < Morb; k++)
     {
-        for (s = k; s < Morb; s++)
+
+        for (i = 0; i < Mpos; i++)
         {
-            for (q = 0; q < Morb; q++)
+            toInt[i] = conj(Omat[k][i]*Omat[k][i]) * Omat[k][i]*Omat[k][i];
+        }
+
+        Hint[k * (1 + M + M2 + M3)] = g * Csimps(Mpos,toInt,dx);
+
+        for (s = k + 1; s < Morb; s++)
+        {
+
+            for (i = 0; i < Mpos; i++)
             {
-                for (l = q; l < Morb; l++)
+                toInt[i] = conj(Omat[k][i]*Omat[s][i]) * Omat[k][i]*Omat[k][i];
+            }
+
+            Integral = g * Csimps(Mpos,toInt,dx);
+
+            Hint[k + s * M + k * M2 + k * M3] = Integral;
+            Hint[s + k * M + k * M2 + k * M3] = Integral;
+            Hint[k + k * M + k * M2 + s * M3] = conj(Integral);
+            Hint[k + k * M + s * M2 + k * M3] = conj(Integral);
+
+            for (i = 0; i < Mpos; i++)
+            {
+                toInt[i] = conj(Omat[s][i]*Omat[k][i]) * Omat[s][i]*Omat[s][i];
+            }
+
+            Integral = g * Csimps(Mpos,toInt,dx);
+
+            Hint[s + k * M + s * M2 + s * M3] = Integral;
+            Hint[k + s * M + s * M2 + s * M3] = Integral;
+            Hint[s + s * M + s * M2 + k * M3] = conj(Integral);
+            Hint[s + s * M + k * M2 + s * M3] = conj(Integral);
+
+            for (i = 0; i < Mpos; i++)
+            {
+                toInt[i] = conj(Omat[k][i]*Omat[s][i]) * Omat[s][i]*Omat[k][i];
+            }
+
+            Integral = g * Csimps(Mpos,toInt,dx);
+
+            Hint[k + s * M + s * M2 + k * M3] = Integral;
+            Hint[s + k * M + s * M2 + k * M3] = Integral;
+            Hint[s + k * M + k * M2 + s * M3] = Integral;
+            Hint[k + s * M + k * M2 + s * M3] = Integral;
+
+            for (i = 0; i < Mpos; i++)
+            {
+                toInt[i] = conj(Omat[k][i]*Omat[k][i]) * Omat[s][i]*Omat[s][i];
+            }
+
+            Integral = g * Csimps(Mpos,toInt,dx);
+
+            Hint[k + k * M + s * M2 + s * M3] = Integral;
+            Hint[s + s * M + k * M2 + k * M3] = conj(Integral);
+
+            for (q = s + 1; q < Morb; q++)
+            {
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[k][i]*Omat[s][i]) * \
+                               Omat[q][i]*Omat[k][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[k + s * M + q * M2 + k * M3] = Integral;
+                Hint[k + s * M + k * M2 + q * M3] = Integral;
+                Hint[s + k * M + k * M2 + q * M3] = Integral;
+                Hint[s + k * M + q * M2 + k * M3] = Integral;
+
+                Hint[k + q * M + s * M2 + k * M3] = conj(Integral);
+                Hint[k + q * M + k * M2 + s * M3] = conj(Integral);
+                Hint[q + k * M + k * M2 + s * M3] = conj(Integral);
+                Hint[q + k * M + s * M2 + k * M3] = conj(Integral);
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[s][i]*Omat[k][i]) * \
+                               Omat[q][i]*Omat[s][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[s + k * M + q * M2 + s * M3] = Integral;
+                Hint[k + s * M + q * M2 + s * M3] = Integral;
+                Hint[k + s * M + s * M2 + q * M3] = Integral;
+                Hint[s + k * M + s * M2 + q * M3] = Integral;
+
+                Hint[s + q * M + k * M2 + s * M3] = conj(Integral);
+                Hint[s + q * M + s * M2 + k * M3] = conj(Integral);
+                Hint[q + s * M + s * M2 + k * M3] = conj(Integral);
+                Hint[q + s * M + k * M2 + s * M3] = conj(Integral);
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[q][i]*Omat[s][i]) * \
+                               Omat[k][i]*Omat[q][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[q + s * M + k * M2 + q * M3] = Integral;
+                Hint[q + s * M + q * M2 + k * M3] = Integral;
+                Hint[s + q * M + q * M2 + k * M3] = Integral;
+                Hint[s + q * M + k * M2 + q * M3] = Integral;
+
+                Hint[k + q * M + s * M2 + q * M3] = conj(Integral);
+                Hint[k + q * M + q * M2 + s * M3] = conj(Integral);
+                Hint[q + k * M + s * M2 + q * M3] = conj(Integral);
+                Hint[q + k * M + q * M2 + s * M3] = conj(Integral);
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[k][i]*Omat[k][i]) * \
+                               Omat[q][i]*Omat[s][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[k + k * M + q * M2 + s * M3] = Integral;
+                Hint[k + k * M + s * M2 + q * M3] = Integral;
+                Hint[q + s * M + k * M2 + k * M3] = conj(Integral);
+                Hint[s + q * M + k * M2 + k * M3] = conj(Integral);
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[s][i]*Omat[s][i]) * \
+                               Omat[k][i]*Omat[q][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[s + s * M + k * M2 + q * M3] = Integral;
+                Hint[s + s * M + q * M2 + k * M3] = Integral;
+                Hint[k + q * M + s * M2 + s * M3] = conj(Integral);
+                Hint[q + k * M + s * M2 + s * M3] = conj(Integral);
+
+                for (i = 0; i < Mpos; i++)
+                {
+                    toInt[i] = conj(Omat[q][i]*Omat[q][i]) * \
+                               Omat[k][i]*Omat[s][i];
+                }
+
+                Integral = g * Csimps(Mpos,toInt,dx);
+
+                Hint[q + q * M + k * M2 + s * M3] = Integral;
+                Hint[q + q * M + s * M2 + k * M3] = Integral;
+                Hint[k + s * M + q * M2 + q * M3] = conj(Integral);
+                Hint[s + k * M + q * M2 + q * M3] = conj(Integral);
+
+                for (l = q + 1; l < Morb; l++)
                 {
 
                     for (i = 0; i < Mpos; i++)
@@ -137,7 +286,49 @@ void SetupHint (int Morb, int Mpos, Cmatrix Omat, double dx, double g,
                     Hint[k + s * M + l * M2 + q * M3] = Integral;
                     Hint[s + k * M + q * M2 + l * M3] = Integral;
                     Hint[s + k * M + l * M2 + q * M3] = Integral;
-                }   // Take advantage of the symmetry k <--> s
+
+                    Hint[q + l * M + k * M2 + s * M3] = conj(Integral);
+                    Hint[l + q * M + k * M2 + s * M3] = conj(Integral);
+                    Hint[l + q * M + s * M2 + k * M3] = conj(Integral);
+                    Hint[q + l * M + s * M2 + k * M3] = conj(Integral);
+
+                    for (i = 0; i < Mpos; i++)
+                    {
+                        toInt[i] = conj(Omat[k][i] * Omat[q][i]) * \
+                                   Omat[s][i] * Omat[l][i];
+                    }
+
+                    Integral = g * Csimps(Mpos,toInt,dx);
+
+                    Hint[k + q * M + s * M2 + l * M3] = Integral;
+                    Hint[k + q * M + l * M2 + s * M3] = Integral;
+                    Hint[q + k * M + s * M2 + l * M3] = Integral;
+                    Hint[q + k * M + l * M2 + s * M3] = Integral;
+
+                    Hint[s + l * M + k * M2 + q * M3] = conj(Integral);
+                    Hint[s + l * M + q * M2 + k * M3] = conj(Integral);
+                    Hint[l + s * M + q * M2 + k * M3] = conj(Integral);
+                    Hint[l + s * M + k * M2 + q * M3] = conj(Integral);
+
+                    for (i = 0; i < Mpos; i++)
+                    {
+                        toInt[i] = conj(Omat[k][i] * Omat[l][i]) * \
+                                   Omat[s][i] * Omat[q][i];
+                    }
+
+                    Integral = g * Csimps(Mpos,toInt,dx);
+
+                    Hint[k + l * M + s * M2 + q * M3] = Integral;
+                    Hint[k + l * M + q * M2 + s * M3] = Integral;
+                    Hint[l + k * M + s * M2 + q * M3] = Integral;
+                    Hint[l + k * M + q * M2 + s * M3] = Integral;
+
+                    Hint[s + q * M + k * M2 + l * M3] = conj(Integral);
+                    Hint[s + q * M + l * M2 + k * M3] = conj(Integral);
+                    Hint[q + s * M + l * M2 + k * M3] = conj(Integral);
+                    Hint[q + s * M + k * M2 + l * M3] = conj(Integral);
+
+                }
             }
         }
     }
