@@ -50,7 +50,7 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-9);
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-8);
         if ( minId > j ) minId = j;
     }
 

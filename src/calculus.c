@@ -373,6 +373,8 @@ int NonVanishingId(int n, Carray f, double dx, double tol)
 
     while(sqrt(Rsimps(i, chunkAbs2, dx)) < tol) i = i + (n / 25);
 
+    free(chunkAbs2);
+
     if (i == 10) return 0;
 
     return i - (n / 50);
