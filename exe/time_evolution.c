@@ -163,97 +163,22 @@ void ReachNewLine(FILE * f)
 
 
 
-void SaveConf(char timeinfo, char fnameIn [], char fnameOut [], char Vname [],
-     int Nlines)
+void SaveConf(FILE * confFileOut, EqDataPkg mc)
 {
 
-    int
-        i,
-        N,
-        k,
-        Npar,
-        Morb,
-        Mdx;
+    fprintf(confFileOut, "%d %d %d ", mc->Npar, mc->Morb, mc->Mpos);
 
-    double
-        p1,
-        p2,
-        p3,
-        xi,
-        xf,
-        dt,
-        a2,
-        g,
-        imag;
+    fprintf(confFileOut, "%.10lf %.10lf ", mc->xi, mc->xf);
 
-    char
-        fname [120];
-
-    FILE
-        * confFileIn,
-        * eqFileIn,
-        * confFileOut;
-
-    strcpy(fname, "input/");
-    strcat(fname, fnameIn);
-    strcat(fname, "_conf.dat");
-
-    confFileIn = fopen(fname, "r");
-    if (confFileIn == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    strcpy(fname, "input/");
-    strcat(fname, fnameIn);
-    strcat(fname, "_eq.dat");
-
-    eqFileIn = fopen(fname, "r");
-    if (eqFileIn == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
+    fprintf(confFileOut, "%.15lf %.15lf ", mc->a2, cimag(mc->a1));
     
-    strcpy(fname, "output/");
-    strcat(fname, fnameOut);
+    fprintf(confFileOut, "%.15lf ", mc->inter);
 
-    if (timeinfo == 'r' || timeinfo == 'R')
-    { strcat(fname, "_conf_realtime.dat"); }
-    else
-    { strcat(fname, "_conf_imagtime.dat"); }
+    fprintf(confFileOut, "%.15lf ", mc->p[0]);
+    fprintf(confFileOut, "%.15lf ", mc->p[1]);
+    fprintf(confFileOut, "%.15lf", mc->p[2]);
 
-    confFileOut = fopen(fname, "w");
-    if (confFileOut == NULL) // impossible to open file
-    {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
-        exit(EXIT_FAILURE);
-    }
-
-    // Read data and write in out file (transfer)
-
-    fprintf(confFileOut, "# Trap : %s\n", Vname);
-
-    for (i = 0; i < Nlines; i++)
-    {
-        k = fscanf(eqFileIn, "%lf %lf %lf %lf %lf %lf",
-                   &a2, &imag, &g, &p1, &p2, &p3);
-
-        k = fscanf(confFileIn, "%d %d %d %lf %lf %lf %d",
-                   &Npar, &Morb, &Mdx, &xi, &xf, &dt, &N);
-
-        fprintf(confFileOut, "%d %d %d %.15lf %.15lf %.15lf %d ",
-                Npar, Morb, Mdx, xi, xf, dt, N);
-
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf ", a2, imag, g);
-
-        fprintf(confFileOut, "%.15lf %.15lf %.15lf", p1, p2, p3);
-
-        fprintf(confFileOut, "\n");
-    }
-
-    fclose(eqFileIn); fclose(confFileIn); fclose(confFileOut);
+    fprintf(confFileOut, "\n");
 
 }
 
@@ -401,7 +326,8 @@ int main(int argc, char * argv[])
         * coef_file, // File with initial coefficients data.
         * orb_file,  // initial orbitals data.
         * confFile,  // # of particles/orbitals and domain info.
-        * paramFile; // Equation parameters of hamiltonian.
+        * paramFile, // Equation parameters of hamiltonian.
+        * confFileOut;
 
 
 
@@ -579,17 +505,12 @@ int main(int argc, char * argv[])
     k = fscanf(confFile, "%lf ", &xf);
 
     dx = (xf - xi) / Mdx;
-    
+
     x  = rarrDef(Mdx + 1);
-    
+
     rarrFillInc(Mdx + 1, xi, dx, x);
 
     fclose(confFile);
-
-
-
-    // Record the setup file to further analisys
-    SaveConf(timeinfo, infname, outfname, potname, Nlines);
 
 
 
@@ -669,8 +590,10 @@ int main(int argc, char * argv[])
 
 
 
-    // open file to write energy values
-    // ----------------------------------------------------------------
+    /* ====================================================================
+                                 OPEN OUTPUT FILES
+       ==================================================================== */
+
     strcpy(fname, "output/");
     strcat(fname, outfname);
     strcat(fname, "_energy_imagtime.dat");
@@ -682,6 +605,19 @@ int main(int argc, char * argv[])
         printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
+
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_conf_imagtime.dat");
+
+    confFileOut = fopen(fname, "w");
+    if (confFileOut == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(confFileOut, "# trap : %s\n", potname);
 
 
 
@@ -947,7 +883,16 @@ int main(int argc, char * argv[])
         */
 
         fprintf(E_file, "%.10E\n", creal(E[s-1]));
+
+        SaveConf(confFileOut, mc);
     }
+
+    // update domain that might have changed
+    xi = mc->xi;
+    xf = mc->xf;
+    dx = mc->dx;
+
+    rarrFillInc(Mdx + 1, xi, dx, x);
 
 
 
@@ -1050,6 +995,21 @@ int main(int argc, char * argv[])
 
             // orbitals are not read again
             fclose(orb_file);
+
+            // Take configurations from file again to re-setup domain
+            xi = mc->xi;
+            xf = mc->xf;
+            dx = mc->dx;
+            rarrFillInc(Mdx + 1, xi, dx, x);
+        }
+
+        else
+        {
+            mc->xi = xi;
+            mc->xf = xf;
+            mc->dx = dx;
+
+            GetPotential(Mdx+1,mc->Vname,x,mc->V,mc->p[0],mc->p[1],mc->p[2]);
         }
 
 
@@ -1237,6 +1197,8 @@ int main(int argc, char * argv[])
             */
 
             fprintf(E_file, "%.10E\n", creal(E[s-1]));
+
+            SaveConf(confFileOut, mc);
         }
 
     }
@@ -1253,6 +1215,7 @@ int main(int argc, char * argv[])
     fclose(confFile);
     fclose(paramFile);
     fclose(coef_file);
+    fclose(confFileOut);
 
     ReleaseEqDataPkg(mc);
     ReleaseManyBodyDataPkg(S);
