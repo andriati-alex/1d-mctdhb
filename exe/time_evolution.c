@@ -865,22 +865,14 @@ int main(int argc, char * argv[])
 
         carr_txt(fname, mc->nc, S->C);
 
-        // Record Energy
-        /*
-        strcpy(fname, "../mctdhb_data/");
-        strcat(fname, argv[4]);
+        // Record Trap potential
+
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
         strcat(fname, "_line-1");
-        strcat(fname, "_E_imagtime.dat");
+        strcat(fname, "_trap.dat");
 
-        carr_txt(fname, s, E);
-
-        strcpy(fname, "../mctdhb_data/");
-        strcat(fname, argv[4]);
-        strcat(fname, "_line-1");
-        strcat(fname, "_virial_imagtime.dat");
-
-        carr_txt(fname, s, vir);
-        */
+        rarr_txt(fname, Mdx + 1, mc->V);
 
         fprintf(E_file, "%.10E\n", creal(E[s-1]));
 
@@ -1177,24 +1169,15 @@ int main(int argc, char * argv[])
 
             carr_txt(fname, mc->nc, S->C);
 
-            // Record Energy
-            /*
-            strcpy(fname, "../mctdhb_data/");
-            strcat(fname, argv[4]);
+            // Record trap potential
+
+            strcpy(fname, "output/");
+            strcat(fname, outfname);
             strcat(fname, "_line-");
             strcat(fname, strnum);
-            strcat(fname, "_E_imagtime.dat");
+            strcat(fname, "_trap.dat");
 
-            carr_txt(fname, s, E);
-            
-            strcpy(fname, "../mctdhb_data/");
-            strcat(fname, argv[4]);
-            strcat(fname, "_line-");
-            strcat(fname, strnum);
-            strcat(fname, "_virial_imagtime.dat");
-
-            carr_txt(fname, s, vir);
-            */
+            rarr_txt(fname, Mdx + 1, mc->V);
 
             fprintf(E_file, "%.10E\n", creal(E[s-1]));
 

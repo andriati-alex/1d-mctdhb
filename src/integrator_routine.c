@@ -55,19 +55,19 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     R2 = MeanQuadraticR(mc, S->Omat, S->rho1);
     minR2 = 0;
-    while ( abs(oldx[minR2]) > 3 * R2 ) minR2 = minR2 + 1;
+    while ( abs(oldx[minR2]) > 2.5 * R2 ) minR2 = minR2 + 1;
 
 
 
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 5E-8 / Morb);
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 2.5E-8 / Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
 
-    minId = (2 * minId + minR2) / 3;
+    minId = (3 * minId + minR2) / 4;
 
 // Check if it is woth to resize the domain.
 
@@ -94,7 +94,6 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     mc->xf = xf;
     mc->dx = dx;
 
-    sepline();
     printf("\n\t\tDomain resized to [%.2lf,%.2lf]\n", x[0], x[Mpos-1]);
     sepline();
 
@@ -1717,6 +1716,7 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 //  current working orbitals, to avoid oversized domain, a useless length
 //  where the functions are zero anyway
 
+            sepline();
             ResizeDomain(MC, S);
 
             dx = MC->dx;
@@ -1986,6 +1986,7 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 //  current working orbitals, to avoid oversized domain, a useless length
 //  where the functions are zero anyway
 
+            sepline();
             ResizeDomain(MC, S);
 
             dx = MC->dx;
@@ -2251,6 +2252,8 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 //  After some time evolved check if initial domain is  suitable  for the
 //  current working orbitals, to avoid oversized domain, a useless length
 //  where the functions are zero anyway
+
+            sepline();
 
             ResizeDomain(MC, S);
 
