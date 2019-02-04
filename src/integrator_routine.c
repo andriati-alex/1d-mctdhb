@@ -10,9 +10,11 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
         j,
         Morb,
         Mpos,
+        minR2,
         minId;
 
     double
+        R2,
         xi,
         xf,
         dx,
@@ -34,7 +36,6 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     Morb = mc->Morb;
     Mpos = mc->Mpos;
-    minId = Mpos;
     oldxi = mc->xi;
     oldxf = mc->xf;
     olddx = mc->dx;
@@ -48,11 +49,25 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     rarrFillInc(Mpos, oldxi, olddx, oldx);
 
+
+
+// Use the average of two methods to determine how to resize the domain
+
+    R2 = MeanQuadraticR(mc, S->Omat, S->rho1);
+    minR2 = 0;
+    while ( abs(oldx[minR2]) > 3 * R2 ) minR2 = minR2 + 1;
+
+
+
+    minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 1E-8);
-        if ( minId > j ) minId = j;
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 5E-8 / Morb);
+        minId = minId + j;
     }
+    minId = minId / Morb;
+
+    minId = (2 * minId + minR2) / 3;
 
 // Check if it is woth to resize the domain.
 
