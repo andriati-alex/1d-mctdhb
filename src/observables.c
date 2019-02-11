@@ -609,6 +609,6 @@ double MeanQuadraticR(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1)
         }
     }
 
-    return sqrt(creal(R2));
+    return sqrt(creal(R2) / Npar);
 
 }

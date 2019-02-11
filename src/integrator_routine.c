@@ -55,7 +55,7 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     R2 = MeanQuadraticR(mc, S->Omat, S->rho1);
     minR2 = 0;
-    while ( abs(oldx[minR2]) > 2.5 * R2 ) minR2 = minR2 + 1;
+    while ( abs(oldx[minR2]) > 4 * R2 ) minR2 = minR2 + 1;
 
 
 
