@@ -97,7 +97,8 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C);
 
 
 
-void LanczosIntegrator(EqDataPkg, Cmatrix, Carray, double complex);
+void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
+     Carray C);
 
 
 
@@ -156,6 +157,15 @@ int IMAG_RK4_CNSMRK4(EqDataPkg,ManyBodyPkg,Carray,Carray,double,int,int);
 
 
 int IMAG_RK4_CNLURK4(EqDataPkg,ManyBodyPkg,Carray,Carray,double,int,int);
+
+
+
+
+
+void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, double dt);
+
+void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
+     char prefix [], int skip);
 
 
 

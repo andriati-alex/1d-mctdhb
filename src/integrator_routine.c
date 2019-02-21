@@ -662,7 +662,8 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 
 
 
-void LanczosIntegrator (EqDataPkg MC, Cmatrix Orb, Carray C, doublec dt)
+void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
+     Carray C)
 {
 
 //  Integrate Coefficients in a imaginary time-step dt using Lanczos
@@ -682,7 +683,7 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Orb, Carray C, doublec dt)
         Mpos = MC->Mpos,
         Npar = MC->Npar;
 
-    lm = 4; // Follows the order of Runge-Kutta
+    lm = 5;
 
 
 
@@ -711,16 +712,6 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Orb, Carray C, doublec dt)
 
 
 
-    /* One/Two-body Hamiltonian matrices elements
-    ------------------------------------------ */
-    Cmatrix  Ho = cmatDef(M, M);
-    Carray Hint = carrDef(M * M * M *M);
-    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
-    /* --------------------------------------- */
-    
-    
-    
     /* ---------------------------------------------
     Setup values needed to solve the equations for C
     ------------------------------------------------ */
@@ -813,8 +804,6 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Orb, Carray C, doublec dt)
 
     cmatFree(predictedIter, lvec);
 
-    cmatFree(M, Ho);
-    free(Hint);
 }
 
 
@@ -2369,4 +2358,345 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     free(mid);
 
     return Nsteps + 1;
+}
+
+
+
+
+
+
+
+
+
+
+void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
+     char prefix [], int skip)
+{
+
+/** Multi-Configuration Imaginary time propagation
+    ==============================================
+
+
+    Methods
+    -------
+
+    Configuration Coefficients Integrator : 4-th order Runge-Kutta
+
+    Orbitals Integrator : Split-Step with Crank-Nicolson(linear)
+    with Sherman-Morrison and 4-th order  Runge-Kutta(nonlinear)
+
+
+    Description
+    -----------
+
+    Evolve half step linear part, then full step nonlinear part together
+    with coefficients and another half step linear part
+
+**/
+
+
+
+    int l,
+        i,
+        j,
+        k,
+        nc = MC->nc,
+        Npar = MC->Npar,
+        Mpos = MC->Mpos,
+        Morb = MC->Morb;
+
+    double
+        dx = MC->dx,
+        a2 = MC->a2,
+        g = MC->inter,
+        * V = MC->V,
+        norm;
+
+    double complex
+        E,
+        a1 = MC->a1;
+
+    char
+        fname[100];
+
+    FILE
+        * rho_file,
+        * orb_file;
+
+    Carray
+        rho_vec = carrDef(Morb * Morb),
+        orb_vec = carrDef(Morb * Mpos),
+        upper = carrDef(Mpos - 1),
+        lower = carrDef(Mpos - 1),
+        mid = carrDef(Mpos - 1);
+
+    Cmatrix
+        Old = cmatDef(Morb, Mpos);
+
+    CCSmat
+        cnmat;
+
+
+
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_rho_realtime.dat");
+
+    rho_file = fopen(fname, "w");
+    if (rho_file == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(rho_file, "# Major-Row vector representatio of rho\n");
+    fprintf(rho_file, "# col 1 : time\n");
+    fprintf(rho_file, "# col 2 to last : rho elements\n");
+    
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_orb_realtime.dat");
+
+    orb_file = fopen(fname, "w");
+    if (orb_file == NULL) // impossible to open file
+    {
+        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(orb_file, "# Major-Row vector representatio of Orbitals\n");
+    fprintf(orb_file, "# col 1 : time\n");
+    fprintf(orb_file, "# col 2 to last : orbitals in positions\n");
+
+
+
+
+
+    // Setup one/two-body hamiltonian matrix elements
+    SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+    SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+    // Setup one/two-body density matrix
+    OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
+    TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
+
+
+
+    // initial energy
+    E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
+
+    printf("\n\n\t  time         Energy         Ortho Factor");
+    printf("               Norm");
+    sepline();
+    printf("\n\t%.7lf        %15.7E", 0.0, creal(E));
+
+
+
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(Mpos, dx, dt/2, a2, a1, g, V, cyclic, upper, lower, mid);
+
+
+
+    for (i = 0; i < Nsteps; i++)
+    {
+
+        for (k = 0; k < Morb; k ++)
+        {
+            for (j = 0; j < Mpos; j++) Old[k][j] = S->Omat[k][j];
+        }
+
+        LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
+        else
+        { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = 0;             }
+
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+
+
+        NL_C_RK4(MC, S, dt);
+
+
+
+        LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+
+        // The boundary
+        if (cyclic)
+        { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
+        else
+        { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = 0;             }
+
+
+
+        // Update quantities that depends on orbitals and coefficients
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+        OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
+        TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
+
+        FP_ITERATION(MC, S, Old, dt);
+
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+
+        E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
+
+        printf("\n\t%.7lf        %15.7E", (i + 1) * dt, creal(E));
+
+        if (l == skip)
+        {
+            RowMajor(Morb, Morb, S->rho1, rho_vec);
+            RowMajor(Morb, Mpos, S->Omat, orb_vec);
+            carr_inline(rho_file, Morb * Morb, rho_vec);
+            carr_inline(orb_file, Morb * Mpos, orb_vec);
+            l = 1;
+        }
+        else { l = l + 1; }
+
+    }
+
+    sepline();
+
+    CCSFree(cnmat);
+    free(upper);
+    free(lower);
+    free(mid);
+    free(rho_vec);
+    free(orb_vec);
+    cmatFree(Morb, Old);
+
+    fclose(rho_file);
+    fclose(orb_file);
+}
+
+
+
+void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, double dt)
+{
+
+    int
+        s,
+        i,
+        k,
+        Mpos,
+        Morb;
+
+    Mpos = MC->Mpos;
+    Morb = MC->Morb;
+
+    double
+        g,
+        dx,
+        a2,
+        * V,
+        check;
+
+    double complex
+        nl,
+        a1;
+
+    Rarray
+        diffAbs2 = rarrDef(Mpos);
+
+    Carray
+        diff  = carrDef(Mpos),
+        upper = carrDef(Mpos - 1),
+        lower = carrDef(Mpos - 1),
+        mid   = carrDef(Mpos - 1),
+        rhs   = carrDef(Mpos - 1);
+
+    Cmatrix
+        Rinv = cmatDef(Morb, Morb),
+        Ostep = cmatDef(Morb, Mpos);
+
+    CCSmat
+        cnmat;
+
+    a2 = MC->a2;
+    a1 = MC->a1;
+    dx = MC->dx;
+    g = MC->inter;
+    V = MC->V;
+
+
+
+    // Configure the linear system from Crank-Nicolson scheme
+    cnmat = CNmat(Mpos, dx, dt, a2, a1, g, V, 1, upper, lower, mid);
+
+
+
+    /* Inversion of one-body density matrix
+    ====================================================================== */
+    s = HermitianInv(Morb, S->rho1, Rinv);
+
+    if (s != 0)
+    {
+        printf("\n\n\n\n\t\tFailed on Lapack inversion routine!\n");
+        printf("\t\t-----------------------------------\n\n");
+
+        printf("\nMatrix given was : \n");
+        cmat_print(Morb, Morb, S->rho1);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
+        exit(EXIT_FAILURE);
+    }
+    /* =================================================================== */
+
+
+
+    while (1)
+    {
+
+        for (k = 0; k < Morb; k ++)
+        {
+            for (i = 0; i < Mpos; i++) Ostep[k][i] = S->Omat[k][i];
+        }
+
+        for (k = 0; k < Morb; k++)
+        {
+            CCSvec(Mpos - 1, cnmat->vec, cnmat->col, cnmat->m, Old[k], rhs);
+
+            for (i = 0; i < Mpos - 1; i ++)
+            {
+                nl = nonlinear(Mpos,k,i,g,S->Omat,Rinv,S->rho2,S->Ho,S->Hint);
+                nl = nl + nonlinear(Mpos,k,i,g,Old,Rinv,S->rho2,S->Ho,S->Hint);
+                rhs[i] = rhs[i] + 0.5 * nl * dt;
+            }
+
+            triCyclicSM(Mpos - 1, upper, lower, mid, rhs, S->Omat[k]);
+            S->Omat[k][Mpos - 1] = S->Omat[k][0];
+        }
+
+        check = 0;
+        for (k = 0; k < Morb; k++)
+        {
+            for (i = 0; i < Mpos; i++) diff[i] = S->Omat[k][i] - Ostep[k][i];
+            carrAbs2(Mpos, diff, diffAbs2);
+            check = check + Rsimps(Mpos, diffAbs2, dx);
+        }
+
+        if (check < 1E-12) break;
+
+    }
+
+    free(upper);
+    free(lower);
+    free(mid);
+    free(rhs);
+    free(diff);
+    free(diffAbs2);
+
+    CCSFree(cnmat);
+
+    cmatFree(Morb, Rinv);
+    cmatFree(Morb, Ostep);
+
 }
