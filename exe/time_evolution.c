@@ -296,8 +296,12 @@ int main(int argc, char * argv[])
         dt,    // time step (both for real and imaginary)  
         real,  // real part of read data from file
         imag,  // imag part of read data from file
-        check, // check norm/orthogonality
-        * x;   // discretized positions
+        check; // check norm/orthogonality
+
+
+
+    Rarray
+        x;
 
 
 
@@ -429,7 +433,7 @@ int main(int argc, char * argv[])
     {
         if (timeinfo != 'i' && timeinfo != 'I')
         {
-            printf("\n\n\t!   Invalid first argument   !\n\n");
+            printf("\n\n\t!   Invalid integrator identifier   !\n\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -440,22 +444,34 @@ int main(int argc, char * argv[])
         exit(EXIT_FAILURE);
     }
 
+
+
+
+
     // Print what it is going to do
-    printf("\n\nMethod chosen : %d - ", method);
-    switch (method)
+    if (timeinfo == 'i' || timeinfo == 'I')
     {
-        case 1:
-            printf("Crank-Nicolson SM and ");
-            break;
-        case 2:
-            printf("Crank-Nicolson LU and ");
-            break;
-        case 3:
-            printf("FFT and ");
-            break;
+        printf("\n\nMethod chosen : %d - ", method);
+        switch (method)
+        {
+            case 1:
+                printf("Crank-Nicolson SM and ");
+                break;
+            case 2:
+                printf("Crank-Nicolson LU and ");
+                break;
+            case 3:
+                printf("FFT and ");
+                break;
+        }
+
+        printf("4th Order Runge-Kutta");
     }
 
-    printf("4th Order Runge-Kutta");
+    else
+    {
+        printf("\n\nREAL TIME INTEGRATION\n\n");
+    }
 
 
 
@@ -477,8 +493,16 @@ int main(int argc, char * argv[])
 
 
 
-    // Read number of discrete positions in spatial domain
-    // ---------------------------------------------------
+
+
+
+
+
+
+    
+    /* ====================================================================
+                         OPEN FILES TO SETUP THE PROBLEM
+       ==================================================================== */
 
     strcpy(fname, "input/");
     strcat(fname, infname);
@@ -496,40 +520,6 @@ int main(int argc, char * argv[])
     {
         printf(" .... Found !\n");
     }
-
-    k = fscanf(confFile, "%d ", &Npar);
-    k = fscanf(confFile, "%d ", &Morb);
-    k = fscanf(confFile, "%d ", &Mdx);
-    // Get the domain limit
-    k = fscanf(confFile, "%lf ", &xi);
-    k = fscanf(confFile, "%lf ", &xf);
-
-    dx = (xf - xi) / Mdx;
-
-    x  = rarrDef(Mdx + 1);
-
-    rarrFillInc(Mdx + 1, xi, dx, x);
-
-    fclose(confFile);
-
-
-
-
-
-
-
-
-
-    
-    /* ====================================================================
-                         OPEN FILES TO SETUP THE PROBLEM
-       ==================================================================== */
-
-    strcpy(fname, "input/");
-    strcat(fname, infname);
-    strcat(fname, "_conf.dat");
-
-    confFile = fopen(fname, "r");
 
 
 
@@ -594,21 +584,25 @@ int main(int argc, char * argv[])
                                  OPEN OUTPUT FILES
        ==================================================================== */
 
-    strcpy(fname, "output/");
-    strcat(fname, outfname);
-    strcat(fname, "_energy_imagtime.dat");
-
-    E_file = fopen(fname, "w");
-
-    if (E_file == NULL)  // impossible to open file
+    if (timeinfo == 'i' || timeinfo == 'I')
     {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
-        exit(EXIT_FAILURE);
+
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_energy_imagtime.dat");
+
+        E_file = fopen(fname, "w");
+
+        if (E_file == NULL)  // impossible to open file
+        {
+            printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+            exit(EXIT_FAILURE);
+        }
     }
 
     strcpy(fname, "output/");
     strcat(fname, outfname);
-    strcat(fname, "_conf_imagtime.dat");
+    strcat(fname, "_conf.dat");
 
     confFileOut = fopen(fname, "w");
     if (confFileOut == NULL) // impossible to open file
@@ -634,8 +628,15 @@ int main(int argc, char * argv[])
 
     mc = SetupData(paramFile, confFile, &dt, &N, potname);
 
-    E   = carrDef(N + 1); // to store energy
-    vir = carrDef(N + 1); // check consistency by Virial Theorem
+    dx = mc->dx;
+    xi = mc->xi;
+    xf = mc->xf;
+    Mdx = mc->Mpos - 1;
+    Npar = mc->Npar;
+    Morb = mc->Morb;
+
+    x = rarrDef(Mdx + 1);
+    rarrFillInc(Mdx + 1, xi, dx, x);
 
 
 
@@ -755,6 +756,61 @@ int main(int argc, char * argv[])
 
 
     /* ====================================================================
+                               REAL TIME INTEGRATION
+       ==================================================================== */
+
+    if (timeinfo == 'r' || timeinfo =='R')
+    {
+        printf("\n\n\n");
+        printf("=======================================================\n\n");
+        printf("Start real time Integration\n\n");
+        printf("=======================================================\n\n");
+
+        fclose(confFile);
+        fclose(paramFile);
+        fclose(coef_file);
+
+        start = omp_get_wtime();
+
+        REAL_FP(mc, S, dt, N, cyclic, outfname, 1);
+
+        time_used = (double) (omp_get_wtime() - start);
+
+        printf("\n\nTime taken in real time integration : %lf sec",time_used);
+        printf(" = "); TimePrint(time_used);
+
+        SaveConf(confFileOut, mc);
+
+        // Record Trap potential
+
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_trap.dat");
+
+        rarr_txt(fname, Mdx + 1, mc->V);
+
+        ReleaseEqDataPkg(mc);
+        ReleaseManyBodyDataPkg(S);
+        free(to_int);
+        free(x);
+
+        fclose(confFileOut);
+
+        printf("\n\n");
+        return 0;
+
+    }
+
+
+
+
+
+
+
+
+
+
+    /* ====================================================================
              DIAGONALIZE HAMILTONIAN IN THE GIVEN BASIS BEFORE START
        ==================================================================== */
     
@@ -762,6 +818,9 @@ int main(int argc, char * argv[])
     // in lanczos routine to avoid massive memory usage. Try to use 200
     // iterations unless either it exceeds half of the dimension of
     // configuration space or if it exceeds a memory Threshold.
+
+    E   = carrDef(N + 1); // to store energy
+    vir = carrDef(N + 1); // check consistency by Virial Theorem
     
     if ( dt > 5 * dx * dx && method < 3)
     {
@@ -802,13 +861,8 @@ int main(int argc, char * argv[])
 
     printf("\n\n\n");
     printf("=========================================================\n\n");
-    printf("Start Integration #%d\n\n", 1);
+    printf("Start imaginary time Integration #%d\n\n", 1);
     printf("=========================================================\n\n");
-
-    // setup filename to record solution
-    strcpy(fname, "output/");
-    strcat(fname, outfname);
-    strcat(fname, "_line-1");
 
     switch (method)
     {
@@ -849,35 +903,35 @@ int main(int argc, char * argv[])
     // Record data
     // ---------------------------------------------
 
-    if (timeinfo == 'i' || timeinfo == 'I')
-    {
-        // record orbital data
+    // setup filename to record solution
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_line-1");
 
-        strcat(fname, "_orb_imagtime.dat");
-        cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
+    strcat(fname, "_orb_imagtime.dat");
+    cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
 
-        // Record Coeficients Data
+    // Record Coeficients Data
 
-        strcpy(fname, "output/");
-        strcat(fname, outfname);
-        strcat(fname, "_line-1");
-        strcat(fname, "_coef_imagtime.dat");
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_line-1");
+    strcat(fname, "_coef_imagtime.dat");
 
-        carr_txt(fname, mc->nc, S->C);
+    carr_txt(fname, mc->nc, S->C);
 
-        // Record Trap potential
+    // Record Trap potential
 
-        strcpy(fname, "output/");
-        strcat(fname, outfname);
-        strcat(fname, "_line-1");
-        strcat(fname, "_trap.dat");
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_line-1");
+    strcat(fname, "_trap.dat");
 
-        rarr_txt(fname, Mdx + 1, mc->V);
+    rarr_txt(fname, Mdx + 1, mc->V);
 
-        fprintf(E_file, "%.10E\n", creal(E[s-1]));
+    fprintf(E_file, "%.10E\n", creal(E[s-1]));
 
-        SaveConf(confFileOut, mc);
-    }
+    SaveConf(confFileOut, mc);
 
     // update domain that might have changed
     xi = mc->xi;
@@ -1101,14 +1155,8 @@ int main(int argc, char * argv[])
 
         printf("\n\n\n");
         printf("=======================================================\n\n");
-        printf("Start Integration #%d\n\n", i + 1);
+        printf("Start imaginary time Integration #%d\n\n", i + 1);
         printf("=======================================================\n\n");
-
-        // setup filename to store solution
-        strcpy(fname, "output/");
-        strcat(fname, outfname);
-        strcat(fname, "_line-");
-        strcat(fname, strnum);
 
         switch (method)
         {
@@ -1152,37 +1200,38 @@ int main(int argc, char * argv[])
         // Record data
         // ---------------------------------------------
 
-        if (timeinfo == 'i' || timeinfo == 'I')
-        {
-            // record orbital data
+        // setup filename to store solution
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_line-");
+        strcat(fname, strnum);
 
-            strcat(fname, "_orb_imagtime.dat");
-            cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
+        strcat(fname, "_orb_imagtime.dat");
+        cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
 
-            // Record Coeficients Data
+        // Record Coeficients Data
 
-            strcpy(fname, "output/");
-            strcat(fname, outfname);
-            strcat(fname, "_line-");
-            strcat(fname, strnum);
-            strcat(fname, "_coef_imagtime.dat");
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_line-");
+        strcat(fname, strnum);
+        strcat(fname, "_coef_imagtime.dat");
 
-            carr_txt(fname, mc->nc, S->C);
+        carr_txt(fname, mc->nc, S->C);
 
-            // Record trap potential
+        // Record trap potential
 
-            strcpy(fname, "output/");
-            strcat(fname, outfname);
-            strcat(fname, "_line-");
-            strcat(fname, strnum);
-            strcat(fname, "_trap.dat");
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_line-");
+        strcat(fname, strnum);
+        strcat(fname, "_trap.dat");
 
-            rarr_txt(fname, Mdx + 1, mc->V);
+        rarr_txt(fname, Mdx + 1, mc->V);
 
-            fprintf(E_file, "%.10E\n", creal(E[s-1]));
+        fprintf(E_file, "%.10E\n", creal(E[s-1]));
 
-            SaveConf(confFileOut, mc);
-        }
+        SaveConf(confFileOut, mc);
 
     }
 
@@ -1202,8 +1251,8 @@ int main(int argc, char * argv[])
 
     ReleaseEqDataPkg(mc);
     ReleaseManyBodyDataPkg(S);
-    free(x);
     free(E);
+    free(x);
     free(vir);
     free(to_int);
 

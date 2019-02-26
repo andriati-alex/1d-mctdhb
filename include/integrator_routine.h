@@ -116,6 +116,12 @@ void NL_C_RK4 (EqDataPkg, ManyBodyPkg, double complex);
 
 
 
+void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt);
+
+
+
+
+
 void LP_CNSM(int, int, CCSmat, Carray, Carray, Carray, Cmatrix);
 
 
@@ -162,7 +168,8 @@ int IMAG_RK4_CNLURK4(EqDataPkg,ManyBodyPkg,Carray,Carray,double,int,int);
 
 
 
-void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, double dt);
+void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, Cmatrix OldHo,
+     Carray OldHint, double dt);
 
 void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
      char prefix [], int skip);

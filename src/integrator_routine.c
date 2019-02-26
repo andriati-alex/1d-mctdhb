@@ -2,6 +2,41 @@
 
 
 
+
+double orthoFactor(int Morb, int Mpos, double dx, Cmatrix Orb)
+{
+
+    int
+        i,
+        k,
+        l;
+
+    double
+        sum;
+
+    Carray
+        prod;
+
+    prod = carrDef(Mpos);
+
+    sum = 0;
+
+    for (k = 0; k < Morb; k++)
+    {
+        for (l = k + 1; l < Morb; l++)
+        {
+            for (i = 0; i < Mpos; i++) prod[i] = Orb[k][i] * conj(Orb[l][i]);
+            sum = sum + cabs(Csimps(Mpos, prod, dx));
+        }
+    }
+
+    free(prod);
+
+    return 2 * sum;
+}
+
+
+
 void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 {
 
@@ -1047,8 +1082,7 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
 
 
 
-/*
-void MC_NL_IRK4 (EqDataPkg MC, Cmatrix Orb, Carray C, double complex dt)
+void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt)
 {
 
 //  (M)ulti-(C)onfiguration (N)on-(L)inear part solver for  (I)maginary
@@ -1062,87 +1096,110 @@ void MC_NL_IRK4 (EqDataPkg MC, Cmatrix Orb, Carray C, double complex dt)
         i,
         k,
         j,
-        M = MC->Morb,
+        Morb = MC->Morb,
         Mpos = MC->Mpos;
 
-    Cmatrix dOdt = cmatDef(M, Mpos);
-    Cmatrix Ok = cmatDef(M, Mpos);
-    Cmatrix Oarg = cmatDef(M, Mpos);
+    double
+        g,
+        a2,
+        dx,
+        * V;
 
-    Cmatrix  Ho = cmatDef(M, M);
-    Carray Hint = carrDef(M * M * M *M);
+    double complex
+        a1;
+
+    Cmatrix
+        dOdt = cmatDef(Morb, Mpos),
+        Ok   = cmatDef(Morb, Mpos),
+        Oarg = cmatDef(Morb, Mpos);
 
 
 
-    SetupHo(M, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Orb, MC->dx, MC->inter, Hint);
+    a2 = MC->a2;
+    a1 = MC->a1;
+    g = MC->inter;
+    V = MC->V;
+    dx = MC->dx;
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K1
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, C, Orb, dOdt, Ho, Hint);
-    for (k = 0; k < M; k++)
+    NL_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+
+    for (k = 0; k < Morb; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K1 contribution
             Ok[k][j] = dOdt[k][j];
             // Prepare next argument to compute K2
-            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
+            Oarg[k][j] = S->Omat[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
+    SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
+    SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
 
 
-    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K2
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
-    for (k = 0; k < M; k++)
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+
+    for (k = 0; k < Morb; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K2 contribution
             Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K3
-            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * 0.5 * dt;
+            Oarg[k][j] = S->Omat[k][j] + dOdt[k][j] * 0.5 * dt;
         }
     }
 
+    SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
+    SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
 
 
-    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K3
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
-    for (k = 0; k < M; k++)
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+
+    for (k = 0; k < Morb; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K3 contribution
             Ok[k][j] += 2 * dOdt[k][j];
             // Prepare next argument to compute K4
-            Oarg[k][j] = Orb[k][j] + dOdt[k][j] * dt;
+            Oarg[k][j] = S->Omat[k][j] + dOdt[k][j] * dt;
         }
     }
 
+    SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
+    SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
 
 
-    SetupHo(M, Mpos, Oarg, MC->dx, MC->a2, MC->a1, MC->V, Ho);
-    SetupHint(M, Mpos, Oarg, MC->dx, MC->inter, Hint);
+
+
 
     // ------------------------------------------------------------------
     // COMPUTE K4
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, C, Oarg, dOdt, Ho, Hint);
-    for (k = 0; k < M; k++)
+    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+
+    for (k = 0; k < Morb; k++)
     {
         for (j = 0; j < Mpos; j++)
         {   // Add K4 contribution
@@ -1152,24 +1209,23 @@ void MC_NL_IRK4 (EqDataPkg MC, Cmatrix Orb, Carray C, double complex dt)
 
 
 
+
+
     // Until now Ok holds the sum K1 + 2 * K2 + 2 * K3 + K4
-    // from the Fourth order Runge-Kutta algorithm.  Then :
-    for (k = 0; k < M; k++)
+    // from the Fourth order Runge-Kutta algorithm.
+
+    for (k = 0; k < Morb; k++)
     {   // Update Orbitals
         for (j = 0; j < Mpos; j++)
         {
-            Orb[k][j] = Orb[k][j] + Ok[k][j] * dt / 6;
+            S->Omat[k][j] = S->Omat[k][j] + Ok[k][j] * dt / 6;
         }
     }
 
-    cmatFree(M, dOdt);
-    cmatFree(M, Ok);
-    cmatFree(M, Oarg);
-
-    cmatFree(M, Ho);
-    free(Hint);
+    cmatFree(Morb, dOdt);
+    cmatFree(Morb, Ok);
+    cmatFree(Morb, Oarg);
 }
-*/
 
 
 
@@ -2406,6 +2462,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         Morb = MC->Morb;
 
     double
+        checkOrtho,
         dx = MC->dx,
         a2 = MC->a2,
         g = MC->inter,
@@ -2428,10 +2485,12 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         orb_vec = carrDef(Morb * Mpos),
         upper = carrDef(Mpos - 1),
         lower = carrDef(Mpos - 1),
-        mid = carrDef(Mpos - 1);
+        mid = carrDef(Mpos - 1),
+        OldHint = carrDef(Morb * Morb * Morb * Morb);
 
     Cmatrix
-        Old = cmatDef(Morb, Mpos);
+        Old = cmatDef(Morb, Mpos),
+        OldHo = cmatDef(Morb,Morb);
 
     CCSmat
         cnmat;
@@ -2450,9 +2509,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     }
 
     fprintf(rho_file, "# Major-Row vector representatio of rho\n");
-    fprintf(rho_file, "# col 1 : time\n");
-    fprintf(rho_file, "# col 2 to last : rho elements\n");
-    
+
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_orb_realtime.dat");
@@ -2465,8 +2522,6 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     }
 
     fprintf(orb_file, "# Major-Row vector representatio of Orbitals\n");
-    fprintf(orb_file, "# col 1 : time\n");
-    fprintf(orb_file, "# col 2 to last : orbitals in positions\n");
 
 
 
@@ -2484,11 +2539,14 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
     // initial energy
     E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
+    norm = carrMod(nc, S->C);
+    checkOrtho = orthoFactor(Morb, Mpos, dx, S->Omat);
 
-    printf("\n\n\t  time         Energy         Ortho Factor");
-    printf("               Norm");
+    printf("\n\n\ttime           Energy               Ortho");
+    printf("          Norm");
     sepline();
-    printf("\n\t%.7lf        %15.7E", 0.0, creal(E));
+    printf("\t%.5lf      %15.7E", 0.0, creal(E));
+    printf("      %10.2E      %10.7lf", checkOrtho, norm);
 
 
 
@@ -2497,17 +2555,37 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
+    l = 1;
     for (i = 0; i < Nsteps; i++)
     {
+
+        // HALF STEP THE COEFFICIENTS
+
+        LanczosIntegrator(MC, S->Ho, S->Hint, dt / 2, S->C);
+        OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
+        TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
+
+
+
+
+
+
+
+        // COPY TIME STEP DATA TO USED FIXED POINT ITERATIONS
 
         for (k = 0; k < Morb; k ++)
         {
             for (j = 0; j < Mpos; j++) Old[k][j] = S->Omat[k][j];
+
+            for (j = 0; j < Morb; j++) OldHo[k][j] = S->Ho[k][j];    
         }
+        carrCopy(Morb*Morb*Morb*Morb, S->Hint, OldHint);
+
+
+
 
         LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
-        // The boundary
         if (cyclic)
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
         else
@@ -2518,36 +2596,47 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-        NL_C_RK4(MC, S, dt);
+        NL_RK4(MC, S, dt);
 
 
 
         LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
-        // The boundary
         if (cyclic)
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
         else
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = 0;             }
 
-
-
-        // Update quantities that depends on orbitals and coefficients
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
+
+
+
+
+
+/*
+        FP_ITERATION(MC, S, Old, OldHo, OldHint, dt);
+
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+*/
+
+
+
+        // ANOTHER HALF STEP FOR COEFFICIENTS
+        LanczosIntegrator(MC, S->Ho, S->Hint, dt / 2, S->C);
         OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
         TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
 
-        FP_ITERATION(MC, S, Old, dt);
-
-        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
-        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
 
         E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
+        norm = carrMod(nc, S->C);
+        checkOrtho = orthoFactor(Morb, Mpos, dx, S->Omat);
 
-        printf("\n\t%.7lf        %15.7E", (i + 1) * dt, creal(E));
+        printf("\n\t%.5lf      %15.7E", (i + 1) * dt, creal(E));
+        printf("      %10.2E      %10.7lf", checkOrtho, norm);
 
         if (l == skip)
         {
@@ -2569,6 +2658,8 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     free(mid);
     free(rho_vec);
     free(orb_vec);
+    free(OldHint);
+    cmatFree(Morb, OldHo);
     cmatFree(Morb, Old);
 
     fclose(rho_file);
@@ -2577,7 +2668,8 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, double dt)
+void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, Cmatrix OldHo,
+     Carray OldHint, double dt)
 {
 
     int
@@ -2666,8 +2758,8 @@ void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, double dt)
 
             for (i = 0; i < Mpos - 1; i ++)
             {
-                nl = nonlinear(Mpos,k,i,g,S->Omat,Rinv,S->rho2,S->Ho,S->Hint);
-                nl = nl + nonlinear(Mpos,k,i,g,Old,Rinv,S->rho2,S->Ho,S->Hint);
+                nl = nonlinear(Morb,k,i,g,S->Omat,Rinv,S->rho2,S->Ho,S->Hint);
+                nl = nl + nonlinear(Morb,k,i,g,Old,Rinv,S->rho2,OldHo,OldHint);
                 rhs[i] = rhs[i] + 0.5 * nl * dt;
             }
 
