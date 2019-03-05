@@ -90,19 +90,19 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
     R2 = MeanQuadraticR(mc, S->Omat, S->rho1);
     minR2 = 0;
-    while ( abs(oldx[minR2]) > 4 * R2 ) minR2 = minR2 + 1;
+    while ( abs(oldx[minR2]) > 7 * R2 ) minR2 = minR2 + 1;
 
 
 
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 2.5E-8 / Morb);
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 5E-5 / Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
 
-    minId = (3 * minId + minR2) / 4;
+    minId = (minId + minR2) / 2;
 
 // Check if it is woth to resize the domain.
 
