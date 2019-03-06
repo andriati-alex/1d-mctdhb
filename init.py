@@ -101,21 +101,39 @@ def RingBarrier(Morb, x, S, omega):
 
 
 
-def Ring(Morb, x, S):
+def Ring(Morb, x, S, L):
     """
-    Setup matrix S with eigenstates of  angular  momentum  in ascending
-    if the # of orbitals(Morb) is odd. Odd orbitals have minus signs of
-    angular momentum while even orbitals have plus sign.
-    -------------------------------------------------------------------
+    Superposition of 'angular' momentum.
+    ------------------------------------------------------
 
-    x    = array of discretized position domain
+    x    = array of discretized position domain [-L/2,L/2]
     Morb = # of orbitals
     """
 
-    S[0,:] = 1.0 / sqrt(2 * pi);
-    for i in range(2, Morb, 2):
-        S[i - 1,:] = np.exp(- 1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
-        S[i, :]    = np.exp(  1.0j * (i / 2) * x, dtype=lc) / sqrt(2 * pi);
+    S[0,:] = 1.0 / sqrt(L);
+    for i in range(1, Morb):
+        minus = np.exp(- 1.0j * i * x * 2 * pi / L, dtype=lc);
+        plus  = np.exp(+ 1.0j * i * x * 2 * pi / L, dtype=lc);
+        S[i,:] = ( plus + minus ) / sqrt(2 * L);
+
+
+
+
+
+def AttractiveRing(Morb, x, S, L):
+    """
+    Superposition of 'angular' momentum.
+    ------------------------------------------------------
+
+    x    = array of discretized position domain [-L/2,L/2]
+    Morb = # of orbitals
+    """
+
+    S[0,:] = np.cos(x * pi / L)**2 / sqrt(3 * L / 8);
+    for i in range(2, Morb + 1):
+        minus = np.exp(- 1.0j * i * x * 2 * pi / L, dtype=lc);
+        plus  = np.exp(+ 1.0j * i * x * 2 * pi / L, dtype=lc);
+        S[i-1,:] = ( plus + minus ) / sqrt(2 * L);
 
 
 
@@ -200,7 +218,12 @@ if   (fname == 'HarmonicTrap') :
 elif (fname == 'Ring') :
 
     Id_name = 'MCRing-' + str(Npar) + '-' + str(Morb);
-    Ring(Morb, x, Orb);
+    Ring(Morb, x, Orb, params[0]);
+
+elif (fname == 'AttractRing') :
+
+    Id_name = 'MCAttractRing-' + str(Npar) + '-' + str(Morb);
+    AttractiveRing(Morb, x, Orb, params[0]);
 
 elif (fname == 'RingBarrier') :
 
