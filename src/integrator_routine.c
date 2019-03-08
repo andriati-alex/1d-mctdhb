@@ -97,7 +97,7 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos, S->Omat[i], olddx, 5E-5 / Morb);
+        j = NonVanishingId(Mpos, S->Omat[i], olddx, 2.5E-6 / Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
@@ -1754,7 +1754,7 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 3 )
+        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -1783,31 +1783,6 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             }
             // ---------------------------------------------------------------
 
-
-
-//  After some time steps that must be evolved do a fixed orbital  basis
-//  diagonalization  to  hurry up  convergence.  Restrict the number  of
-//  iterations in lanczos routine to avoid massive memory usage. Try  to
-//  use 200 iterations unless either it exceeds half of the dimension of
-//  configuration space or if it exceeds a memory Threshold.
-
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
-            TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
-
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            sepline();
-
         }
 
 
@@ -1829,19 +1804,6 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             p = DftiFreeDescriptor(&desc);
             free(exp_der);
 
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            sepline();
-            printf("\n\t\tFianl Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
             printf("\nProcess ended before because ");
@@ -2024,7 +1986,7 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 3 )
+        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -2046,31 +2008,6 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
             // re-onfigure again the Crank-Nicolson Finite-difference matrix
             cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
-
-
-
-//  After some time steps that must be evolved do a fixed orbital  basis
-//  diagonalization  to  hurry up  convergence.  Restrict the number  of
-//  iterations in lanczos routine to avoid massive memory usage. Try  to
-//  use 200 iterations unless either it exceeds half of the dimension of
-//  configuration space or if it exceeds a memory Threshold.
-
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
-            TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
-
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            sepline();
 
         }
 
@@ -2098,19 +2035,6 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             free(lower);
             free(mid);
 
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            sepline();
-            printf("\n\t\tFinal Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
             printf("\nProcess ended before because ");
@@ -2123,7 +2047,6 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
             return i + 1;
         }
-
 
     }
 
@@ -2291,7 +2214,7 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i == Nsteps / 3 )
+        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -2314,31 +2237,6 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
             // re-onfigure again the Crank-Nicolson Finite-difference matrix
             cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
-
-
-
-//  After some time steps that must be evolved do a fixed orbital  basis
-//  diagonalization  to  hurry up  convergence.  Restrict the number  of
-//  iterations in lanczos routine to avoid massive memory usage. Try  to
-//  use 200 iterations unless either it exceeds half of the dimension of
-//  configuration space or if it exceeds a memory Threshold.
-
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            OBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho1);
-            TBrho(Npar, Morb, MC->NCmat, MC->IF, S->C, S->rho2);
-
-            printf("\n\tDiagonalization Done E = %.7E\n", creal(E[i+1]));
-            sepline();
 
         }
 
@@ -2364,19 +2262,6 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
             free(lower);
             free(mid);
 
-            if (200 * nc < 5E7)
-            {
-                if (2 * nc / 3 < 200) k = 2 * nc / 3;
-                else                  k = 200;
-            }
-            else k = 5E7 / nc;
-
-            E[i + 1] = LanczosGround( k, MC, S->Omat, S->C );
-            // Renormalize coeficients
-            renormalizeVector(nc, S->C, 1.0);
-
-            sepline();
-            printf("\n\t\tFinal Energy = %.7E\n", creal(E[i+1]));
             sepline();
 
             printf("\nProcess ended before because ");
