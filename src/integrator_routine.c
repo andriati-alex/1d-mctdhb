@@ -758,7 +758,7 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
 
 
     /* ================================================================= *
-    
+
             SOLVE ODE FOR COEFFICIENTS USING LANCZOS VECTOR SPACE
 
      * ================================================================= */
@@ -1649,7 +1649,8 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         nc = MC->nc,
         Npar = MC->Npar,
         Mpos = MC->Mpos,
-        Morb = MC->Morb;
+        Morb = MC->Morb,
+        isTrapped;
 
     MKL_LONG
         p;
@@ -1673,6 +1674,8 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+
+    isTrapped = strcmp(MC->Vname, "harmonic");
 
     m = Mpos - 1; // Size of arrays to take the Fourier-Transform
 
@@ -1754,7 +1757,7 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
+        if ( (i+1) % (Nsteps/5) == 0 && isTrapped == 0)
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -1792,13 +1795,18 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
+        if ( (i+1) % 50 == 0 )
+        {
+            // Print at each 50 time steps to see convergence behavior
+
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
+        }
 
 
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
 
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 5E-10)
         {
 
             p = DftiFreeDescriptor(&desc);
@@ -1885,7 +1893,8 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         nc = MC->nc,
         Npar = MC->Npar,
         Mpos = MC->Mpos,
-        Morb = MC->Morb;
+        Morb = MC->Morb,
+        isTrapped;
 
     double
         R2,
@@ -1910,6 +1919,7 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+    isTrapped = strcmp(MC->Vname, "harmonic");
     // Setup one/two-body hamiltonian matrix elements
     SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
@@ -1986,7 +1996,7 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
+        if ( (i+1) % (Nsteps/5) == 0 && isTrapped == 0)
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -2017,17 +2027,20 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         virial[i + 1] = Virial(MC, S->Omat, S->rho1, S->rho2);
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
 
+        if ( (i+1) % 50 == 0 )
+        {
+            // Print at each 50 time steps to see convergence behavior
 
-
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
+        }
 
 
 
 // CHECK IF THE ENERGY HAS STABILIZED TO STOP PROCESS
 
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 5E-10)
         {
 
             CCSFree(cnmat);
@@ -2114,7 +2127,8 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         nc = MC->nc,
         Npar = MC->Npar,
         Mpos = MC->Mpos,
-        Morb = MC->Morb;
+        Morb = MC->Morb,
+        isTrapped;
 
     double
         R2,
@@ -2137,6 +2151,7 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
+    isTrapped = strcmp(MC->Vname, "harmonic");
     // Setup one/two-body hamiltonian matrix elements
     SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
@@ -2214,7 +2229,7 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        if ( i >= (Nsteps/5) && i % (Nsteps/5) == 0 )
+        if ( (i+1) % (Nsteps/5) == 0 && isTrapped == 0)
         {
 
 //  After some time evolved check if initial domain is  suitable  for the
@@ -2248,13 +2263,18 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
 
 
-        printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
-        printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
+        if ( (i+1) % 50 == 0 )
+        {
+            // Print at each 50 time steps to see convergence behavior
+
+            printf("\n\t%6d       %15.7E", i + 1, creal(E[i + 1]));
+            printf("         %15.7E       %7.4lf", creal(virial[i+1]), R2);
+        }
         
         
         
         j = i - 199;
-        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 1E-10)
+        if (j > 0 && fabs( creal(E[i+1] - E[j]) / creal(E[j]) ) < 5E-10)
         {
 
             CCSFree(cnmat);
