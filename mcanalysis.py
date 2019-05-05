@@ -15,18 +15,110 @@ from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128
 =============================================================================
 
 
-    Module devoted to analyze results from MCTDHB method
-    ----------------------------------------------------
+    MODULE DIRECTED TO COLLECT OBSERVABLES FROM MCTDHB
+    --------------------------------------------------
 
 
     The functions contained in this module support the analysis of results 
     from (imaginary/real)time propagation. Some of the functions  are  the
-    same as those used in C language, and use NUMBA compilation to improve
-    performance (may cause longer time to import module).
+    same as those used in C language,  to  reduce  the  amount of data set
+    needed. Numba package usage may cause delay in importation.
 
 
 =============================================================================
 """
+
+
+
+
+
+def derivative(dx, f):
+    """
+    CALLING :
+    -------
+    (1D array of size of f) = derivative(dx, f)
+
+    comments :
+    --------
+    Use finite differences to compute derivative with 4-th order error
+    """
+    n = f.size;
+    dfdx = np.zeros(n, dtype=np.complex128);
+
+    dfdx[0] = ( f[n-3] - f[2] + 8 * (f[1] - f[n-2]) ) / (12 * dx);
+    dfdx[1] = ( f[n-2] - f[3] + 8 * (f[2] - f[0]) ) / (12 * dx);
+    dfdx[n-2] = ( f[n-4] - f[1] + 8 * (f[0] - f[n-3]) ) / (12 * dx);
+    dfdx[n-1] = dfdx[0]; # assume last point as the boundary
+
+    for i in range(2, n - 2):
+        dfdx[i] = ( f[i-2] - f[i+2] + 8 * (f[i+1] - f[i-1]) ) / (12 * dx);
+    return dfdx;
+
+
+
+
+def dxcentered(dx, f):
+    n = f.size;
+    dfdx = np.zeros(n,dtype=np.complex128)
+
+    dfdx[0] = (f[1] - f[n-2]) / (2 * dx);
+    dfdx[n-1] = dfdx[0];
+
+    for i in range(1,n-1): dfdx[i] = (f[i+1] - f[i-1]) / (2 * dx);
+
+    return dfdx;
+
+
+
+
+
+def dxFFT(dx, f):
+    """
+    CALLING :
+    -------
+    (1D array of size of f) = derivative(dx, f)
+
+    comments :
+    --------
+    Use Fourier-Transforms to compute derivative
+    """
+    n = f.size - 1;
+    k = 2 * pi * np.fft.fftfreq(n, dx);
+    dfdx = np.zeros(f.size, dtype = np.complex128);
+    dfdx[:n] = np.fft.fft(f[:n], norm = 'ortho');
+    dfdx[:n] = np.fft.ifft(1.0j * k * dfdx[:n], norm = 'ortho');
+    dfdx[n] = dfdx[0];
+    return dfdx;
+
+
+
+
+
+def OrderedFFT(dx, func):
+    """
+    Normalized according to L2 norm in the momentum space.
+
+    CALLING
+    -------
+    freq_vector , fft_of_func = OrderedFFT(dx,func);
+    """
+
+    n = func.size - 1;
+    norm = np.sqrt(simps(abs(func)**2,dx=dx));
+    # Last point considered as boundary func[0] = func[n]
+
+    k = 2 * pi * np.fft.fftfreq(n,dx);
+    dk = k[1] - k[0];
+
+    fftfunc = np.fft.fft(func[:n]);
+
+    if (n % 2 == 0) : j = int(n / 2) - 1;
+    else            : j = int((n - 1) / 2);
+
+    k = np.concatenate( [ k[j+1:] , k[:j+1] ] );
+    fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
+
+    return k, fftfunc * norm / np.sqrt(simps(abs(fftfunc)**2,dx=dk));
 
 
 
@@ -811,7 +903,18 @@ def GetNatOrb(Npar, Morb, C, Orb):
 
 
 
-def GetGasDensity(NOocc, NO): return np.matmul(NOocc, abs(NO)**2);
+def GetGasDensity(NOocc, NO):
+    """
+    CALLING
+    -------
+    ( 1D np array [Mpos] ) = GetGasDensity(NOocc, NO)
+
+    arguments
+    ---------
+    NOocc : natural occupations given by GetOccupation
+    NO    : Natural orbitals given by GetNatOrb
+    """
+    return np.matmul(NOocc, abs(NO)**2);
 
 
 
@@ -916,7 +1019,7 @@ def GetOBcorrelation(NOocc, NO):
     given two discretized positions Xi and Xj then the entries of
     the matrix returned (let me call g) represent:
 
-    g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(xj) * Den(xi) )
+    g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(Xj) * Den(Xi) )
     """
     GasDensity = np.matmul(NOocc, abs(NO)**2);
     Morb = NO.shape[0];
@@ -929,49 +1032,176 @@ def GetOBcorrelation(NOocc, NO):
 
 
 
-def derivative(dx, f):
+@jit( (int32, int32, complex128[:], complex128[:,:], complex128[:,:]),
+      nopython=False, nogil=True)
+def MutualProb(Morb,Mpos,rho2,S,mutprob):
+
+    M  = Morb;
+    M2 = Morb * Morb;
+    M3 = Morb * M2;
+
+    r2 = complex(0);
+    o = complex(0);
+    Sum = complex(0);
+
+    for i in prange(Mpos):
+        for j in prange(Mpos):
+
+            Sum = 0;
+
+            for k in prange(Morb):
+                for l in prange(Morb):
+                    for q in prange(Morb):
+                        for s in prange(Morb):
+                            r2 = rho2[k+l*M+q*M2+s*M3];
+                            o = S[q,j]*S[s,i]*(S[k,j]*S[l,i]).conjugate();
+                            Sum = Sum + r2 * o;
+
+            mutprob[i,j] = Sum;
+
+
+
+
+
+def GetTBcorrelation(Npar, Morb, C, S):
     """
-    CALLING :
+    CALLING
     -------
-    (1D array of size of f) = derivative(dx, f)
+    ( 2d array [Mpos,Mpos] ) = GetTBcorrelation(Npar,Morb,C,S)
+    where Mpos means the number of discretized positions = S.shape[1]
 
-    comments :
+    arguments
+    ---------
+    Npar : number of particles
+    Morb : number of orbitals
+    C    : array of coeficients
+    S    : Working orbitals organized by rows
+
+    comments
     --------
-    Use finite differences to compute derivative with 4-th order error
+    The two-body correlation here is the probability to find two
+    particles at (discretized)positions Xi and Xj divided by the
+    probability to find one-particle independently Xi and another
+    at Xj.
     """
-    n = f.size;
-    dfdx = np.zeros(n, dtype=np.complex128);
+    Mpos = S.shape[1];
+    NOocc = GetOccupation(Npar, Morb, C);
+    NO = GetNatOrb(Npar, Morb, C, S);
+    den = GetGasDensity(NOocc, NO);
 
-    dfdx[0] = ( f[n-3] - f[2] + 8 * (f[1] - f[n-2]) ) / (12 * dx);
-    dfdx[1] = ( f[n-2] - f[3] + 8 * (f[2] - f[0]) ) / (12 * dx);
-    dfdx[n-2] = ( f[n-4] - f[1] + 8 * (f[0] - f[n-3]) ) / (12 * dx);
-    dfdx[n-1] = dfdx[0]; # assume last point as the boundary
+    rho2 = GetTBrho(Npar, Morb, C) / Npar / (Npar - 1);
+    mutprob = np.zeros([Mpos,Mpos], dtype=np.complex128);
+    MutualProb(Morb,Mpos,rho2,S,mutprob);
 
-    for i in range(2, n - 2):
-        dfdx[i] = ( f[i-2] - f[i+2] + 8 * (f[i+1] - f[i-1]) ) / (12 * dx);
-    return dfdx;
+    g2 = np.zeros([Mpos,Mpos],dtype=np.complex128);
+
+    for i in range(Mpos):
+        for j in range(Mpos):
+            g2[i,j] = (mutprob[i,j] - den[i] * den[j]) / den[i] / den[j];
+
+    return g2;
 
 
 
 
 
-def dxFFT(dx, f):
+def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound):
     """
-    CALLING :
+    CALLING
     -------
-    (1D array of size of f) = derivative(dx, f)
+    freqs, 2d array [Mpos,Mpos] = GetTB_momentum_corr(Npar,Morb,C,S,dx)
+    where Mpos means the number of discretized positions = S.shape[1]
 
-    comments :
-    --------
-    Use Fourier-Transforms to compute derivative
+    arguments
+    ---------
+    Npar : number of particles
+    Morb : number of orbitals
+    C    : array of coeficients
+    S    : Working orbitals organized by rows
+    dx   : grid step (sample spacing)
     """
-    n = f.size - 1;
-    k = 2 * pi * np.fft.fftfreq(n, dx);
-    dfdx = np.zeros(f.size, dtype = np.complex128);
-    dfdx[:n] = np.fft.fft(f[:n], norm = 'ortho');
-    dfdx[:n] = np.fft.ifft(1.0j * k * dfdx[:n], norm = 'ortho');
-    dfdx[n] = dfdx[0];
-    return dfdx;
+
+    Mpos = S.shape[1];
+    NOocc = GetOccupation(Npar, Morb, C);
+    NO = GetNatOrb(Npar, Morb, C, S);
+
+    # grid factor to extent the domain without changing the
+    # position grid step, to improve resolution in momentum
+    # space(reduce the momentum grid step).
+    # Shall be an odd number in order to keep  the symmetry
+    gf = 5;
+
+    extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+    extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+
+    if (bound == 'zero'):
+
+        for i in range(Morb):
+            l = int( (gf - 1) / 2 );
+            k = int( (gf + 1) / 2 );
+            extS[i,l*Mpos:k*Mpos] = S[i];
+            extNO[i,l*Mpos:k*Mpos] = NO[i];
+
+    Sfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
+    NOfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
+
+    for i in range(Morb):
+        k, Sfft[i] = OrderedFFT(dx, extS[i]);
+        k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+
+    denfft = GetGasDensity(NOocc, NOfft);
+
+    rho2 = GetTBrho(Npar, Morb, C) / Npar / (Npar - 1);
+    mutprob = np.zeros([gf*Mpos-1,gf*Mpos-1], dtype=np.complex128);
+    MutualProb(Morb,gf*Mpos-1,rho2,Sfft,mutprob);
+
+    g2 = np.zeros([k.size,k.size],dtype=np.complex128);
+
+    for i in range(k.size):
+        for j in range(k.size):
+            g2[i,j] = (mutprob[i,j]-denfft[i]*denfft[j])/denfft[i]/denfft[j];
+
+    return k, g2, denfft;
+
+
+
+
+
+def GetTBcov(Npar, Morb, C, S):
+    Mpos = S.shape[1];
+    NOocc = GetOccupation(Npar, Morb, C);
+    NO = GetNatOrb(Npar, Morb, C, S);
+    den = GetGasDensity(NOocc, NO);
+
+    rho2 = GetTBrho(Npar, Morb, C) / Npar / Npar;
+    mutprob = np.zeros([Mpos,Mpos], dtype=np.complex128);
+    # mutprob = MutualProbability(Npar,Morb,C,S);
+    MutualProb(Morb,Mpos,rho2,S,mutprob);
+
+    drho1drho2 = np.zeros([Mpos,Mpos], dtype=np.complex128);
+
+    for i in range(Mpos):
+
+        ob = 0;
+        for k in range(Morb):
+            for l in range(Morb):
+                ob = ob + NOocc[k]*NO[k,i]*NO[l,i]*(NO[k,i]*NO[l,i]).conj();
+
+        for j in range(Mpos):
+
+            drho1drho2[i,j] = mutprob[i,j] - den[i] * den[j];
+
+        drho1drho2[i,i] = drho1drho2[i,i] + ob / Npar;
+
+    g2 = np.zeros([Mpos,Mpos],dtype=np.complex128);
+
+    for i in range(Mpos):
+        vari = drho1drho2[i,i].real;
+        for j in range(Mpos):
+            varj = drho1drho2[j,j].real;
+            g2[i,j] = drho1drho2[i,j] / sqrt(vari * varj);
+
+    return g2;
 
 
 
