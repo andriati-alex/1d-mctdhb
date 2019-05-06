@@ -1105,7 +1105,7 @@ def GetTBcorrelation(Npar, Morb, C, S):
 
 
 
-def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound):
+def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     """
     CALLING
     -------
@@ -1134,13 +1134,20 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound):
     extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
     extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
 
-    if (bound == 'zero'):
+    if (bound == 'zero') :
 
         for i in range(Morb):
             l = int( (gf - 1) / 2 );
             k = int( (gf + 1) / 2 );
             extS[i,l*Mpos:k*Mpos] = S[i];
             extNO[i,l*Mpos:k*Mpos] = NO[i];
+
+    else :
+
+        for i in range(Morb):
+            for k in range(gf-1):
+                extS[i,k*Mpos:(k+1)*Mpos] = S[i];
+                extNO[i,k*Mpos:(k+1)*Mpos] = NO[i];
 
     Sfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
     NOfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
