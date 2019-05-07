@@ -94,7 +94,7 @@ def dxFFT(dx, f):
 
 
 
-def OrderedFFT(dx, func):
+def OrderedFFT(dx, func, norm=1):
     """
     Normalized according to L2 norm in the momentum space.
 
@@ -103,14 +103,12 @@ def OrderedFFT(dx, func):
     freq_vector , fft_of_func = OrderedFFT(dx,func);
     """
 
-    n = func.size - 1;
-    norm = np.sqrt(simps(abs(func)**2,dx=dx));
-    # Last point considered as boundary func[0] = func[n]
+    n = func.size;
 
     k = 2 * pi * np.fft.fftfreq(n,dx);
     dk = k[1] - k[0];
 
-    fftfunc = np.fft.fft(func[:n]);
+    fftfunc = np.fft.fft(func);
 
     if (n % 2 == 0) : j = int(n / 2) - 1;
     else            : j = int((n - 1) / 2);
@@ -920,6 +918,54 @@ def GetGasDensity(NOocc, NO):
 
 
 
+def GetGasDensityMomentum(NOocc, NO, dx, bound='zero'):
+    """
+    CALLING
+    -------
+    ( 1D array freq, 1D array density ) = GetGasDensity(NOocc, NO)
+
+    arguments
+    ---------
+    NOocc : natural occupations given by GetOccupation
+    NO    : Natural orbitals given by GetNatOrb
+    """
+    # grid factor to extent the domain without changing the
+    # position grid step, to improve resolution in momentum
+    # space(reduce the momentum grid step).
+    # Shall be an odd number in order to keep  the symmetry
+    gf = 15;
+
+    Morb = NO.shape[0];
+    Mpos = NO.shape[1];
+
+    if (bound == 'zero') :
+
+        for i in range(Morb):
+            l = int( (gf - 1) / 2 );
+            k = int( (gf + 1) / 2 );
+            extNO[i,l*Mpos:k*Mpos] = NO[i,:-1];
+
+    else :
+
+        extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+
+        for i in range(Morb):
+            for k in range(gf):
+                extNO[i,k*(Mpos-1):(k+1)*(Mpos-1)] = NO[i,:-1];
+
+    NOfft = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+
+    for i in range(Morb):
+        k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+
+    denfft = GetGasDensity(NOocc, NOfft);
+
+    return k , denfft;
+
+
+
+
+
 def TimeOccupation(Npar, Morb, rhotime):
     """
     CALLING :
@@ -1097,7 +1143,7 @@ def GetTBcorrelation(Npar, Morb, C, S):
 
     for i in range(Mpos):
         for j in range(Mpos):
-            g2[i,j] = (mutprob[i,j] - den[i] * den[j]) / den[i] / den[j];
+            g2[i,j] = mutprob[i,j] / den[i] / den[j];
 
     return g2;
 
@@ -1129,7 +1175,7 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     # position grid step, to improve resolution in momentum
     # space(reduce the momentum grid step).
     # Shall be an odd number in order to keep  the symmetry
-    gf = 5;
+    gf = 7;
 
     extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
     extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
@@ -1166,7 +1212,7 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
 
     for i in range(k.size):
         for j in range(k.size):
-            g2[i,j] = (mutprob[i,j]-denfft[i]*denfft[j])/denfft[i]/denfft[j];
+            g2[i,j] = (mutprob[i,j]-denfft[i]*denfft[j]);
 
     return k, g2, denfft;
 
