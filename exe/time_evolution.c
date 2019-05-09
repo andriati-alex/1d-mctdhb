@@ -654,6 +654,8 @@ int main(int argc, char * argv[])
         }
     }
 
+    Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
+
     // orbitals are not read again
     fclose(orb_file);
 
@@ -1047,6 +1049,8 @@ int main(int argc, char * argv[])
             xf = mc->xf;
             dx = mc->dx;
             rarrFillInc(Mdx + 1, xi, dx, x);
+
+            Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
         }
 
         else
