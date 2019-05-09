@@ -918,7 +918,7 @@ def GetGasDensity(NOocc, NO):
 
 
 
-def GetGasDensityMomentum(NOocc, NO, dx, bound='zero'):
+def GetGasMomentumDensity(NOocc, NO, dx, bound='zero'):
     """
     CALLING
     -------
@@ -940,10 +940,12 @@ def GetGasDensityMomentum(NOocc, NO, dx, bound='zero'):
 
     if (bound == 'zero') :
 
+        extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+
         for i in range(Morb):
             l = int( (gf - 1) / 2 );
             k = int( (gf + 1) / 2 );
-            extNO[i,l*Mpos:k*Mpos] = NO[i,:-1];
+            extNO[i,l*Mpos:k*Mpos] = NO[i];
 
     else :
 
@@ -953,10 +955,9 @@ def GetGasDensityMomentum(NOocc, NO, dx, bound='zero'):
             for k in range(gf):
                 extNO[i,k*(Mpos-1):(k+1)*(Mpos-1)] = NO[i,:-1];
 
-    NOfft = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
 
-    for i in range(Morb):
-        k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+    for i in range(Morb): k, NOfft[i] = OrderedFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
@@ -1078,6 +1079,69 @@ def GetOBcorrelation(NOocc, NO):
 
 
 
+def GetOB_momentum_correlation(NOocc, NO, dx, bound='zero'):
+    """
+    CALLING
+    -------
+    ( 2d array [M,M] ) = GetOBcorrelation(occu, NO)
+
+    arguments
+    ---------
+    NOoccu : occu[k] has # of particles occupying NO[k,:] orbital
+    NO     : [Morb,M] matrix with each row being a natural orbital
+
+    comments
+    --------
+    given two discretized positions Xi and Xj then the entries of
+    the matrix returned (let me call g) represent:
+
+    g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(Xj) * Den(Xi) )
+    """
+
+    Morb = NO.shape[0];
+    Mpos = NO.shape[1];
+
+    # grid factor to extent the domain without changing the
+    # position grid step, to improve resolution in momentum
+    # space(reduce the momentum grid step).
+    # Shall be an odd number in order to keep  the symmetry
+    gf = 15;
+
+    Morb = NO.shape[0];
+    Mpos = NO.shape[1];
+
+    if (bound == 'zero') :
+
+        extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+
+        for i in range(Morb):
+            l = int( (gf - 1) / 2 );
+            k = int( (gf + 1) / 2 );
+            extNO[i,l*Mpos:k*Mpos] = NO[i];
+
+    else :
+
+        extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+
+        for i in range(Morb):
+            for k in range(gf):
+                extNO[i,k*(Mpos-1):(k+1)*(Mpos-1)] = NO[i,:-1];
+
+    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
+
+    for i in range(Morb): k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+
+    denfft = GetGasDensity(NOocc, NOfft);
+
+    g = np.empty( [k.size , k.size], dtype=np.float64 );
+    OBcorre(Morb, k.size, NOocc, NOfft, denfft, g);
+
+    return k, g, denfft;
+
+
+
+
+
 @jit( (int32, int32, complex128[:], complex128[:,:], complex128[:,:]),
       nopython=False, nogil=True)
 def MutualProb(Morb,Mpos,rho2,S,mutprob):
@@ -1143,7 +1207,7 @@ def GetTBcorrelation(Npar, Morb, C, S):
 
     for i in range(Mpos):
         for j in range(Mpos):
-            g2[i,j] = mutprob[i,j] / den[i] / den[j];
+            g2[i,j] = mutprob[i,j]/den[i]/den[j] - 1;
 
     return g2;
 
@@ -1175,12 +1239,12 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     # position grid step, to improve resolution in momentum
     # space(reduce the momentum grid step).
     # Shall be an odd number in order to keep  the symmetry
-    gf = 7;
-
-    extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
-    extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+    gf = 5;
 
     if (bound == 'zero') :
+
+        extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+        extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
 
         for i in range(Morb):
             l = int( (gf - 1) / 2 );
@@ -1190,13 +1254,18 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
 
     else :
 
-        for i in range(Morb):
-            for k in range(gf-1):
-                extS[i,k*Mpos:(k+1)*Mpos] = S[i];
-                extNO[i,k*Mpos:(k+1)*Mpos] = NO[i];
+        extS  = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+        extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
 
-    Sfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
-    NOfft = np.zeros([Morb,gf*Mpos-1],dtype=np.complex128);
+        for i in range(Morb):
+            for k in range(gf):
+                init = k * (Mpos - 1);
+                final = (k + 1) * (Mpos - 1);
+                extS[i,init:final] = S[i,:Mpos-1];
+                extNO[i,init:final] = NO[i:Mpos-1];
+
+    Sfft = np.zeros(extS.shape,dtype=np.complex128);
+    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
 
     for i in range(Morb):
         k, Sfft[i] = OrderedFFT(dx, extS[i]);
@@ -1205,16 +1274,48 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     denfft = GetGasDensity(NOocc, NOfft);
 
     rho2 = GetTBrho(Npar, Morb, C) / Npar / (Npar - 1);
-    mutprob = np.zeros([gf*Mpos-1,gf*Mpos-1], dtype=np.complex128);
-    MutualProb(Morb,gf*Mpos-1,rho2,Sfft,mutprob);
+    mutprob = np.zeros([k.size,k.size], dtype=np.complex128);
+    MutualProb(Morb,k.size,rho2,Sfft,mutprob);
 
     g2 = np.zeros([k.size,k.size],dtype=np.complex128);
 
     for i in range(k.size):
         for j in range(k.size):
-            g2[i,j] = (mutprob[i,j]-denfft[i]*denfft[j]);
+            g2[i,j] = (mutprob[i,j] - denfft[i]*denfft[j]);
 
     return k, g2, denfft;
+
+
+
+
+
+def Cutoffmomentum(k,g2,denfft):
+
+    likely = denfft.max();
+
+    i = 0;
+    while (denfft[i] / likely < 1E-3) : i = i + 1;
+
+    j = denfft.size - 1;
+    while (denfft[j] / likely < 1E-3) : j = j -1;
+
+    if ( abs(k[i]) >= abs(k[j]) ) :
+        m = i;
+        n = k.size - 1;
+        while( k[n] >= abs(k[i]) ) : n = n - 1;
+        n = n + 5; # Add little extra margin
+        m = m - 4;
+
+    else :
+        n = j;
+        m = 0;
+        while( abs(k[m]) >= k[n]) : m = m + 1;
+        m = m - 5;
+        n = n + 4;
+
+    return k[m:n], g2[m:n,m:n];
+
+    
 
 
 
