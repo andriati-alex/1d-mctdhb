@@ -57,7 +57,7 @@ def derivative(dx, f):
 
 
 
-def dxcentered(dx, f):
+def centered_derivative(dx, f):
     n = f.size;
     dfdx = np.zeros(n,dtype=np.complex128)
 
@@ -94,13 +94,13 @@ def dxFFT(dx, f):
 
 
 
-def OrderedFFT(dx, func, norm=1):
+def L2normFFT(dx, func, norm = 1):
     """
     Normalized according to L2 norm in the momentum space.
 
     CALLING
     -------
-    freq_vector , fft_of_func = OrderedFFT(dx,func);
+    freq_vector , fft_of_func = L2normFFT(dx,func,norm);
     """
 
     n = func.size;
@@ -117,6 +117,34 @@ def OrderedFFT(dx, func, norm=1):
     fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
 
     return k, fftfunc * norm / np.sqrt(simps(abs(fftfunc)**2,dx=dk));
+
+
+
+
+
+def DnormFFT(dx, func, norm = 1):
+    """
+    Normalized Fourier 'Series' for periodic functions with
+    non-vanishing boundaries.
+
+    CALLING
+    -------
+    freq_vector , fft_of_func = L2normFFT(dx,func,norm);
+    """
+
+    n = func.size;
+
+    k = 2 * pi * np.fft.fftfreq(n,dx);
+
+    fftfunc = np.fft.fft(func,norm='ortho');
+
+    if (n % 2 == 0) : j = int(n / 2) - 1;
+    else            : j = int((n - 1) / 2);
+
+    k = np.concatenate( [ k[j+1:] , k[:j+1] ] );
+    fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
+
+    return k, fftfunc / sqrt((abs(fftfunc)**2).sum());
 
 
 
@@ -957,7 +985,7 @@ def GetGasMomentumDensity(NOocc, NO, dx, bound='zero'):
 
     NOfft = np.zeros(extNO.shape,dtype=np.complex128);
 
-    for i in range(Morb): k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+    for i in range(Morb): k, NOfft[i] = DnormFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
@@ -1129,7 +1157,7 @@ def GetOB_momentum_correlation(NOocc, NO, dx, bound='zero'):
 
     NOfft = np.zeros(extNO.shape,dtype=np.complex128);
 
-    for i in range(Morb): k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+    for i in range(Morb): k, NOfft[i] = L2normFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
@@ -1229,6 +1257,7 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     C    : array of coeficients
     S    : Working orbitals organized by rows
     dx   : grid step (sample spacing)
+    (optional) bound : can be 'zero' or 'periodic'
     """
 
     Mpos = S.shape[1];
@@ -1239,9 +1268,10 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     # position grid step, to improve resolution in momentum
     # space(reduce the momentum grid step).
     # Shall be an odd number in order to keep  the symmetry
-    gf = 5;
 
     if (bound == 'zero') :
+
+        gf = 7;
 
         extS  = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
         extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
@@ -1252,7 +1282,16 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
             extS[i,l*Mpos:k*Mpos] = S[i];
             extNO[i,l*Mpos:k*Mpos] = NO[i];
 
+        Sfft = np.zeros(extS.shape,dtype=np.complex128);
+        NOfft = np.zeros(extNO.shape,dtype=np.complex128);
+
+        for i in range(Morb):
+            k, Sfft[i] = L2normFFT(dx, extS[i]);
+            k, NOfft[i] = L2normFFT(dx, extNO[i]);
+
     else :
+
+        gf = 7;
 
         extS  = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
         extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
@@ -1262,14 +1301,14 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
                 init = k * (Mpos - 1);
                 final = (k + 1) * (Mpos - 1);
                 extS[i,init:final] = S[i,:Mpos-1];
-                extNO[i,init:final] = NO[i:Mpos-1];
+                extNO[i,init:final] = NO[i,:Mpos-1];
 
-    Sfft = np.zeros(extS.shape,dtype=np.complex128);
-    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
+        Sfft = np.zeros(extS.shape,dtype=np.complex128);
+        NOfft = np.zeros(extNO.shape,dtype=np.complex128);
 
-    for i in range(Morb):
-        k, Sfft[i] = OrderedFFT(dx, extS[i]);
-        k, NOfft[i] = OrderedFFT(dx, extNO[i]);
+        for i in range(Morb):
+            k, Sfft[i] = DnormFFT(dx, extS[i]);
+            k, NOfft[i] = DnormFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
@@ -1281,7 +1320,7 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
 
     for i in range(k.size):
         for j in range(k.size):
-            g2[i,j] = (mutprob[i,j] - denfft[i]*denfft[j]);
+            g2[i,j] = (mutprob[i,j]);
 
     return k, g2, denfft;
 
@@ -1297,7 +1336,7 @@ def Cutoffmomentum(k,g2,denfft):
     while (denfft[i] / likely < 1E-3) : i = i + 1;
 
     j = denfft.size - 1;
-    while (denfft[j] / likely < 1E-3) : j = j -1;
+    while (denfft[j] / likely < 1E-3) : j = j - 1;
 
     if ( abs(k[i]) >= abs(k[j]) ) :
         m = i;
@@ -1315,47 +1354,189 @@ def Cutoffmomentum(k,g2,denfft):
 
     return k[m:n], g2[m:n,m:n];
 
-    
+
+
+
+
+@jit( complex128(int32,complex128[:],complex128[:,:]),
+      nopython=False, nogil=True)
+def TB_MomentumVar_part(Morb,rho2,Pmat):
+
+    M  = Morb;
+    M2 = Morb * Morb;
+    M3 = Morb * M2;
+
+    r2 = complex(0);
+    Sum = complex(0);
+
+    for k in prange(Morb):
+        for l in prange(Morb):
+            for q in prange(Morb):
+                for s in prange(Morb):
+                    r2 = rho2[k+l*M+q*M2+s*M3];
+                    Sum = Sum + r2 * Pmat[k,q] * Pmat[l,s];
+
+    return Sum;
 
 
 
 
 
-def GetTBcov(Npar, Morb, C, S):
+def GetMomentumVariance(Npar, Morb, C, S, dx):
+    NOocc = GetOccupation(Npar, Morb, C);
+    NO = GetNatOrb(Npar, Morb, C, S);
+
+    rho2 = GetTBrho(Npar, Morb, C) / Npar / Npar;
+
+    BracketMat = np.empty([Morb,Morb],dtype=np.complex128)
+
+    for i in range(Morb):
+        dSdx = derivative(dx,S[i]);
+        BracketMat[i,i] = -1.0j * simps(S[i].conj() * dSdx, dx = dx);
+        for j in range(i + 1,Morb):
+            dSdx = derivative(dx,S[j]);
+            BracketMat[i,j] = -1.0j * simps(S[i].conj() * dSdx, dx = dx);
+            BracketMat[j,i] = BracketMat[i,j].conj();
+
+    OBpart = 0.0;
+
+    for i in range(Morb):
+        dNOdx = derivative(dx,NO[i]);
+        OBpart = OBpart + simps(abs(dNOdx)**2,dx=dx)*NOocc[i];
+
+    OBpart = OBpart / Npar;
+
+    avg = 0.0;
+    for i in range(Morb):
+        dNOdx = derivative(dx,NO[i]);
+        avg = avg - 1.0j*simps(NO[i].conj()*dNOdx,dx=dx)*NOocc[i];
+
+    return TB_MomentumVar_part(Morb,rho2,BracketMat) + OBpart - avg**2;
+
+
+
+
+
+def GetMomentumVarianceFFT(Npar, Morb, C, S, dx):
     Mpos = S.shape[1];
     NOocc = GetOccupation(Npar, Morb, C);
     NO = GetNatOrb(Npar, Morb, C, S);
-    den = GetGasDensity(NOocc, NO);
 
     rho2 = GetTBrho(Npar, Morb, C) / Npar / Npar;
-    mutprob = np.zeros([Mpos,Mpos], dtype=np.complex128);
-    # mutprob = MutualProbability(Npar,Morb,C,S);
-    MutualProb(Morb,Mpos,rho2,S,mutprob);
 
-    drho1drho2 = np.zeros([Mpos,Mpos], dtype=np.complex128);
+    Sfft = np.zeros([Morb,Mpos-1],dtype=np.complex128);
+    NOfft = np.zeros([Morb,Mpos-1],dtype=np.complex128);
 
-    for i in range(Mpos):
+    for i in range(Morb):
+        k, Sfft[i] = DnormFFT(dx, S[i,:-1]);
+        k, NOfft[i] = DnormFFT(dx, NO[i,:-1]);
 
-        ob = 0;
-        for k in range(Morb):
+    mutprob = np.zeros([k.size,k.size], dtype=np.complex128);
+    MutualProb(Morb,k.size,rho2,Sfft,mutprob);
+
+    TBpart = 0;
+
+    for i in range(k.size):
+        for j in range(k.size):
+            TBpart = TBpart + k[i] * k[j] * mutprob[i,j];
+
+    OBpart = 0.0;
+
+    for i in range(Morb):
+        dNOdx = derivative(dx,NO[i]);
+        OBpart = OBpart + simps(abs(dNOdx)**2,dx=dx)*NOocc[i];
+
+    OBpart = OBpart / Npar;
+
+    avg = 0.0;
+    for i in range(Morb):
+        dNOdx = derivative(dx,NO[i]);
+        avg = avg - 1.0j*simps(NO[i].conj()*dNOdx,dx=dx)*NOocc[i];
+
+    return TBpart + OBpart - avg**2;
+
+
+
+
+
+@jit( complex128(int32,complex128[:],complex128[:,:],complex128[:,:]),
+      nopython=False, nogil=True)
+def TB_MomentumCF_part(Morb,rho2,Pmat,Projmat):
+
+    M  = Morb;
+    M2 = Morb * Morb;
+    M3 = Morb * M2;
+
+    r2 = complex(0);
+    Sum = complex(0);
+
+    for k in prange(Morb):
+        for l in prange(Morb):
+            for q in prange(Morb):
+                for s in prange(Morb):
+                    r2 = rho2[k+l*M+q*M2+s*M3];
+                    Sum = Sum + r2 * Projmat[k,q] * Pmat[l,s];
+
+    return Sum;
+
+
+
+
+
+def GetMomentumCF_covariance(Npar, Morb, C, S, dx):
+    NOocc = GetOccupation(Npar, Morb, C);
+    NO = GetNatOrb(Npar, Morb, C, S);
+
+    rho2 = GetTBrho(Npar, Morb, C) / Npar / Npar;
+
+    momMat = np.empty([Morb,Morb],dtype=np.complex128);
+    projMat = np.empty([Morb,Morb],dtype=np.complex128);
+
+    for i in range(Morb):
+
+        dSdx = derivative(dx,S[i]);
+        momMat[i,i] = -1.0j * simps(S[i].conj() * dSdx, dx = dx);
+        projMat[i,i] = abs( simps(S[i].conj()*NO[0],dx=dx) )**2;
+
+        for j in range(i + 1,Morb):
+            dSdx = derivative(dx,S[j]);
+            momMat[i,j] = -1.0j * simps(S[i].conj() * dSdx, dx = dx);
+            momMat[j,i] = momMat[i,j].conj();
+            integral1 = simps(S[i].conj()*NO[0],dx=dx);
+            integral2 = simps(NO[0].conj()*S[j],dx=dx);
+            projMat[i,j] = integral1 * integral2;
+            projMat[j,i] = (integral1 * integral2).conj();
+
+    decoupled = TB_MomentumCF_part(Morb,rho2,momMat,projMat);
+
+    coupled = 0;
+
+    for i in range(Morb):
+        for s in range(Morb):
             for l in range(Morb):
-                ob = ob + NOocc[k]*NO[k,i]*NO[l,i]*(NO[k,i]*NO[l,i]).conj();
+                I1 = -1.0j*simps(NO[0].conj()*derivative(dx,S[l]),dx=dx);
+                I2 = simps(S[s].conj()*NO[0],dx=dx);
+                I3 = simps(S[l].conj()*NO[i],dx=dx);
+                I4 = simps(NO[i].conj()*S[s],dx=dx);
+                coupled = coupled + NOocc[i]*I1*I2*I3*I4;
 
-        for j in range(Mpos):
+    TBterm = coupled/Npar + decoupled;
 
-            drho1drho2[i,j] = mutprob[i,j] - den[i] * den[j];
+    avg = 0.0;
+    for i in range(Morb):
+        dNOdx = derivative(dx,NO[i]);
+        avg = avg - 1.0j*simps(NO[i].conj()*dNOdx,dx=dx)*NOocc[i];
 
-        drho1drho2[i,i] = drho1drho2[i,i] + ob / Npar;
+    up = TBterm - avg * NOocc[0];
+    
+    sigP2 = GetMomentumVariance(Npar,Morb,C,S,dx);
 
-    g2 = np.zeros([Mpos,Mpos],dtype=np.complex128);
+    sigN02 = TB_MomentumVar_part(Morb,rho2,projMat);
+    sigN02 = sigN02 - NOocc[0]*(NOocc[0] - 1.0/Npar);
 
-    for i in range(Mpos):
-        vari = drho1drho2[i,i].real;
-        for j in range(Mpos):
-            varj = drho1drho2[j,j].real;
-            g2[i,j] = drho1drho2[i,j] / sqrt(vari * varj);
+    down = sqrt(sigN02 * sigP2)
 
-    return g2;
+    return up / down;
 
 
 
