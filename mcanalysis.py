@@ -21,8 +21,8 @@ from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128
 
     The functions contained in this module support the analysis of results 
     from (imaginary/real)time propagation. Some of the functions  are  the
-    same as those used in C language,  to  reduce  the  amount of data set
-    needed. Numba package usage may cause delay in importation.
+    same as those used in C language. Numba package usage may cause  delay
+    when imported the first time because it need to compile the functions.
 
 
 =============================================================================
@@ -38,9 +38,9 @@ def derivative(dx, f):
     -------
     (1D array of size of f) = derivative(dx, f)
 
-    comments :
-    --------
-    Use finite differences to compute derivative with 4-th order error
+    Use finite differences to compute derivative with 5-th order error
+    for a equally spaced discretized function, with a grid step dx for
+    a periodic function.
     """
     n = f.size;
     dfdx = np.zeros(n, dtype=np.complex128);
@@ -57,7 +57,16 @@ def derivative(dx, f):
 
 
 
-def centered_derivative(dx, f):
+def cderivative(dx, f):
+    """
+    CALLING :
+    -------
+    (1D array of size of f) = cderivative(dx, f)
+
+    Use finite differences to compute derivative with 3-th order error
+    for a equally spaced discretized function, with a grid step dx for
+    a periodic function.
+    """
     n = f.size;
     dfdx = np.zeros(n,dtype=np.complex128)
 
@@ -78,9 +87,8 @@ def dxFFT(dx, f):
     -------
     (1D array of size of f) = derivative(dx, f)
 
-    comments :
-    --------
-    Use Fourier-Transforms to compute derivative
+    Use Fourier-Transforms to compute derivative for periodic functions
+    f[-1] = f[0].
     """
     n = f.size - 1;
     k = 2 * pi * np.fft.fftfreq(n, dx);
@@ -96,11 +104,13 @@ def dxFFT(dx, f):
 
 def L2normFFT(dx, func, norm = 1):
     """
-    Normalized according to L2 norm in the momentum space.
-
-    CALLING
+    CALLING :
     -------
     freq_vector , fft_of_func = L2normFFT(dx,func,norm);
+
+    Compute the FFT of a function and return the frequency   vector and
+    the transformed function ordered, normalized by L2 norm, by default
+    to unit.
     """
 
     n = func.size;
@@ -116,7 +126,7 @@ def L2normFFT(dx, func, norm = 1):
     k = np.concatenate( [ k[j+1:] , k[:j+1] ] );
     fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
 
-    return k, fftfunc * norm / np.sqrt(simps(abs(fftfunc)**2,dx=dk));
+    return k, fftfunc * np.sqrt(norm / simps(abs(fftfunc)**2,dx=dk));
 
 
 
@@ -124,12 +134,12 @@ def L2normFFT(dx, func, norm = 1):
 
 def DnormFFT(dx, func, norm = 1):
     """
-    Normalized Fourier 'Series' for periodic functions with
-    non-vanishing boundaries.
-
     CALLING
     -------
     freq_vector , fft_of_func = L2normFFT(dx,func,norm);
+
+    Compute the FFT of a function and return the frequency vector and
+    the transformed function ordered, normalized by Euclidean norm.
     """
 
     n = func.size;
@@ -144,7 +154,7 @@ def DnormFFT(dx, func, norm = 1):
     k = np.concatenate( [ k[j+1:] , k[:j+1] ] );
     fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
 
-    return k, fftfunc / sqrt((abs(fftfunc)**2).sum());
+    return k, fftfunc / sqrt(norm / (abs(fftfunc)**2).sum());
 
 
 
@@ -204,7 +214,7 @@ def IndexToFock(k, N, M, v):
             N = N - 1;
             k = x;
             x = x - NC(N, m);
-    for i in prange(N, 0, -1): v[0] = v[0] + 1;
+    v[0] = v[0] + N;
 
 
 
@@ -216,7 +226,7 @@ def FockToIndex(N, M, NCmat, v):
     """
     Calling: (int) = FockToIndex(N, M, NCmat, v)
     --------
-    k = Index of Fock Configuration Coeficient of v
+    Return Index of Fock Configuration Coeficient of v
 
     arguments:
     ----------
@@ -950,7 +960,7 @@ def GetGasMomentumDensity(NOocc, NO, dx, bound='zero'):
     """
     CALLING
     -------
-    ( 1D array freq, 1D array density ) = GetGasDensity(NOocc, NO)
+    ( 1D array freq, 1D array density ) = GetGasMomentumDensity(NOocc, NO)
 
     arguments
     ---------
@@ -969,23 +979,25 @@ def GetGasMomentumDensity(NOocc, NO, dx, bound='zero'):
     if (bound == 'zero') :
 
         extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+        NOfft = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
 
         for i in range(Morb):
             l = int( (gf - 1) / 2 );
             k = int( (gf + 1) / 2 );
             extNO[i,l*Mpos:k*Mpos] = NO[i];
 
+        for i in range(Morb): k, NOfft[i] = L2normFFT(dx, extNO[i]);
+
     else :
 
         extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+        NOfft = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
 
         for i in range(Morb):
             for k in range(gf):
                 extNO[i,k*(Mpos-1):(k+1)*(Mpos-1)] = NO[i,:-1];
 
-    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
-
-    for i in range(Morb): k, NOfft[i] = DnormFFT(dx, extNO[i]);
+        for i in range(Morb): k, NOfft[i] = DnormFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
@@ -1067,12 +1079,17 @@ def GetSpatialOBdensity(NOoccu, NO):
 def OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
     """ Inner loop of GetOBcorrelation """
     OrbSum = 0.0;
+
     for i in prange(Mpos):
         for j in prange(Mpos):
             OrbSum = 0.0;
             for k in prange(Morb):
                 OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
-            g[i,j] = abs(OrbSum) / sqrt(GasDen[i] * GasDen[j]);
+
+            if (GasDen[i] * GasDen[j] < 1E-30) :
+                g[i,j] = 0;
+            else :
+                g[i,j] = abs(OrbSum) / sqrt(GasDen[i] * GasDen[j]);
 
 
 
@@ -1107,7 +1124,7 @@ def GetOBcorrelation(NOocc, NO):
 
 
 
-def GetOB_momentum_correlation(NOocc, NO, dx, bound='zero'):
+def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
     """
     CALLING
     -------
@@ -1126,9 +1143,6 @@ def GetOB_momentum_correlation(NOocc, NO, dx, bound='zero'):
     g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(Xj) * Den(Xi) )
     """
 
-    Morb = NO.shape[0];
-    Mpos = NO.shape[1];
-
     # grid factor to extent the domain without changing the
     # position grid step, to improve resolution in momentum
     # space(reduce the momentum grid step).
@@ -1142,22 +1156,26 @@ def GetOB_momentum_correlation(NOocc, NO, dx, bound='zero'):
 
         extNO = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
 
+        NOfft = np.zeros([Morb,gf*Mpos],dtype=np.complex128);
+
         for i in range(Morb):
             l = int( (gf - 1) / 2 );
             k = int( (gf + 1) / 2 );
             extNO[i,l*Mpos:k*Mpos] = NO[i];
 
+        for i in range(Morb): k, NOfft[i] = L2normFFT(dx, extNO[i]);
+
     else :
 
         extNO = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
+
+        NOfft = np.zeros([Morb,gf*(Mpos-1)],dtype=np.complex128);
 
         for i in range(Morb):
             for k in range(gf):
                 extNO[i,k*(Mpos-1):(k+1)*(Mpos-1)] = NO[i,:-1];
 
-    NOfft = np.zeros(extNO.shape,dtype=np.complex128);
-
-    for i in range(Morb): k, NOfft[i] = L2normFFT(dx, extNO[i]);
+        for i in range(Morb): k, NOfft[i] = DnormFFT(dx, extNO[i]);
 
     denfft = GetGasDensity(NOocc, NOfft);
 
