@@ -273,7 +273,7 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
         nc = NCmat[N][M],
         * v = (int *) malloc(M * sizeof(int));
     
-    for (i = 0; i < nc * M * M; i++) Map[i] = -1;
+    for (i = 0; i < nc * M * M; i++) Map[i] = 0;
 
     for (i = 0; i < nc; i++)
     {
@@ -481,7 +481,8 @@ void OBrho_X(int N, int M, int * Map1, int ** NCmat, int ** IF, Carray C, Cmatri
         l,
         q,
         nc,
-        * v;
+        vl,
+        vk;
 
     double
         mod2;
@@ -523,26 +524,25 @@ void OBrho_X(int N, int M, int * Map1, int ** NCmat, int ** IF, Carray C, Cmatri
             RHO = 0;
 
             #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) \
-            private(i, j, q, v) reduction(+:RHO)
+            private(i, j, q, vk, vl) reduction(+:RHO)
             {
-                v = (int *) malloc(M * sizeof(int));
 
                 #pragma omp for schedule(static)
                 for (i = 0; i < nc; i++)
                 {
                     j = Map1[i + k * nc + l * M * nc];
                     if (j < 0) continue;
-                    for (q = 0; q < M; q++) v[q] = IF[i][q];
+                    vk = IF[i][k];
+                    vl = IF[i][l];
                     /* if (IF[i][k] < 1) continue;
                     v[k] -= 1;
                     v[l] += 1;
                     j = FockToIndex(N, M, NCmat, v);
                     v[k] += 1;
                     v[l] -= 1; */
-                    RHO += conj(C[i]) * C[j] * sqrt((double)(v[l]+1) * v[k]);
+                    RHO += conj(C[i]) * C[j] * sqrt((double)(vl+1) * vk);
                 }
 
-                free(v); // Each thread release its vector
             }
 
             rho[k][l] = RHO;
@@ -1104,6 +1104,10 @@ void TBrho_X(int N, int M, int * Map1, int * Map2, int ** NCmat, int ** IF, Carr
         nc,
         M2,
         M3,
+        vk,
+        vl,
+        vq,
+        vs,
         * v;
     
     double
@@ -1227,7 +1231,6 @@ void TBrho_X(int N, int M, int * Map1, int * Map2, int ** NCmat, int ** IF, Carr
                 for (i = 0; i < nc; i++)
                 {
                     j = i + k*nc + l*M*nc;
-                    if (Map1[j] < 0) continue;
                     j = Map1[j];
                     for (t = 0; t < M; t++) v[t] = IF[i][t];
                     sqrtOf = (v[k] - 1) * sqrt((double)v[k] * (v[l] + 1));
@@ -1541,20 +1544,18 @@ void TBrho_X(int N, int M, int * Map1, int * Map2, int ** NCmat, int ** IF, Carr
     ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
-        for (s = 0; s < M; s++)
+        for (s = k + 1; s < M; s++)
         {
-            if (s == k) continue;
-
             for (q = 0; q < M; q++)
             {
                 if (q == s || q == k) continue;
 
-                for (l = 0; l < M; l ++)
+                for (l = q + 1; l < M; l ++)
                 {
 
                     RHO = 0;
 
-                    if (l == k || l == s || l == q) continue;
+                    if (l == k || l == s) continue;
 
                     #pragma omp parallel private(i,j,t,sqrtOf,v) \
                     reduction(+:RHO)
@@ -1574,6 +1575,9 @@ void TBrho_X(int N, int M, int * Map1, int * Map2, int ** NCmat, int ** IF, Carr
                     }
 
                     rho[k + s * M + q * M2 + l * M3] = RHO;
+                    rho[s + k * M + q * M2 + l * M3] = RHO;
+                    rho[k + s * M + l * M2 + q * M3] = RHO;
+                    rho[s + k * M + l * M2 + q * M3] = RHO;
                 }   // Finish l loop
             }       // Finish q loop
         }           // Finish s loop
@@ -1610,6 +1614,7 @@ int main(int argc, char * argv[])
         ** NCmat;
 
     double
+        sum,
         start,
         time_used;
 
@@ -1653,7 +1658,13 @@ int main(int argc, char * argv[])
     IF = MountFocks(Npar,Morb,NCmat);
 
     C = (doublec *) malloc(nc * sizeof(doublec));
-    for (i = 0; i < nc; i++) C[i] = sin( 30 * ((double) i) / nc);
+    sum = 0;
+    for (i = 0; i < nc; i++)
+    {
+        C[i] = sin( 30 * ((double) i) / nc);
+        sum = sum + creal(C[i]) * creal(C[i]) +  cimag(C[i]) * cimag(C[i]);
+    }
+    for (i = 0; i < nc; i++) C[i] = C[i] / sqrt(sum);
 
     Map1 = (int *) malloc(nc * Morb * Morb * sizeof(int));
     JumpMapping(Npar,Morb,NCmat,IF,Map1);
@@ -1681,7 +1692,7 @@ int main(int argc, char * argv[])
         printf("\n%8d  [", i);
         for (j = 0; j < Morb - 1; j++) printf(" %3d |", IF[i][j]);
         printf(" %3d ]", IF[i][Morb-1]);
-        printf("  %5d ", Map1[i + 1*nc + (Morb-1)*Morb*nc]);
+        //printf("  %5d ", Map1[i + 1*nc + (Morb-1)*Morb*nc]);
         printf(" || C(%d) = ",FockToIndex(Npar,Morb,NCmat,IF[i]));
         printf("%.1lf + %.1lfi", creal(C[i]), cimag(C[i]));
     }
@@ -1691,12 +1702,12 @@ int main(int argc, char * argv[])
 
 
     start = omp_get_wtime();
-    for (i = 0; i < 100; i++) OBrho(Npar,Morb,NCmat,IF,C,rho1);
+    for (i = 0; i < 10; i++) OBrho(Npar,Morb,NCmat,IF,C,rho1);
     time_used = (double) (omp_get_wtime() - start) / 10;
     printf("\n\nTime to setup rho1 : %.1lfms", time_used * 1000);
 
     start = omp_get_wtime();
-    for (i = 0; i < 100; i++) OBrho_X(Npar,Morb,Map1,NCmat,IF,C,rho1_X);
+    for (i = 0; i < 10; i++) OBrho_X(Npar,Morb,Map1,NCmat,IF,C,rho1_X);
     time_used = (double) (omp_get_wtime() - start) / 10;
     printf("\n\nTime to setup rho1_X : %.1lfms", time_used * 1000);
 
@@ -1710,8 +1721,10 @@ int main(int argc, char * argv[])
     time_used = (double) (omp_get_wtime() - start) / 5;
     printf("\n\nTime to setup rho2_X : %.1lfms", time_used * 1000);
 
-    // carr_txt("rho2-9-5.dat",Morb*Morb*Morb*Morb,rho2);
-    // cmat_txt("rho1-9-5.dat",Morb,Morb,rho1);
+    carr_txt("rho2.dat",Morb*Morb*Morb*Morb,rho2);
+    carr_txt("rho2_X.dat",Morb*Morb*Morb*Morb,rho2_X);
+    cmat_txt("rho1.dat",Morb,Morb,rho1);
+    cmat_txt("rho1_X.dat",Morb,Morb,rho1_X);
 
     free(rho2);
     free(C);
