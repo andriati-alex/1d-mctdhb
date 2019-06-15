@@ -2592,7 +2592,7 @@ void applyHconf_X (int N, int M, int * Map1, int ** Map2, int ** NCmat,
 int main(int argc, char * argv[])
 {
 
-    omp_set_num_threads(2);
+    omp_set_num_threads(omp_get_max_threads() / 2);
 
 
     int
@@ -2702,23 +2702,16 @@ int main(int argc, char * argv[])
 
     printf("\n\n=============================================\n\n");
 
+    /*
     printf("All configurations :\n");
     for (i = 0; i < nc; i++)
     {
         printf("\n%8d  [", i);
         for (j = 0; j < Morb - 1; j++) printf(" %3d |", IF[i][j]);
         printf(" %3d ]", IF[i][Morb-1]);
-        printf("  %5d |", Map1[i + 1*nc + (Morb-1)*Morb*nc]);
-
-        chunk = 0;
-        for (j = 0; j < 2; j++)
-        {
-            if (IF[i][j] > 1) chunk++;
-        }
-        ind = chunk * Morb * Morb + 0 + 3 * Morb;
-        printf("  %5d ", Map2[i][ind]);
-        // printf(" || C(%d) = ",FockToIndex(Npar,Morb,NCmat,IF[i]));
-        // printf("%.1lf + %.1lfi", creal(C[i]), cimag(C[i]));
+        printf("  %5d ", Map1[i + 0*nc + (Morb-1)*Morb*nc]);
+        printf(" || C(%d) = ",FockToIndex(Npar,Morb,NCmat,IF[i]));
+        printf("%.1lf + %.1lfi", creal(C[i]), cimag(C[i]));
     }
 
     printf("\n\ncheck");
@@ -2741,19 +2734,19 @@ int main(int argc, char * argv[])
             }
         }
     }
+    */
 
 
 
 
-/*
     start = omp_get_wtime();
-    for (i = 0; i < 10; i++) OBrho(Npar,Morb,NCmat,IF,C,rho1);
-    time_used = (double) (omp_get_wtime() - start) / 10;
+    for (i = 0; i < 50; i++) OBrho(Npar,Morb,NCmat,IF,C,rho1);
+    time_used = (double) (omp_get_wtime() - start) / 50;
     printf("\n\nTime to setup rho1 : %.1lfms", time_used * 1000);
 
     start = omp_get_wtime();
-    for (i = 0; i < 10; i++) OBrho_X(Npar,Morb,Map1,NCmat,IF,C,rho1_X);
-    time_used = (double) (omp_get_wtime() - start) / 10;
+    for (i = 0; i < 50; i++) OBrho_X(Npar,Morb,Map1,NCmat,IF,C,rho1_X);
+    time_used = (double) (omp_get_wtime() - start) / 50;
     printf("\n\nTime to setup rho1_X : %.1lfms", time_used * 1000);
 
     start = omp_get_wtime();
@@ -2770,7 +2763,6 @@ int main(int argc, char * argv[])
     carr_txt("rho2_X.dat",Morb*Morb*Morb*Morb,rho2_X);
     cmat_txt("rho1.dat",Morb,Morb,rho1);
     cmat_txt("rho1_X.dat",Morb,Morb,rho1_X);
-*/
 
     start = omp_get_wtime();
     for (i = 0; i < 5; i++)
@@ -2792,10 +2784,25 @@ int main(int argc, char * argv[])
     carr_txt("C_X.dat",nc,out_X);
 
     free(rho2);
+    free(rho2_X);
+    free(Hint);
     free(C);
+    free(out);
+    free(out_X);
+    free(Map1);
+
+    for(i = 0; i < Morb; i++) free(Ho[i]);
+    free(Ho);
+    for(i = 0; i < Morb; i++) free(rho1[i]);
+    free(rho1);
+    for(i = 0; i < Morb; i++) free(rho1_X[i]);
+    free(rho1_X);
 
     for (i = 0; i < nc; i++) free(IF[i]);
     free(IF);
+
+    for (i = 0; i < nc; i++) free(Map2[i]);
+    free(Map2);
 
     for (i = 0; i < Npar + 1; i++) free(NCmat[i]);
     free(NCmat);

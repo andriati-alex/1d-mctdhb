@@ -1082,11 +1082,32 @@ def OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
 
     for i in prange(Mpos):
         for j in prange(Mpos):
+
             OrbSum = 0.0;
             for k in prange(Morb):
                 OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
 
-            if (GasDen[i] * GasDen[j] < 1E-30) :
+            g[i,j] = abs(OrbSum) / sqrt(GasDen[i] * GasDen[j]);
+
+
+
+
+
+@jit( (int32, int32, float64[:], complex128[:,:], float64[:], float64[:,:]),
+      nopython=True, nogil=True)
+
+def AvoidZero_OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
+    """ Inner loop of GetOB_momentum_corr """
+    OrbSum = 0.0;
+
+    for i in prange(Mpos):
+        for j in prange(Mpos):
+
+            OrbSum = 0.0;
+            for k in prange(Morb):
+                OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];]
+
+            if (GasDen[i] * GasDen[j] < 1E-28) :
                 g[i,j] = 0;
             else :
                 g[i,j] = abs(OrbSum) / sqrt(GasDen[i] * GasDen[j]);
@@ -1112,6 +1133,7 @@ def GetOBcorrelation(NOocc, NO):
     the matrix returned (let me call g) represent:
 
     g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(Xj) * Den(Xi) )
+    Where Ψ†(Xj) creates a particle at position Xj.
     """
     GasDensity = np.matmul(NOocc, abs(NO)**2);
     Morb = NO.shape[0];
@@ -1128,19 +1150,22 @@ def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
     """
     CALLING
     -------
-    ( 2d array [M,M] ) = GetOBcorrelation(occu, NO)
+    freq, 2D_corr_img = GetOB_momentum_corr(occu,NO,dx,bound='zero')
 
     arguments
     ---------
     NOoccu : occu[k] has # of particles occupying NO[k,:] orbital
     NO     : [Morb,M] matrix with each row being a natural orbital
+    dx     : grid position spacing
+    bound  : (optional) 'zero' for trapped systems
 
     comments
     --------
-    given two discretized positions Xi and Xj then the entries of
+    given two discretized momenta Ki and Kj then the entries of
     the matrix returned (let me call g) represent:
 
-    g[i,j] = | <  Ψ†(Xj) Ψ(Xi)  > |  /  sqrt( Den(Xj) * Den(Xi) )
+    g[i,j] = | <  φ†(Kj) φ(Ki)  > |  /  sqrt( Den(Kj) * Den(Ki) )
+    where φ† creates a particle with certain momenta
     """
 
     # grid factor to extent the domain without changing the
@@ -1180,7 +1205,7 @@ def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
     denfft = GetGasDensity(NOocc, NOfft);
 
     g = np.empty( [k.size , k.size], dtype=np.float64 );
-    OBcorre(Morb, k.size, NOocc, NOfft, denfft, g);
+    AvoidZero_OBcorre(Morb, k.size, NOocc, NOfft, denfft, g);
 
     return k, g, denfft;
 
@@ -1191,6 +1216,10 @@ def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
 @jit( (int32, int32, complex128[:], complex128[:,:], complex128[:,:]),
       nopython=False, nogil=True)
 def MutualProb(Morb,Mpos,rho2,S,mutprob):
+    """
+    Auxiliar function to GetTBCorrelation, computes the contraction
+    of 2-body density matrix with the orbitals.
+    """
 
     M  = Morb;
     M2 = Morb * Morb;
@@ -1253,7 +1282,7 @@ def GetTBcorrelation(Npar, Morb, C, S):
 
     for i in range(Mpos):
         for j in range(Mpos):
-            g2[i,j] = mutprob[i,j];
+            g2[i,j] = mutprob[i,j] / den[i] / den[j] - 1;
 
     return g2;
 
@@ -1286,6 +1315,8 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
     # position grid step, to improve resolution in momentum
     # space(reduce the momentum grid step).
     # Shall be an odd number in order to keep  the symmetry
+    # After the call of this function, it may be  desirable
+    # apply a cutoff for high momenta. See function below.
 
     gf = 7;
 
@@ -1328,7 +1359,7 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
 
     denfft = GetGasDensity(NOocc, NOfft);
 
-    rho2 = GetTBrho(Npar, Morb, C) / Npar / (Npar - 1);
+    rho2 = GetTBrho(Npar,Morb,C) / Npar / (Npar - 1);
     mutprob = np.zeros([k.size,k.size], dtype=np.complex128);
     MutualProb(Morb,k.size,rho2,Sfft,mutprob);
 
@@ -1344,7 +1375,13 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
 
 
 def Cutoffmomentum(k,g2,denfft):
+    """
+    Calling
+    freq, corr_img = Cutoffmomentum(k,g2,denfft)
 
+    Given the correlation function as a matrix for discretized
+    values, apply a cutoff for momentum with vanishing density
+    """
     likely = denfft.max();
 
     i = 0;
