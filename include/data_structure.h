@@ -27,7 +27,9 @@ struct _EquationDataPkg
         Morb,     // # of orbitals
         Npar,     // # of particles
         ** IF,    // IF[i] point to the occupation number vetor of C[i]
-        ** NCmat; // NCmat[n][m] # with n particles / m orbitals
+        ** NCmat, // NCmat[n][m] # with n particles / m orbitals
+        * map1,   // Mapping for a transition among the orbitals
+        ** map2;
 
     double
         dx,       // space step

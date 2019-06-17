@@ -114,7 +114,7 @@ int FockToIndex(int N, int M, int ** NCmat, int * v);
 
 
 
-void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map);
+int * JumpMapping(int N, int M, int ** NCmat, int ** IF);
 /* ******************************************************************
  *
  * Make a mapping between the coeficient i to the coeficient that
@@ -136,7 +136,16 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map);
 
 
 
-void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
+int ** AllocTwiceMap(int N, int M, int ** IF);
+int ** TwiceJumpMapping(int N, int M, int ** NCmat, int ** IF);
+
+
+
+
+
+
+void OBrho(int N, int M, int * Map, int ** NCmat, int ** IF,
+     Carray C, Cmatrix rho);
 /* Construct the one-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the occupation number basis **/
 
@@ -144,7 +153,8 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho);
 
 
 
-void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
+void TBrho(int N, int M, int * Map1, int ** Map2, int ** NCmat, int ** IF,
+     Carray C, Carray rho);
 /* Construct the two-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the  occupation  number  basis.
  * The storage in memory follow a linearization as follows:
@@ -154,8 +164,8 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho);
 
 
 
-void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
-     Carray Hint, Carray out);
+void applyHconf (int N, int M, int * Map1, int ** Map2, int ** NCmat,
+     int ** IF, Carray C, Cmatrix Ho, Carray Hint, Carray out);
 /* Give the state coefficients of a state (out) after apply the many-body
  * Hamiltonian on a state whose  coeficients  in  the  occupation  number
  * basis are C[i]. Ho contains the matrix elements of  one-body  operator

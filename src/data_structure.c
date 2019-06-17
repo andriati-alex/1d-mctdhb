@@ -34,6 +34,8 @@ EqDataPkg PackEqData(int Npar,int Morb,int Mpos,double xi,double xf,
     MC->nc = NC(Npar,Morb);
     MC->NCmat = MountNCmat(Npar, Morb);
     MC->IF = MountFocks(Npar, Morb, MC->NCmat);
+    MC->map1 = JumpMapping(Npar, Morb, MC->NCmat, MC->IF);
+    MC->map2 = TwiceJumpMapping(Npar, Morb, MC->NCmat, MC->IF);
 
     MC->p[0] = p[0];
     MC->p[1] = p[1];
@@ -122,6 +124,11 @@ void ReleaseEqDataPkg (EqDataPkg MC)
 
     for (i = 0; i <= MC->Npar; i++) free(MC->NCmat[i]);
     free(MC->NCmat);
+
+    for (i = 0; i < MC->nc; i++) free(MC->map2[i]);
+    free(MC->map2);
+
+    free(MC->map1);
 
     free(MC->V);
     free(MC);

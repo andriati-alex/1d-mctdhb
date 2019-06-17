@@ -24,7 +24,8 @@
 
 
 int fac(int n)
-{   // return n !
+{
+    // return n !
     int n_fac = 1;
     for (int i = 1; i < n; i++) n_fac = n_fac * (i + 1);
     return n_fac;
@@ -35,7 +36,8 @@ int fac(int n)
 
 
 int NC(int N, int M)
-{   // Return # of possible configurations of N particles in M orbitals
+{
+    // Return # of possible configurations of N particles in M orbitals
     int i, n = 1;
     if  (M > N)
     {
@@ -54,16 +56,34 @@ int NC(int N, int M)
 
 
 int ** MountNCmat(int N, int M)
-{   // Matrix of all possible configurations with
-    // # particles < N and M < # of orbitals
+{
+
+/* Matrix of all possible configurations with lines enumerating
+ * the number of particles and columns the number of orbitals.
+ * The entry in line 'n' and column 'm' is equal to NC(n,m)
+**/
+
     int i,
         j;
 
     int ** NCmat = (int ** ) malloc((N + 1) * sizeof(int * ));
 
+    if (NCmat == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail for NCmat\n\n");
+        exit(EXIT_FAILURE);
+    }
+
     for (i = 0; i < N + 1; i++)
     {
         NCmat[i] = (int * ) malloc((M + 1) * sizeof(int));
+
+        if (NCmat[i] == NULL)
+        {
+            printf("\n\n\n\tMEMORY ERROR : malloc fail in line %d", i);
+            printf(" of NCmat\n\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     for (i = 0; i < N + 1; i++)
@@ -81,14 +101,33 @@ int ** MountNCmat(int N, int M)
 
 
 int ** MountFocks(int N, int M, int ** NCmat)
-{   // All possible occupation vectors organized in rows
+{
+
+/* All possible occupation vectors organized in rows, where the
+ * rows enumerate a possible configuration(Fock state)
+**/
+
     int k;
 
     int ** ItoFock = (int **) malloc(NC(N, M) * sizeof(int *));
 
+    if (ItoFock == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail for IndexFock states\n\n");
+        exit(EXIT_FAILURE);
+    }
+
     for (k = 0; k < NC(N, M); k++)
     {
         ItoFock[k] = (int * ) malloc(M * sizeof(int));
+
+        if (ItoFock == NULL)
+        {
+            printf("\n\n\n\tMEMORY ERROR : malloc fail for the %d-th",k);
+            printf(" Fock occupation vector\n\n");
+            exit(EXIT_FAILURE);
+        }
+
         IndexToFock(k, N, M, NCmat, ItoFock[k]);
     }
 
@@ -101,20 +140,34 @@ int ** MountFocks(int N, int M, int ** NCmat)
 
 void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
 {
-    int x;
 
-    int  i,
-         m = M - 1;
+/* Function to map a index to a configuration represented by a Fock state.
+ * Given the index 'k', it will populate some orbital 'm' if it is greater
+ * than all possible combinations over 'm-1' left behind.  After  add  one
+ * particle in the orbital 'm' it is subtracted by NC(N,m-1),  the  number
+ * of particle to be configured is reduced by one, and it  check  again if
+ * the remaining value of 'k' is greater than the number  of  combinations
+ * needed to populate the orbital 'm', and in  negative  case  proceed  to
+ * populate orbital 'm-1'.
+ */
+
+    int
+        i,
+        x,
+        m;
+
+    m = M - 1;
 
     for (i = 0; i < M; i++) v[i] = 0;
 
-    /* -------------------------------------------------------------
-     * Put the particles in orbitals while has combinations to spend
-    ----------------------------------------------------------------- */
+    // Put the particles in orbitals while has combinations to spend
+
     while ( k > 0 )
     {
         while ( k - NCmat[N][m] < 0 ) m = m - 1;
+
         x = k - NCmat[N][m];
+
         while ( x >= 0 )
         {
             v[m] = v[m] + 1; // One more particle in orbital m
@@ -124,9 +177,8 @@ void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
         }
     }
 
-    /* -------------------------------------------------------------
-     * Put the particles in orbitals while has combinations to spend
-    ----------------------------------------------------------------- */
+    // As the index vanish put the rest of particles in the first orbital
+
     for (i = N; i > 0; i--) v[0] = v[0] + 1;
 }
 
@@ -136,20 +188,31 @@ void IndexToFock(int k, int N, int M, int ** NCmat, int * v)
 
 int FockToIndex(int N, int M, int ** NCmat, int * v)
 {
-    int i, n;
-    int k = 0;
 
-    /* ---------------------------------------------------
-     * Empty one by one orbital starting from the last one
-    ------------------------------------------------------ */
+/* Function to inverse map, configuration to index. It empty orbital by
+ * orbital adding the number of configurations needed to put each
+ * particle in the orbitals.
+ *
+ */
+
+    int
+        i,
+        n,
+        k;
+
+    k = 0;
+
+    // Empty one by one orbital starting from the last one
+
     for (i = M - 1; i > 0; i--)
     {
-        n = v[i]; // Number of particles in the orbital
+        n = v[i]; // Number of particles in the orbital being drained out
+
         while (n > 0)
         {
             k = k + NCmat[N][i]; // number of combinations needed
-            N = N - 1;           // decrease the number of particles
-            n = n - 1;
+            N = N - 1;           // decrease total number of particles
+            n = n - 1;           // decrease in current orbital
         }
     }
 
@@ -160,23 +223,59 @@ int FockToIndex(int N, int M, int ** NCmat, int * v)
 
 
 
-void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
+int * JumpMapping(int N, int M, int ** NCmat, int ** IF)
 {
+
+/* Map a index of a configuration to another with a particle that
+ * 'jumped' from a orbital 'k' to a orbital 'l' in a vector. thus
+ * return a vector of integers of size NC(N,M) * M * M. Therefore
+ * the element at index 'i + nc * k + nc * M * l' has  the  index
+ * of a configuration that has a particle less  in  'k'  and  one
+ * more in 'l'.
+ */
+
     int i,
         q,
         k,
         l,
-        nc = NCmat[N][M],
-        * v = (int *) malloc(M * sizeof(int));
+        nc,
+        * v,
+        * Map;
+
+    nc = NCmat[N][M];
+    
+    v = (int *) malloc(M * sizeof(int));
+
+    if (v == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail in JumpMapping\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    Map = (int *) malloc(M * M * nc * sizeof(int));
+
+    if (Map == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail in JumpMapping\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < nc * M * M; i++) Map[i] = 0;
 
     for (i = 0; i < nc; i++)
-    {   // Copy the occupation vector from C[i] coeff.
+    {
+        // Copy the occupation vector from C[i] coefficient
+
         for (q = 0; q < M; q++) v[q] = IF[i][q];
+
         for (k = 0; k < M; k++)
-        {   // Take one particle from k state
+        {
+            // Take one particle from k state if it is populated
             if (v[k] < 1) continue;
+
             for (l = 0; l < M; l++)
-            {   // Put one particle in l state
+            {
+                // Put one particle in l state
                 v[k] -= 1;
                 v[l] += 1;
                 Map[i + k * nc + l * M * nc] = FockToIndex(N, M, NCmat, v);
@@ -187,6 +286,132 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
     }
 
     free(v);
+
+    return Map;
+}
+
+
+
+
+
+int ** AllocTwiceMap(int N, int M, int ** IF)
+{
+
+    int
+        i,
+        k,
+        nc,
+        chunks;
+
+    int
+        ** Map;
+
+    nc = NC(N,M);
+
+    Map = (int **) malloc(nc * sizeof(int *));
+
+    if (Map == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail in AllocTwiceMap\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+
+    for (i = 0; i < nc; i++)
+    {
+        chunks = 0;
+
+        for (k = 0; k < M; k++) { if (IF[i][k] > 1) chunks++; }
+
+        Map[i] = (int *) malloc((chunks + 1) * M*M * sizeof(int));
+
+        if (Map[i] == NULL)
+        {
+            printf("\n\n\n\tMEMORY ERROR : malloc fail in JumpMapping\n\n");
+            exit(EXIT_FAILURE);
+        }
+
+        for (k = 0; k < (chunks + 1) * M*M; k++) Map[i][k] = 0;
+    }
+
+    return Map;
+}
+
+
+
+
+
+int ** TwiceJumpMapping(int N, int M, int ** NCmat, int ** IF)
+{
+
+/* A mapping for a double jump from some orbital to other two
+ * (not necessarily the same). To avoid massive memory  usage
+ * it uses a matrix with the rows enumerating the Fock states
+ * whereas each row has a variable number of columns, because
+ * starting from the first orbital it checks if it is possible
+ * to take out two particles(it needs  an  occupation  higher
+ * than 2), and in positive case there is  M^2  possibilities
+ * to relocate these particles. For every positive case found
+ * going through the orbitals it configure chunks of M^2
+ */
+
+    int i,
+        q,
+        k,
+        s,
+        l,
+        nc,
+        M2,
+        M3,
+        M4,
+        ind,
+        chunks,
+        * v,
+        ** Map;
+
+    M2 = M * M;
+    M3 = M * M2;
+    M4 = M * M3;
+    nc = NCmat[N][M];
+
+    v = (int * ) malloc( M * sizeof(int) );
+
+    Map = AllocTwiceMap(N,M,IF);
+
+    for (i = 0; i < nc; i++)
+    {
+        // Copy the occupation vector from C[i] coeff.
+        for (q = 0; q < M; q++) v[q] = IF[i][q];
+
+        chunks = 0;
+
+        for (k = 0; k < M; k++)
+        {
+            // Take one particle from k state
+            if (v[k] < 2) continue;
+
+            for (l = 0; l < M; l++)
+            {
+                // put one particle in l state
+                for (q = 0; q < M; q++)
+                {
+                    // Put one particle in q state
+                    v[k] -= 2;
+                    v[l] += 1;
+                    v[q] += 1;
+                    Map[i][chunks*M2 + l + q*M] = FockToIndex(N, M, NCmat, v);
+                    v[k] += 2;
+                    v[l] -= 1;
+                    v[q] -= 1;
+                }
+            }
+            chunks++;
+        }
+    }
+
+    free(v);
+
+    return Map;
 }
 
 
@@ -216,7 +441,8 @@ void JumpMapping(int N, int M, int ** NCmat, int ** IF, int * Map)
 
 
 
-void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
+void OBrho(int N, int M, int * Map, int ** NCmat, int ** IF,
+     Carray C, Cmatrix rho)
 {
 
     int i,
@@ -225,7 +451,8 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
         l,
         q,
         nc,
-        * v;
+        vk,
+        vl;
 
     double
         mod2;
@@ -239,7 +466,6 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
     {
 
         // Diagonal elements
-        // ------------------------------------------------------------------
 
         RHO = 0;
 
@@ -255,42 +481,34 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
         }
 
         rho[k][k] = RHO;
-        // ------------------------------------------------------------------
 
 
 
         // Off-diagonal elements (different terms from operators)
-        // ------------------------------------------------------------------
+
         for (l = k + 1; l < M; l++)
         {
 
             RHO = 0;
 
-            #pragma omp parallel shared(l,k,M,N,nc,C,NCmat,IF) \
-            private(i, j, q, v) reduction(+:RHO)
+            #pragma omp parallel private(i, j, vk, vl) reduction(+:RHO)
             {
-                v = (int *) malloc(M * sizeof(int));
-
                 #pragma omp for schedule(static)
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 1) continue;
-                    for (q = 0; q < M; q++) v[q] = IF[i][q];
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
-                    v[k] += 1;
-                    v[l] -= 1;
-                    RHO += conj(C[i]) * C[j] * sqrt((double)(v[l]+1) * v[k]);
-                }
+                    vk = IF[i][k];
+                    if (vk < 1) continue;
+                    vl = IF[i][l];
 
-                free(v); // Each thread release its vector
+                    j = Map[i + k * nc + l * M * nc];
+
+                    RHO += conj(C[i]) * C[j] * sqrt((double)(vl+1) * vk);
+                }
             }
 
             rho[k][l] = RHO;
             rho[l][k] = conj(RHO); // hermiticity
         }
-        // ------------------------------------------------------------------
     }
 
 }
@@ -322,10 +540,11 @@ void OBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix rho)
 
 
 
-void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
+void TBrho(int N, int M, int * Map1, int ** Map2, int ** NCmat, int ** IF,
+     Carray C, Carray rho)
 {
 
-    int i, // int indices to number coeficients
+    int i,
         j,
         k,
         s,
@@ -335,6 +554,11 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
         nc,
         M2,
         M3,
+        vk,
+        vs,
+        vl,
+        vq,
+        chunks,
         * v;
     
     double
@@ -414,23 +638,26 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
             RHO = 0;
 
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+            #pragma omp parallel private(i,j,sqrtOf,vk,vq,chunks) \
+            reduction(+:RHO)
             {
-                v = (int *) malloc(M * sizeof(int));
-
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 2) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = sqrt((double)(v[k]-1)*v[k]*(v[q]+1)*(v[q]+2));
-                    v[k] -= 2;
-                    v[q] += 2;
-                    j = FockToIndex(N, M, NCmat, v);
+                    vk = IF[i][k];
+                    vq = IF[i][q];
+                    if (vk < 2) continue;
+
+                    chunks = 0;
+                    for (j = 0; j < k; j++)
+                    {
+                        if (IF[i][j] > 1) chunks++;
+                    }
+                    j = Map2[i][chunks * M * M + q + q * M];
+
+                    sqrtOf = sqrt((double)(vk-1)*vk*(vq+1)*(vq+2));
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
-
-                free(v);
             }
 
             // Use 2-index-'hermiticity'
@@ -451,23 +678,20 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
             RHO = 0;
 
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+            #pragma omp parallel private(i,j,sqrtOf,vk,vl) reduction(+:RHO)
             {
-                v = (int *) malloc(M * sizeof(int));
-
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 2) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = (v[k] - 1) * sqrt((double)v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+                    vk = IF[i][k];
+                    vl = IF[i][l];
+                    if (vk < 2) continue;
+
+                    j = Map1[i + k * nc + l * M * nc];
+
+                    sqrtOf = (vk - 1) * sqrt((double) vk * (vl + 1));
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
-
-                free(v);
             }
 
             rho[k + k * M + k * M2 + l * M3] = RHO;
@@ -489,23 +713,20 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
             RHO = 0;
 
-            #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+            #pragma omp parallel private(i,j,sqrtOf,vk,vs) reduction(+:RHO)
             {
-                v = (int *) malloc(M * sizeof(int));
-
                 #pragma omp for
                 for (i = 0; i < nc; i++)
                 {
-                    if (IF[i][k] < 1 || IF[i][s] < 1) continue;
-                    for (t = 0; t < M; t++) v[t] = IF[i][t];
-                    sqrtOf = v[s] * sqrt((double)v[k]*(v[s]+1));
-                    v[k] -= 1;
-                    v[s] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+                    vk = IF[i][k];
+                    vs = IF[i][s];
+
+                    if (vk < 1 || vs < 1) continue;
+                    j = Map1[i + k * nc + s * M * nc];
+
+                    sqrtOf = vs * sqrt((double) vk * (vs + 1));
                     RHO += conj(C[i]) * C[j] * sqrtOf;
                 }
-
-                free(v);
             }
 
             rho[k + s * M + s * M2 + s * M3] = RHO;
@@ -529,24 +750,28 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vq,vl,chunks) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
-
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vk = IF[i][k];
+                        vq = IF[i][q];
+                        vl = IF[i][l];
+                        if (vk < 2) continue;
+
+                        chunks = 0;
+                        for (j = 0; j < k; j++)
+                        {
+                            if (IF[i][j] > 1) chunks++;
+                        }
+                        j = Map2[i][chunks * M * M + l + q * M];
+
+                        sqrtOf = sqrt((double)vk*(vk-1)*(vq+1)*(vl+1));
+
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-
-                    free(v);
                 }
 
                 rho[k + k * M + q * M2 + l * M3] = RHO;
@@ -571,24 +796,28 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vq,vl,chunks) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
-
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vk = IF[i][k];
+                        vq = IF[i][q];
+                        vl = IF[i][l];
+                        if (vk < 2) continue;
+
+                        chunks = 0;
+                        for (j = 0; j < k; j++)
+                        {
+                            if (IF[i][j] > 1) chunks++;
+                        }
+                        j = Map2[i][chunks * M * M + l + q * M];
+
+                        sqrtOf = sqrt((double)vk*(vk-1)*(vq+1)*(vl+1));
+
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-
-                    free(v);
                 }
 
                 rho[k + k * M + q * M2 + l * M3] = RHO;
@@ -613,24 +842,28 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vq,vl,chunks) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
-
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 2) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                        v[k] -= 2;
-                        v[l] += 1;
-                        v[q] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vk = IF[i][k];
+                        vq = IF[i][q];
+                        vl = IF[i][l];
+                        if (vk < 2) continue;
+
+                        chunks = 0;
+                        for (j = 0; j < k; j++)
+                        {
+                            if (IF[i][j] > 1) chunks++;
+                        }
+                        j = Map2[i][chunks * M * M + l + q * M];
+
+                        sqrtOf = sqrt((double)vk*(vk-1)*(vq+1)*(vl+1));
+
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-
-                    free(v);
                 }
 
                 rho[k + k * M + q * M2 + l * M3] = RHO;
@@ -655,23 +888,22 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vl,vs) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
-
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 1 || IF[i][s] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vs = IF[i][s];
+                        vk = IF[i][k];
+                        vl = IF[i][l];
+                        if (vk < 1 || vs < 1) continue;
+
+                        j = Map1[i + k * nc + l * M * nc];
+
+                        sqrtOf = vs * sqrt((double) vk * (vl + 1));
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-
-                    free(v);
                 }
 
                 rho[k + s * M + s * M2 + l * M3] = RHO;
@@ -701,23 +933,22 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vl,vs) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
-
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vs = IF[i][s];
+                        vk = IF[i][k];
+                        vl = IF[i][l];
+                        if (vk < 1 || vs < 1) continue;
+
+                        j = Map1[i + k * nc + l * M * nc];
+
+                        sqrtOf = vs * sqrt((double) vk * (vl + 1));
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-
-                    free(v);
                 }
 
                 rho[k + s * M + s * M2 + l * M3] = RHO;
@@ -747,21 +978,22 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
                 RHO = 0;
 
-                #pragma omp parallel private(i,j,t,sqrtOf,v) reduction(+:RHO)
+                #pragma omp parallel private(i,j,sqrtOf,vk,vl,vs) \
+                reduction(+:RHO)
                 {
-                    v = (int *) malloc(M * sizeof(int));
                     #pragma omp for
                     for (i = 0; i < nc; i++)
                     {
-                        if (IF[i][k] < 1) continue;
-                        for (t = 0; t < M; t++) v[t] = IF[i][t];
-                        sqrtOf = v[s] * sqrt((double)v[k]*(v[l]+1));
-                        v[k] -= 1;
-                        v[l] += 1;
-                        j = FockToIndex(N, M, NCmat, v);
+                        vs = IF[i][s];
+                        vk = IF[i][k];
+                        vl = IF[i][l];
+                        if (vk < 1 || vs < 1) continue;
+
+                        j = Map1[i + k * nc + l * M * nc];
+
+                        sqrtOf = vs * sqrt((double) vk * (vl + 1));
                         RHO += conj(C[i]) * C[j] * sqrtOf;
                     }
-                    free(v);
                 }
 
                 rho[k + s * M + s * M2 + l * M3] = RHO;
@@ -784,30 +1016,31 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
     ------------------------------------------------------------------- */
     for (k = 0; k < M; k++)
     {
-        for (s = 0; s < M; s++)
+        for (s = k + 1; s < M; s++)
         {
-            if (s == k) continue;
-
             for (q = 0; q < M; q++)
             {
                 if (q == s || q == k) continue;
 
-                for (l = 0; l < M; l ++)
+                for (l = q + 1; l < M; l ++)
                 {
 
-                    RHO = 0;
+                    if (l == k || l == s) continue;
 
-                    if (l == k || l == s || l == q) continue;
+                    RHO = 0;
 
                     #pragma omp parallel private(i,j,t,sqrtOf,v) \
                     reduction(+:RHO)
                     {
+
                         v = (int *) malloc(M * sizeof(int));
+
                         #pragma omp for
                         for (i = 0; i < nc; i++)
                         {
                             if (IF[i][k] < 1 || IF[i][s] < 1) continue;
                             for (t = 0; t < M; t++) v[t] = IF[i][t];
+
                             sqrtOf = sqrt((double)v[k]*v[s]*(v[q]+1)*(v[l]+1));
                             v[k] -= 1;
                             v[s] -= 1;
@@ -816,10 +1049,14 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
                             j = FockToIndex(N, M, NCmat, v);
                             RHO += conj(C[i]) * C[j] * sqrtOf;
                         }
+
                         free(v);
                     }
 
                     rho[k + s * M + q * M2 + l * M3] = RHO;
+                    rho[s + k * M + q * M2 + l * M3] = RHO;
+                    rho[k + s * M + l * M2 + q * M3] = RHO;
+                    rho[s + k * M + l * M2 + q * M3] = RHO;
                 }   // Finish l loop
             }       // Finish q loop
         }           // Finish s loop
@@ -853,17 +1090,16 @@ void TBrho(int N, int M, int ** NCmat, int ** IF, Carray C, Carray rho)
 
 
 
-void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
-     Carray Hint, Carray out)
+void applyHconf (int N, int M, int * Map1, int ** Map2, int ** NCmat,
+     int ** IF, Carray C, Cmatrix Ho, Carray Hint, Carray out)
 {
-    // Apply the many-body hamiltonian in a state expressed in
-    // number-occupation basis with coefficients defined by C.
 
 
 
     int // Index of coeficients
         i,
         j,
+        chunks,
         nc = NCmat[N][M];
 
 
@@ -898,7 +1134,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
 
 
     #pragma omp parallel firstprivate(N, M, M2, M3) \
-    private(i, j, k, l, s, q, z, w, sqrtOf, v)
+    private(i, j, k, l, s, q, z, w, sqrtOf, v, chunks)
     {
 
     v = (int * ) malloc(M * sizeof(int));
@@ -926,13 +1162,15 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (l = 0; l < M; l++)
             {
                 if (l == k) continue;
+
                 sqrtOf = sqrt((double)v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
+                j = Map1[i + k * nc + l * M * nc];
+                //v[k] -= 1;
+                //v[l] += 1;
+                //j = FockToIndex(N, M, NCmat, v);
                 w = w + Ho[k][l] * sqrtOf * C[j];
-                v[k] += 1;
-                v[l] -= 1;
+                //v[k] += 1;
+                //v[l] -= 1;
             }
         }
 
@@ -961,6 +1199,7 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 1) continue;
+
             for (s = k + 1; s < M; s++)
             {
                 sqrtOf = v[k] * v[s];
@@ -981,16 +1220,26 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 2) continue;
+
             for (q = 0; q < M; q++)
             {
                 if (q == k) continue;
+
                 sqrtOf = sqrt((double)(v[k]-1) * v[k] * (v[q]+1) * (v[q]+2));
-                v[k] -= 2;
-                v[q] += 2;
-                j = FockToIndex(N, M, NCmat, v);
+
+                chunks = 0;
+                for (j = 0; j < k; j++)
+                {
+                    if (IF[i][j] > 1) chunks++;
+                }
+                j = Map2[i][chunks * M * M + q + q * M];
+
+                //v[k] -= 2;
+                //v[q] += 2;
+                // j = FockToIndex(N, M, NCmat, v);
                 z += Hint[k + k * M + q * M2 + q * M3] * C[j] * sqrtOf;
-                v[k] += 2;
-                v[q] -= 2;
+                //v[k] += 2;
+                //v[q] -= 2;
             }
         }
         /* ---------------------------------------------------------------- */
@@ -1002,17 +1251,21 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 2) continue;
+
             for (l = 0; l < M; l++)
             {
                 if (l == k) continue;
+
                 sqrtOf = (v[k] - 1) * sqrt((double)v[k] * (v[l] + 1));
-                v[k] -= 1;
-                v[l] += 1;
-                j = FockToIndex(N, M, NCmat, v);
+                j = Map1[i + k * nc + l * M * nc];
+
+                //v[k] -= 1;
+                //v[l] += 1;
+                //j = FockToIndex(N, M, NCmat, v);
                 z += 2 * Hint[k + k * M + k * M2 + l * M3] * C[j] * sqrtOf;
                 // z += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[l] -= 1;
+                //v[k] += 1;
+                //v[l] -= 1;
             }
         }
         /* ---------------------------------------------------------------- */
@@ -1024,17 +1277,21 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 1) continue;
+
             for (s = 0; s < M; s++)
             {
                 if (s == k) continue;
+
                 sqrtOf = v[s] * sqrt((double)v[k] * (v[s] + 1));
-                v[k] -= 1;
-                v[s] += 1;
-                j = FockToIndex(N, M, NCmat, v);
+                j = Map1[i + k * nc + s * M * nc];
+
+                //v[k] -= 1;
+                //v[s] += 1;
+                //j = FockToIndex(N, M, NCmat, v);
                 z += 2 * Hint[k + s * M + s * M2 + s * M3] * C[j] * sqrtOf;
                 // z += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
-                v[k] += 1;
-                v[s] -= 1;
+                //v[k] += 1;
+                //v[s] -= 1;
             }
         }
         /* ---------------------------------------------------------------- */
@@ -1046,20 +1303,29 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 2) continue;
+
             for (q = k + 1; q < M; q++)
             {
                 for (l = q + 1; l < M; l++)
                 {
                     sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+
+                    chunks = 0;
+                    for (j = 0; j < k; j++)
+                    {
+                        if (IF[i][j] > 1) chunks++;
+                    }
+                    j = Map2[i][chunks * M * M + q + l * M];
+
+                    //v[k] -= 2;
+                    //v[l] += 1;
+                    //v[q] += 1;
+                    //j = FockToIndex(N, M, NCmat, v);
                     z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
                     // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
+                    //v[k] += 2;
+                    //v[l] -= 1;
+                    //v[q] -= 1;
                 }
             }
         }
@@ -1074,18 +1340,27 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (k = q + 1; k < M; k++)
             {
                 if (v[k] < 2) continue;
+
                 for (l = k + 1; l < M; l++)
                 {
                     sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+
+                    chunks = 0;
+                    for (j = 0; j < k; j++)
+                    {
+                        if (IF[i][j] > 1) chunks++;
+                    }
+                    j = Map2[i][chunks * M * M + q + l * M];
+
+                    //v[k] -= 2;
+                    //v[l] += 1;
+                    //v[q] += 1;
+                    //j = FockToIndex(N, M, NCmat, v);
                     z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
                     // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
+                    //v[k] += 2;
+                    //v[l] -= 1;
+                    //v[q] -= 1;
                 }
             }
         }
@@ -1102,16 +1377,25 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
                 for (k = l + 1; k < M; k++)
                 {
                     if (v[k] < 2) continue;
+
                     sqrtOf = sqrt((double)v[k]*(v[k]-1)*(v[q]+1)*(v[l]+1));
-                    v[k] -= 2;
-                    v[l] += 1;
-                    v[q] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+
+                    chunks = 0;
+                    for (j = 0; j < k; j++)
+                    {
+                        if (IF[i][j] > 1) chunks++;
+                    }
+                    j = Map2[i][chunks * M * M + q + l * M];
+
+                    //v[k] -= 2;
+                    //v[l] += 1;
+                    //v[q] += 1;
+                    //j = FockToIndex(N, M, NCmat, v);
                     z += 2 * Hint[k + k*M + q*M2 + l*M3] * C[j] * sqrtOf;
                     // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
-                    v[k] += 2;
-                    v[l] -= 1;
-                    v[q] -= 1;
+                    //v[k] += 2;
+                    //v[l] -= 1;
+                    //v[q] -= 1;
                 }
             }
         }
@@ -1126,16 +1410,21 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
             for (k = q + 1; k < M; k++)
             {
                 if (v[k] < 1) continue;
+
                 for (s = k + 1; s < M; s++)
                 {
                     if (v[s] < 1) continue;
+
                     sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
+
                     v[k] -= 1;
                     v[s] -= 1;
                     v[q] += 2;
                     j = FockToIndex(N, M, NCmat, v);
+
                     z += 2 * Hint[k + s*M + q*M2 + q*M3] * C[j] * sqrtOf;
                     // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+
                     v[k] += 1;
                     v[s] += 1;
                     v[q] -= 2;
@@ -1151,11 +1440,13 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 1) continue;
+
             for (q = k + 1; q < M; q++)
             {
                 for (s = q + 1; s < M; s++)
                 {
                     if (v[s] < 1) continue;
+
                     sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
                     v[k] -= 1;
                     v[s] -= 1;
@@ -1178,9 +1469,11 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 1) continue;
+
             for (s = k + 1; s < M; s++)
             {
                 if (v[s] < 1) continue;
+
                 for (q = s + 1; q < M; q++)
                 {
                     sqrtOf = sqrt((double)v[k] * v[s] * (v[q]+1) * (v[q]+2));
@@ -1205,24 +1498,29 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (s = 0; s < M; s++)
         {
             if (v[s] < 1) continue; // may improve performance
+
             for (k = 0; k < M; k++)
             {
                 if (v[k] < 1 || k == s) continue;
+
                 for (l = 0; l < M; l++)
                 {
                     if (l == k || l == s) continue;
+
                     sqrtOf = v[s] * sqrt((double)v[k] * (v[l] + 1));
-                    v[k] -= 1;
-                    v[l] += 1;
-                    j = FockToIndex(N, M, NCmat, v);
+                    j = Map1[i + k * nc + l * M * nc];
+
+                    //v[k] -= 1;
+                    //v[l] += 1;
+                    //j = FockToIndex(N, M, NCmat, v);
                     z += 4 * Hint[k + s*M + s*M2 + l*M3] * C[j] * sqrtOf;
                     /*
                     z += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
                     z += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
                     z += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
                     */
-                    v[k] += 1;
-                    v[l] -= 1;
+                    //v[k] += 1;
+                    //v[l] -= 1;
                 }
             }
         }
@@ -1234,22 +1532,29 @@ void applyHconf (int N, int M, int ** NCmat, int ** IF, Carray C, Cmatrix Ho,
         for (k = 0; k < M; k++)
         {
             if (v[k] < 1) continue;
-            for (s = 0; s < M; s++)
+
+            for (s = k + 1; s < M; s++)
             {
-                if (v[s] < 1 || s == k) continue;
+                if (v[s] < 1) continue;
+
                 for (q = 0; q < M; q++)
                 {
                     if (q == s || q == k) continue;
-                    for (l = 0; l < M; l ++)
+
+                    for (l = q + 1; l < M; l ++)
                     {
-                        if (l == k || l == s || l == q) continue;
+                        if (l == k || l == s) continue;
+
                         sqrtOf = sqrt((double)v[k]*v[s]*(v[q]+1)*(v[l]+1));
+
                         v[k] -= 1;
                         v[s] -= 1;
                         v[q] += 1;
                         v[l] += 1;
                         j = FockToIndex(N, M, NCmat, v);
-                        z += Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
+
+                        z += 4 * Hint[k + s*M + q*M2 + l*M3] * C[j] * sqrtOf;
+
                         v[k] += 1;
                         v[s] += 1;
                         v[q] -= 1;
