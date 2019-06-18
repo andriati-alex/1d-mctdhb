@@ -1105,7 +1105,7 @@ def AvoidZero_OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
 
             OrbSum = 0.0;
             for k in prange(Morb):
-                OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];]
+                OrbSum = OrbSum + NOoccu[k] * NO[k,j].conjugate() * NO[k,i];
 
             if (GasDen[i] * GasDen[j] < 1E-28) :
                 g[i,j] = 0;
