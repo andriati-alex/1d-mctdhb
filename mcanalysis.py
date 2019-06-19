@@ -154,7 +154,7 @@ def DnormFFT(dx, func, norm = 1):
     k = np.concatenate( [ k[j+1:] , k[:j+1] ] );
     fftfunc = np.concatenate( [ fftfunc[j+1:] , fftfunc[:j+1] ] );
 
-    return k, fftfunc / sqrt(norm / (abs(fftfunc)**2).sum());
+    return k, fftfunc * sqrt(norm / (abs(fftfunc)**2).sum());
 
 
 
