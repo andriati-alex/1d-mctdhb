@@ -184,8 +184,7 @@ doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
   * configuration-state coefficients as the inverse of  one-body and
   * two-body density matrices respectively. Ho and Hint are  assumed
   * to be defined accoding to 'Orb' variable as well.
-  *
-**/
+  */
 
 
 
@@ -202,6 +201,7 @@ doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
     double complex
         G,
+        Ginv,
         X;
 
 
@@ -212,12 +212,45 @@ doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
 
 
 
-    for (s = 0; s < M; s++)
+    for (a = 0; a < M; a++)
     {
         // Subtract one-body projection
-        X = X - Ho[s][k] * Orb[s][n];
+        X = X - Ho[a][k] * Orb[a][n];
 
-        for (a = 0; a < M; a++)
+        for (q = 0; q < M; q++)
+        {
+            // Particular case with the two last indices equals
+            // to take advantage of the symmetry afterwards
+
+            G = Rinv[k][a] * R2[a + M*a + M2*q + M3*q];
+
+            // Sum interacting part contribution
+            X = X + g * G * conj(Orb[a][n]) * Orb[q][n] * Orb[q][n];
+
+            // Subtract interacting projection
+            for (j = 0; j < M; j++)
+            {
+                ind = j + a * M + q * M2 + q * M3;
+                X = X - G * Orb[j][n] * Hint[ind];
+            }
+
+            for (l = q + 1; l < M; l++)
+            {
+                G = 2 * Rinv[k][a] * R2[a + M*a + M2*q + M3*l];
+
+                // Sum interacting part
+                X = X + g * G * conj(Orb[a][n]) * Orb[l][n] * Orb[q][n];
+
+                // Subtract interacting projection
+                for (j = 0; j < M; j++)
+                {
+                    ind = j + a * M + l * M2 + q * M3;
+                    X = X - G * Orb[j][n] * Hint[ind];
+                }
+            }
+        }
+
+        for (s = a + 1; s < M; s++)
         {
 
             for (q = 0; q < M; q++)
@@ -226,29 +259,37 @@ doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
                 // to take advantage of the symmetry afterwards
 
                 G = Rinv[k][a] * R2[a + M*s + M2*q + M3*q];
+                Ginv = Rinv[k][s] * R2[a + M*s + M2*q + M3*q];
 
                 // Sum interacting part contribution
-                X = X + g * G * conj(Orb[s][n]) * Orb[q][n] * Orb[q][n];
+                X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                    Orb[q][n]*Orb[q][n];
 
                 // Subtract interacting projection
                 for (j = 0; j < M; j++)
                 {
                     ind = j + s * M + q * M2 + q * M3;
                     X = X - G * Orb[j][n] * Hint[ind];
+                    ind = j + a * M + q * M2 + q * M3;
+                    X = X - Ginv * Orb[j][n] * Hint[ind];
                 }
 
                 for (l = q + 1; l < M; l++)
                 {
                     G = 2 * Rinv[k][a] * R2[a + M*s + M2*q + M3*l];
+                    Ginv = 2 * Rinv[k][s] * R2[a + M*s + M2*q + M3*l];
 
                     // Sum interacting part
-                    X = X + g * G * conj(Orb[s][n]) * Orb[l][n] * Orb[q][n];
+                    X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                            Orb[l][n]*Orb[q][n];
 
                     // Subtract interacting projection
                     for (j = 0; j < M; j++)
                     {
                         ind = j + s * M + l * M2 + q * M3;
                         X = X - G * Orb[j][n] * Hint[ind];
+                        ind = j + a * M + l * M2 + q * M3;
+                        X = X - Ginv * Orb[j][n] * Hint[ind];
                     }
                 }
             }
