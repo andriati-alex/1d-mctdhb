@@ -1,5 +1,5 @@
-#ifndef _coef_routines_h
-#define _coef_routines_h
+#ifndef _manybody_configurations_h
+#define _manybody_configurations_h
 
 
 
@@ -20,7 +20,7 @@
 
 
 
-int fac(int n);
+long fac(int n);
 
 
 
@@ -41,7 +41,7 @@ int NC(int N, int M);
 
 
 
-int ** MountNCmat(int N, int M);
+Iarray setupNCmat(int N, int M);
 /* ******************************************************
  *
  * Construct the matrix with  all possible configurations
@@ -56,7 +56,7 @@ int ** MountNCmat(int N, int M);
 
 
 
-int ** MountFocks(int N, int M, int ** NCmat);
+Iarray setupFocks(int N, int M);
 /* *************************************************************
  *
  * Give a matrix whose the row i contains the occupation numbers
@@ -68,7 +68,7 @@ int ** MountFocks(int N, int M, int ** NCmat);
 
 
 
-void IndexToFock(int k, int N, int M, int ** NCmat, int * v);
+void IndexToFock(int k, int N, int M, Iarray v);
 /* ************************************************************
  * 
  * Convert an coeficient index into a Fock's occupation vector
@@ -95,7 +95,7 @@ void IndexToFock(int k, int N, int M, int ** NCmat, int * v);
 
 
 
-int FockToIndex(int N, int M, int ** NCmat, int * v);
+int FockToIndex(int N, int M, Iarray NCmat, Iarray v);
 /* ****************************************************
  * 
  * Convert a Fock's occupation number vector(v) into its coeficient index
@@ -110,42 +110,17 @@ int FockToIndex(int N, int M, int ** NCmat, int * v);
  *
  * ****************************************************/
 
-
-
-
-
-int * JumpMapping(int N, int M, int ** NCmat, int ** IF);
-/* ******************************************************************
- *
- * Make a mapping between the coeficient i to the coeficient that
- * has one particle less in orbital k and one more in l, given th
- * vector corresponding to Ci.
- *
- * To accomplish the task for every i, k and l, the pointer Map
- * arrange its elements in the given way:
- *
- * Map[i + nc * k + nc * M * l] = Index of C having (k ---> l)
- *
- * Where nc is the short for NC( N , M ).
- *
- * Map must have size = nc * M ^2.
- *
- * ******************************************************************/
+Iarray OneOneMap(int N, int M, Iarray NCmat, Iarray IF);
+Iarray allocTwoTwoMap(int nc, int M, Iarray IF);
+Iarray TwoTwoMap(int N, int M, Iarray NCmat, Iarray IF, Iarray strideC);
+Iarray allocOneTwoMap(int nc, int M, Iarray IF);
+Iarray OneTwoMap(int N, int M, Iarray NCmat, Iarray IF, Iarray strideC);
 
 
 
 
 
-int ** AllocTwiceMap(int N, int M, int ** IF);
-int ** TwiceJumpMapping(int N, int M, int ** NCmat, int ** IF);
-
-
-
-
-
-
-void OBrho(int N, int M, int * Map, int ** NCmat, int ** IF,
-     Carray C, Cmatrix rho);
+void OBrho(int N, int M, Iarray Map, Iarray IF, Carray C, Cmatrix rho);
 /* Construct the one-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the occupation number basis **/
 
@@ -153,8 +128,8 @@ void OBrho(int N, int M, int * Map, int ** NCmat, int ** IF,
 
 
 
-void TBrho(int N, int M, int * Map1, int ** Map2, int ** NCmat, int ** IF,
-     Carray C, Carray rho);
+void TBrho(int N, int M, Iarray Map, Iarray MapOT, Iarray MapTT,
+     Iarray strideOT, Iarray strideTT, Iarray IF, Carray C, Carray rho);
 /* Construct the two-body density matrix given N particles and M orbitals
  * and the coefficients from the state in the  occupation  number  basis.
  * The storage in memory follow a linearization as follows:
@@ -164,8 +139,9 @@ void TBrho(int N, int M, int * Map1, int ** Map2, int ** NCmat, int ** IF,
 
 
 
-void applyHconf (int N, int M, int * Map1, int ** Map2, int ** NCmat,
-     int ** IF, Carray C, Cmatrix Ho, Carray Hint, Carray out);
+void applyHconf (int N, int M, Iarray Map, Iarray MapOT, Iarray MapTT,
+     Iarray strideOT, Iarray strideTT, Iarray IF, Carray C, Cmatrix Ho,
+     Carray Hint, Carray out);
 /* Give the state coefficients of a state (out) after apply the many-body
  * Hamiltonian on a state whose  coeficients  in  the  occupation  number
  * basis are C[i]. Ho contains the matrix elements of  one-body  operator

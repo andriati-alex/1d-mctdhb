@@ -25,11 +25,16 @@ struct _EquationDataPkg
         nc,       // Total # of configurations(Fock states)
         Mpos,     // # of discretized positions (# divisions + 1)
         Morb,     // # of orbitals
-        Npar,     // # of particles
-        ** IF,    // IF[i] point to the occupation number vetor of C[i]
-        ** NCmat, // NCmat[n][m] # with n particles / m orbitals
-        * map1,   // Mapping for a transition among the orbitals
-        ** map2;
+        Npar;     // # of particles
+
+    Iarray
+        IF,    // IF[i] point to the occupation number vetor of C[i]
+        NCmat, // NCmat[n][m] # with n particles / m orbitals
+        Map,   // Mapping for a transition among the orbitals
+        MapOT,
+        MapTT,
+        strideOT,
+        strideTT;
 
     double
         dx,       // space step

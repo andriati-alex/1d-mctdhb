@@ -32,10 +32,13 @@ EqDataPkg PackEqData(int Npar,int Morb,int Mpos,double xi,double xf,
     MC->a2 = a2;
     MC->a1 = a1;
     MC->nc = NC(Npar,Morb);
-    MC->NCmat = MountNCmat(Npar, Morb);
-    MC->IF = MountFocks(Npar, Morb, MC->NCmat);
-    MC->map1 = JumpMapping(Npar, Morb, MC->NCmat, MC->IF);
-    MC->map2 = TwiceJumpMapping(Npar, Morb, MC->NCmat, MC->IF);
+    MC->NCmat = setupNCmat(Npar, Morb);
+    MC->IF = setupFocks(Npar, Morb);
+    MC->strideOT = iarrDef(MC->nc);
+    MC->strideTT = iarrDef(MC->nc);
+    MC->Map = OneOneMap(Npar, Morb, MC->NCmat, MC->IF);
+    MC->MapOT = OneTwoMap(Npar, Morb, MC->NCmat, MC->IF, MC->strideOT);
+    MC->MapTT = TwoTwoMap(Npar, Morb, MC->NCmat, MC->IF, MC->strideTT);
 
     MC->p[0] = p[0];
     MC->p[1] = p[1];
@@ -117,18 +120,17 @@ void ReleaseManyBodyDataPkg (ManyBodyPkg S)
 
 void ReleaseEqDataPkg (EqDataPkg MC)
 {
-    int i;
 
-    for (i = 0; i < MC->nc; i++) free(MC->IF[i]);
     free(MC->IF);
 
-    for (i = 0; i <= MC->Npar; i++) free(MC->NCmat[i]);
     free(MC->NCmat);
 
-    for (i = 0; i < MC->nc; i++) free(MC->map2[i]);
-    free(MC->map2);
+    free(MC->Map);
+    free(MC->MapOT);
+    free(MC->MapTT);
 
-    free(MC->map1);
+    free(MC->strideOT);
+    free(MC->strideTT);
 
     free(MC->V);
     free(MC);

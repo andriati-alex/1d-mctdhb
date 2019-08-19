@@ -10,6 +10,26 @@
 
 
 
+Iarray iarrDef(int n)
+{
+    int * ptr;
+
+    ptr = (int * ) malloc( n * sizeof(int) );
+
+    if (ptr == NULL)
+    {
+        printf("\n\n\n\tMEMORY ERROR : malloc fail for integer.");
+        printf(" Size requested : %ld\n\n", n * sizeof(int));
+        exit(EXIT_FAILURE);
+    }
+
+    return ptr;
+}
+
+
+
+
+
 Rarray rarrDef(int n)
 {
     double * ptr;

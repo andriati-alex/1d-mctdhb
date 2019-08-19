@@ -451,7 +451,7 @@ int main(int argc, char * argv[])
     // Print what it is going to do
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        printf("\n\nMethod chosen : %d - ", method);
+        printf("\n\nIMAGINARY TIME - Method chosen : %d - ", method);
         switch (method)
         {
             case 1:

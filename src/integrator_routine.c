@@ -2,7 +2,6 @@
 
 
 
-
 double orthoFactor(int Morb, int Mpos, double dx, Cmatrix Orb)
 {
 
@@ -163,6 +162,7 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     free(imag_intpol);
 
 }
+
 
 
 
@@ -488,7 +488,15 @@ void dCdt (EqDataPkg MC, Carray C, Cmatrix Ho, Carray Hint, Carray der)
         Npar = MC->Npar,
         Morb = MC->Morb;
 
-    applyHconf(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,C,Ho,Hint,der);
+    Iarray
+        IF = MC->IF,
+        map1 = MC->Map,
+        map12 = MC->MapOT,
+        map22 = MC->MapTT,
+        s12 = MC->strideOT,
+        s22 = MC->strideTT;
+
+    applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,C,Ho,Hint,der);
 
     for (i = 0; i < MC->nc; i++) der[i] = - I * der[i];
 }
@@ -528,11 +536,15 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
         k,
         nc = MCdata->nc,
         Npar = MCdata->Npar,
-        Morb = MCdata->Morb,
-        ** IF = MCdata->IF,
-        ** NCmat = MCdata->NCmat,
-        * map1 = MCdata->map1,
-        ** map2 = MCdata->map2;
+        Morb = MCdata->Morb;
+
+    Iarray
+        IF = MCdata->IF,
+        map1 = MCdata->Map,
+        map12 = MCdata->MapOT,
+        map22 = MCdata->MapTT,
+        s12 = MCdata->strideOT,
+        s22 = MCdata->strideTT;
 
     double
         tol,
@@ -544,7 +556,7 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-    applyHconf(Npar,Morb,map1,map2,NCmat,IF,lvec[0],Ho,Hint,out);
+    applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[0],Ho,Hint,out);
     diag[0] = carrDot(nc, lvec[0], out);
 
     for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
@@ -555,7 +567,7 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
     // divide by zero. Instead of zero use  a  tolerance (tol) to
     // avoid numerical instability
     maxCheck = 0;
-    tol = 1E-15;
+    tol = 1E-14;
 
 
 
@@ -570,7 +582,7 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
         if (creal(offdiag[i]) / maxCheck < tol) return (i + 1);
 
         carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
-        applyHconf(Npar,Morb,map1,map2,NCmat,IF,lvec[i + 1],Ho,Hint,out);
+        applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[i+1],Ho,Hint,out);
 
         for (j = 0; j < nc; j++)
         {
@@ -587,6 +599,7 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
         // Additional re-orthogonalization procedure
         carrFill(lm, 0, ortho);
         for (k = 0; k < i + 2; k++) ortho[k] += carrDot(nc, lvec[k], out);
+
         for (j = 0; j < nc; j++)
         {
             for (k = 0; k < i + 2; k++) out[j] -= lvec[k][j] * ortho[k];
@@ -658,9 +671,9 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
     Cmatrix
         Ho = cmatDef(Morb, Morb),
         lvec = cmatDef(Niter, nc);
-    
-    
-    
+
+
+
     SetupHo(Morb, Mpos, Orb, MC->dx, MC->a2, MC->a1, MC->V, Ho);
     SetupHint(Morb, Mpos, Orb, MC->dx, MC->inter, Hint);
 
@@ -680,7 +693,8 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
     Niter = lanczos(MC, Ho, Hint, Niter, diag, offdiag, lvec);
     if (Niter < predictedIter)
     {
-        printf("\n\n\t\tlanczos iterations exit before expected - %d\n\n", Niter);
+        printf("\n\n\tlanczos iterations exit before expected - %d", Niter);
+        printf("\n\n");
     }
 
 
@@ -703,7 +717,7 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 
 
 
-    sentinel = 1E10;
+    sentinel = 1E15;
     // Get Index of smallest eigenvalue, keep it on j
     for (k = 0; k < Niter; k++)
     {
@@ -999,8 +1013,9 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1033,8 +1048,9 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1067,8 +1083,9 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1384,8 +1401,9 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1418,8 +1436,9 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1452,8 +1471,9 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,Carg,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,Carg,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,Carg,S->rho2);
 
 
 
@@ -1755,9 +1775,10 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
-   // Setup one/two-body density matrix 
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+    // Setup one/two-body density matrix 
+    OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
 
 
 
@@ -1798,8 +1819,9 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-        OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-        TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
 
 
 
@@ -1971,8 +1993,9 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
     // Setup one/two-body density matrix
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
 
 
 
@@ -2037,8 +2060,9 @@ int IMAG_RK4_CNSMRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
         // Update quantities that depends on orbitals and coefficients
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-        OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-        TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
 
 
 
@@ -2203,8 +2227,9 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
     // Setup one/two-body density matrix
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
 
 
 
@@ -2270,8 +2295,9 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
 
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-        OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-        TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
 
 
 
@@ -2483,8 +2509,9 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
     // Setup one/two-body density matrix
-    OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-    TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+    OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
 
 
 
@@ -2513,8 +2540,9 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         // HALF STEP THE COEFFICIENTS
 
         LanczosIntegrator(MC, S->Ho, S->Hint, dt / 2, S->C);
-        OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-        TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
 
 
 
@@ -2577,8 +2605,9 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
         // ANOTHER HALF STEP FOR COEFFICIENTS
         LanczosIntegrator(MC, S->Ho, S->Hint, dt / 2, S->C);
-        OBrho(Npar,Morb,MC->map1,MC->NCmat,MC->IF,S->C,S->rho1);
-        TBrho(Npar,Morb,MC->map1,MC->map2,MC->NCmat,MC->IF,S->C,S->rho2);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
 
 
 

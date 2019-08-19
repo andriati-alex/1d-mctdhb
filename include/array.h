@@ -63,6 +63,14 @@ typedef MKL_Complex16 * CMKLarray;
 
 
 
+/********************** Integer vectors **********************/
+
+typedef int * Iarray;
+
+
+
+
+
 /***************** Real vector and matrix *****************/
 
 typedef double *  Rarray;

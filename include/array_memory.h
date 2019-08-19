@@ -6,6 +6,8 @@
 #include "array.h"
 
 
+Iarray iarrDef(int n);
+// Allocate integer vector of size n
 
 Rarray rarrDef(int n);
 // Allocate real vector
