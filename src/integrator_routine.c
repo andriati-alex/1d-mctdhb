@@ -1013,9 +1013,11 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
+*/
 
 
 
@@ -1048,9 +1050,11 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
+*/
 
 
 
@@ -1083,9 +1087,11 @@ void NL_TRAP_C_RK4 (EqDataPkg MC, ManyBodyPkg S, doublec dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
+*/
 
 
 
@@ -1401,9 +1407,11 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
+*/
 
 
 
@@ -1436,9 +1444,11 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
+*/
 
 
 
@@ -1471,10 +1481,11 @@ void NL_C_RK4 (EqDataPkg MC, ManyBodyPkg S, double complex dt)
     SetupHo(Morb, Mpos, Oarg, dx, a2, a1, V, S->Ho);
     SetupHint(Morb, Mpos, Oarg, dx, g, S->Hint);
     // Update density matrices
+/*
     OBrho(Npar,Morb,MC->Map,MC->IF,Carg,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,Carg,S->rho2);
-
+*/
 
 
     // ------------------------------------------------------------------
@@ -2615,8 +2626,11 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         norm = carrMod(nc, S->C);
         checkOrtho = orthoFactor(Morb, Mpos, dx, S->Omat);
 
-        printf("\n\t%.5lf      %15.7E", (i + 1) * dt, creal(E));
-        printf("      %10.2E      %10.7lf", checkOrtho, norm);
+        if (l == skip)
+        {
+            printf("\n\t%.5lf      %15.7E", (i + 1) * dt, creal(E));
+            printf("      %10.2E      %10.7lf", checkOrtho, norm);
+        }
 
         if (l == skip)
         {

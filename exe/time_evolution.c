@@ -654,7 +654,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
+    // Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
 
     // orbitals are not read again
     fclose(orb_file);
@@ -774,7 +774,7 @@ int main(int argc, char * argv[])
 
         start = omp_get_wtime();
 
-        REAL_FP(mc, S, dt, N, cyclic, outfname, 1);
+        REAL_FP(mc, S, dt, N, cyclic, outfname, 5);
 
         time_used = (double) (omp_get_wtime() - start);
 
