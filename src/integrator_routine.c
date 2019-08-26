@@ -514,20 +514,30 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
     int lm, Carray diag, Carray offdiag, Cmatrix lvec)
 {
 
-//  Improved lanczos iterations with reorthogonalization for the vector
-//  of coefficients of the many-body state represented in configuration
-//  basis. Lanczos procedure give a (real)tridiagonal whose the spectra
-//  approximate the original one, as better as more iterations are done.
-//  It work, however, just with a routine to apply the original  matrix
-//  to any vector, what can save memory.
-//
-//  OUTPUT PARAMETERS :
-//      lvec - Lanczos vectors used to convert eigenvectors
-//      diag - diagonal elements of tridiagonal symmetric matrix
-//      offdiag - symmetric elements of tridiagonal matrix
-//
-//  RETURN :
-//      number of itertion done (just lm if the method does not breakdown)
+/*  Given the routine to apply the many-particle  Hamiltonian  in  the
+ *  configuration basis, build the Lanczos vectors and two vector with
+ *  diagonal and off-diagonal elements of the reduced tridiagonal matrix
+ *
+ *  It is an implementation with full re-orthogonalization, improvement
+ *  done to minimize numerical errors in floating point arithmetic.
+ *
+ *  For more information check out:
+ *
+ *  P. Arbenz "Lectures on solving large scale eigenvalue problem". ETH Zurich
+ *
+ *  INPUT PARAMETERS :
+ *      lvec[0]  - Contains the initial vector of Lanczos algorithm
+ *      Ho, Hint - additional parameters to apply Hamiltonian
+ *      MCdata   - structure paramenters that setup the configurational space
+ *
+ *  OUTPUT PARAMETERS :
+ *      lvec    - Lanczos vectors
+ *      diag    - diagonal elements of tridiagonal symmetric matrix
+ *      offdiag - symmetric elements of tridiagonal matrix
+ *
+ *  RETURN :
+ *      number of itertion done (just lm if the method does not breakdown)
+ */
 
 
 
@@ -556,54 +566,71 @@ int lanczos(EqDataPkg MCdata, Cmatrix Ho, Carray Hint,
 
 
 
-    applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[0],Ho,Hint,out);
-    diag[0] = carrDot(nc, lvec[0], out);
-
-    for (j = 0; j < nc; j++) out[j] = out[j] - diag[0] * lvec[0][j];
 
 
 
-    // Check for a source of breakdown in the algorithm to do not
-    // divide by zero. Instead of zero use  a  tolerance (tol) to
-    // avoid numerical instability
+    // Variables to check for a source of breakdown or numerical instability
     maxCheck = 0;
     tol = 1E-14;
 
 
 
-    // Core iteration procedure
+    // Compute the first diagonal element of the resulting tridiagonal
+    // matrix outside the main loop because there is a different  rule
+    // that came up from Modified Gram-Schmidt orthogonalization in
+    // Krylov space
+    applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[0],Ho,Hint,out);
+    diag[0] = carrDot(nc, lvec[0], out);
+
     for (i = 0; i < lm - 1; i++)
     {
+
+        for (j = 0; j < nc; j++) out[j] = out[j] - diag[i] * lvec[i][j];
+        // in the line above 'out' holds a new Lanczos vector but not
+        // normalized, just orthogonal to the previous ones in 'exact
+        // arithmetic'.
+
+
+
+        // Additional re-orthogonalization procedure.  The Lanczos vectors
+        // are suppose to form an orthonormal set, and thus when organized
+        // in a matrix it forms an unitary  transformation up to numerical
+        // precision 'Q'. Thus in addition, we subtract the QQ† applied to
+        // the unnormalized new Lanczos vector we get above. Note that here
+        // lvec has Lanczos vector organized by rows.
+        for (k = 0; k < i + 1; k++) ortho[k] = carrDot(nc, lvec[k], out);
+
+        for (j = 0; j < nc; j++)
+        {
+            for (k = 0; k < i + 1; k++) out[j] -= lvec[k][j] * ortho[k];
+        }
+
         offdiag[i] = carrMod(nc, out);
 
-        if (maxCheck < creal(offdiag[i])) maxCheck = creal(offdiag[i]);
 
-        // If method break return number of iterations achieved
+
+        // Check up to numerical precision if it is safe  to  continue
+        // This is equivalent to find a null vector and thus the basis
+        // of Lanczos vectors from the initial guess given is  said to
+        // have an invariant subspace of the operator
+        if (maxCheck < creal(offdiag[i])) maxCheck = creal(offdiag[i]);
         if (creal(offdiag[i]) / maxCheck < tol) return (i + 1);
 
-        carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
-        applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[i+1],Ho,Hint,out);
 
+
+        // Compute new Lanczos vector by normalizing the orthogonal vector
+        carrScalarMultiply(nc, out, 1.0 / offdiag[i], lvec[i + 1]);
+
+
+
+        // Perform half of the operation to obtain a new diagonal element
+        // of the tridiagonal system. See lines 9 and 10 from the ref.[1]
+        applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,lvec[i+1],Ho,Hint,out);
         for (j = 0; j < nc; j++)
         {
             out[j] = out[j] - offdiag[i] * lvec[i][j];
         }
-
-        diag[i + 1] = carrDot(nc, lvec[i + 1], out);
-
-        for (j = 0; j < nc; j++)
-        {
-            out[j] = out[j] - diag[i+1]*lvec[i+1][j];
-        }
-
-        // Additional re-orthogonalization procedure
-        carrFill(lm, 0, ortho);
-        for (k = 0; k < i + 2; k++) ortho[k] += carrDot(nc, lvec[k], out);
-
-        for (j = 0; j < nc; j++)
-        {
-            for (k = 0; k < i + 2; k++) out[j] -= lvec[k][j] * ortho[k];
-        }
+        diag[i+1] = carrDot(nc, lvec[i + 1], out);
     }
 
     free(ortho);
@@ -648,9 +675,7 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 
 
     // variables to call lapack diagonalization routine for tridiagonal
-    // symmetric matrix
-    // ----------------------------------------------------------------
-
+    // real symmetric matrix
     double
         sentinel,
         * d = malloc(Niter * sizeof(double)),
@@ -659,18 +684,22 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 
 
 
-    // variables to store lanczos vectors and tridiagonal symmetric matrix
-    // -------------------------------------------------------------------
-
+    // variables to store lanczos vectors and tridiagonal symmetric matrix :
     // Elements of tridiagonal lanczos matrix
     Carray
-        diag = carrDef(Niter),
-        offdiag = carrDef(Niter),
-        Hint = carrDef(Morb * Morb * Morb * Morb);
-    // Lanczos Vectors (organize in rows instead of columns rows)
+        diag    = carrDef(Niter),
+        offdiag = carrDef(Niter);
+    // Lanczos Vectors (organize in rows instead of columns)
     Cmatrix
-        Ho = cmatDef(Morb, Morb),
-        lvec = cmatDef(Niter, nc);
+        lvec = cmatDef(Niter,nc);
+
+
+
+    // Dependence on orbital part of the many-body problem
+    Cmatrix
+        Ho = cmatDef(Morb,Morb);
+    Carray
+        Hint = carrDef(Morb*Morb*Morb*Morb);
 
 
 
@@ -680,29 +709,30 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
 
 
     // Setup values needed to solve the equations for C
-    // ------------------------------------------------
-
     offdiag[Niter-1] = 0;     // Useless
     carrCopy(nc, C, lvec[0]); // Setup initial lanczos vector
 
 
 
     // Call Lanczos what setup tridiagonal matrix and lanczos vectors
-    // -----------------------------------------------------------------
     predictedIter = Niter;
     Niter = lanczos(MC, Ho, Hint, Niter, diag, offdiag, lvec);
     if (Niter < predictedIter)
     {
-        printf("\n\n\tlanczos iterations exit before expected - %d", Niter);
+        printf("\n\nWARNING : ");
+        printf("lanczos iterations exit before expected - %d", Niter);
         printf("\n\n");
     }
 
 
 
     // Transfer data to use lapack routine
-    // --------------------------------------------------------------
     for (k = 0; k < Niter; k++)
     {
+        if (fabs(cimag(diag[i])) > 1E-9)
+        {
+            printf("\n\nWARNING : Nonzero imaginary part in Lanczos\n\n");
+        }
         d[k] = creal(diag[k]);    // Supposed to be real
         e[k] = creal(offdiag[k]); // Supposed to be real
         for (j = 0; j < Niter; j++) eigvec[k * Niter + j] = 0;
@@ -745,7 +775,7 @@ double LanczosGround (int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
     cmatFree(predictedIter, lvec);
 
     return sentinel;
-    
+
 }
 
 
@@ -782,19 +812,15 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
 
 
 
-    /* variables to call lapack diagonalization routine for tridiagonal
-       symmetric matrix
-    ---------------------------------------------------------------- */
+    // variables to call lapack diagonalization routine for tridiagonal
+    // symmetric matrix
     double
         * d = malloc(lm * sizeof(double)),
         * e = malloc(lm * sizeof(double)),
         * eigvec = malloc(lm * lm * sizeof(double));
-    /* ------------------------------------------------------------- */
 
 
 
-    /* variables to store lanczos vectors and matrix iterations
-    -------------------------------------------------------- */
     // Lanczos Vectors (organize in rows instead of columns rows)
     Cmatrix lvec = cmatDef(lm, MC->nc);
     // Elements of tridiagonal lanczos matrix
@@ -803,17 +829,11 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
     // Solve system of ODEs in lanczos vector space
     Carray Clanczos = carrDef(lm);
     Carray aux = carrDef(lm);
-    /* ----------------------------------------------------- */
 
 
 
-    /* ---------------------------------------------
-    Setup values needed to solve the equations for C
-    ------------------------------------------------ */
-    offdiag[lm-1] = 0; // Useless
-    // Setup initial lanczos vector
-    carrCopy(MC->nc, C, lvec[0]);
-    /* --------------------------------------------- */
+    offdiag[lm-1] = 0;            // Useless
+    carrCopy(MC->nc, C, lvec[0]); // Setup initial lanczos vector
 
 
 
@@ -825,18 +845,13 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
 
 
 
-    /* --------------------------------------------------------------
-    Call Lanczos what setup tridiagonal symmetric and lanczos vectors
-    ----------------------------------------------------------------- */
+    // Call Lanczos what setup tridiagonal symmetric and lanczos vectors
     predictedIter = lm;
     lm = lanczos(MC, Ho, Hint, lm, diag, offdiag, lvec);
-    /* -------------------------------------------------------------- */
 
 
 
-    /* --------------------------------------------------------------
-    Transfer data to use lapack routine
-    ----------------------------------------------------------------- */
+    // Transfer data to use lapack routine
     for (k = 0; k < lm; k++)
     {
         d[k] = creal(diag[k]);    // Supposed to be real
@@ -850,15 +865,15 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
         printf("\n\n\t\tERROR IN DIAGONALIZATION\n\n");
         exit(EXIT_FAILURE);
     }
-    /* -------------------------------------------------------------- */
 
 
 
-    /* --------------------------------------------------------------
-    Solve exactly the equation in lanczos vector space using 
-    matrix-eigenvalues to exactly exponentiate
-    ----------------------------------------------------------------- */
-    // Initial condition in Lanczos vector space
+    // Solve exactly the equation in Lanczos vector space. The transformation
+    // between the original space and the Lanczos one is given by the Lanczos
+    // vectors organize in columns. When we apply such a matrix to 'Clanczos'
+    // we need to get just the first Lanczos vector, that is, the coefficient
+    // vector in the previous time step we load in Lanczos routine.  In other
+    // words our initial condition is what we has in previous time step.
     carrFill(lm, 0, Clanczos); Clanczos[0] = 1.0;
 
     for (k = 0; k < lm; k++)
@@ -869,25 +884,18 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
     }
 
     for (k = 0; k < lm; k++)
-    {   // Backward transformation from diagonal matrix
+    {   // Backward transformation from diagonal representation
         Clanczos[k] = 0;
         for (j = 0; j < lm; j++) Clanczos[k] += eigvec[k*lm + j] * aux[j];
     }
 
     for (i = 0; i < MC->nc; i++)
-    {   // Matrix multiplication by lanczos vector give the solution
+    {   // Return from Lanczos vector space
         C[i] = 0;
         for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
     }
-    /* -------------------------------------------------------------- */
 
 
-
-    /* ================================================================= *
-    
-                                RELEASE MEMORY
-
-     * ================================================================= */
 
     free(d);
     free(e);
@@ -896,7 +904,6 @@ void LanczosIntegrator (EqDataPkg MC, Cmatrix Ho, Carray Hint, double dt,
     free(offdiag);
     free(Clanczos);
     free(aux);
-
     cmatFree(predictedIter, lvec);
 
 }
@@ -2386,7 +2393,7 @@ int IMAG_RK4_CNLURK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     }
     else k = 5E7 / nc;
 
-    E[Nsteps] = LanczosGround( k, MC, S->Omat, S->C );
+    E[Nsteps] = LanczosGround(k,MC,S->Omat,S->C);
     // Renormalize coeficients
     renormalizeVector(nc, S->C, 1.0);
 
