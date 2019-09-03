@@ -172,6 +172,158 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
 
 
 
+doublec nonlinearOrtho (int M, int k, int n, double g, Cmatrix Orb,
+        Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint, Cmatrix Ortho )
+{
+
+/** For a orbital 'k' computed at discretized position 'n' calculate
+  * the right-hand-side part of MCTDHB orbital's equation of  motion
+  * that is nonlinear, part because of projections that made the eq.
+  * an integral-differential equation, and other part due to contact
+  * interactions. Assume that Rinv, R2 are  defined  by  the  set of
+  * configuration-state coefficients as the inverse of  one-body and
+  * two-body density matrices respectively. Ho and Hint are  assumed
+  * to be defined accoding to 'Orb' variable as well.
+  */
+
+
+
+    int a,
+        b,
+        j,
+        s,
+        q,
+        l,
+        M2,
+        M3,
+        ind;
+
+
+
+    double complex
+        G,
+        Ginv,
+        X;
+
+
+
+    X = 0;
+    M2 = M * M;
+    M3 = M * M * M;
+
+
+
+    for (a = 0; a < M; a++)
+    {
+        // Subtract one-body projection
+        for (b = 0; b < M; b++)
+        {
+            X = X - Ortho[a][b] * Ho[b][k] * Orb[a][n];
+        }
+
+        for (q = 0; q < M; q++)
+        {
+            // Particular case with the two last indices equals
+            // to take advantage of the symmetry afterwards
+
+            G = Rinv[k][a] * R2[a + M*a + M2*q + M3*q];
+
+            // Sum interacting part contribution
+            X = X + g * G * conj(Orb[a][n]) * Orb[q][n] * Orb[q][n];
+
+            // Subtract interacting projection
+            for (b = 0; b < M; b++)
+            {
+                for (j = 0; j < M; j++)
+                {
+                    ind = b + a * M + q * M2 + q * M3;
+                    X = X - G * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                }
+            }
+
+            for (l = q + 1; l < M; l++)
+            {
+                G = 2 * Rinv[k][a] * R2[a + M*a + M2*q + M3*l];
+
+                // Sum interacting part
+                X = X + g * G * conj(Orb[a][n]) * Orb[l][n] * Orb[q][n];
+
+                // Subtract interacting projection
+                for (b = 0; b < M; b++)
+                {
+                    for (j = 0; j < M; j++)
+                    {
+                        ind = b + a * M + l * M2 + q * M3;
+                        X = X - G * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                    }
+                }
+            }
+        }
+
+        for (s = a + 1; s < M; s++)
+        {
+
+            for (q = 0; q < M; q++)
+            {
+                // Particular case with the two last indices equals
+                // to take advantage of the symmetry afterwards
+
+                G = Rinv[k][a] * R2[a + M*s + M2*q + M3*q];
+                Ginv = Rinv[k][s] * R2[a + M*s + M2*q + M3*q];
+
+                // Sum interacting part contribution
+                X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                    Orb[q][n]*Orb[q][n];
+
+                // Subtract interacting projection
+                for (b = 0; b < M; b++)
+                {
+                    for (j = 0; j < M; j++)
+                    {
+                        ind = b + s * M + q * M2 + q * M3;
+                        X = X - G * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                        ind = b + a * M + q * M2 + q * M3;
+                        X = X - Ginv * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                    }
+                }
+
+                for (l = q + 1; l < M; l++)
+                {
+                    G = 2 * Rinv[k][a] * R2[a + M*s + M2*q + M3*l];
+                    Ginv = 2 * Rinv[k][s] * R2[a + M*s + M2*q + M3*l];
+
+                    // Sum interacting part
+                    X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                            Orb[l][n]*Orb[q][n];
+
+                    // Subtract interacting projection
+                    for (b = 0; b < M; b++)
+                    {
+                        for (j = 0; j < M; j++)
+                        {
+                            ind = b + s * M + l * M2 + q * M3;
+                            X = X - G * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                            ind = b + a * M + l * M2 + q * M3;
+                            X = X - Ginv * Ortho[j][b] * Orb[j][n] * Hint[ind];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return X;
+}
+
+
+
+
+
+
+
+
+
+
 doublec nonlinear (int M, int k, int n, double g, Cmatrix Orb,
         Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint )
 {
@@ -463,6 +615,130 @@ void NL_dOdt (EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix Ho, Carray Hint,
 
     // Release memory
     cmatFree(M, rho_inv);
+}
+
+
+
+
+
+void realNL_dOdt (EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix Ho,
+        Carray Hint, Cmatrix rho1, Carray rho2)
+{
+
+//  Time derivative of the set of orbitals due exclusively  to nonlinear
+//  part. Used for split-step-Finite-Differences method where the linear
+//  and nonlinear part are solved separately
+//
+//  OUTPUT ARGUMENT : dOdt
+
+
+
+    int
+        k,
+        s,
+        j,
+        l,
+        M = MC->Morb,
+        Mpos  = MC->Mpos;
+
+
+
+    double
+        dx = MC->dx;
+
+
+
+    double complex
+        Proj,
+        g = MC->inter;
+
+
+
+    Carray
+        to_int = carrDef(Mpos);
+
+
+
+    Cmatrix
+        Ortho = cmatDef(M, M),
+        Ortho_inv = cmatDef(M, M),
+        rho_inv = cmatDef(M, M);
+
+
+    for (k = 0; k < M; k++)
+    {
+        for (l = k; l < M; l++)
+        {
+            for (s = 0; s < Mpos; s++)
+            {
+                to_int[s] = conj(Orb[k][s]) * Orb[l][s];
+            }
+            Ortho[k][l] = Csimps(Mpos,to_int,dx);
+            Ortho[l][k] = conj(Ortho[k][l]);
+        }
+    }
+
+
+
+    /* Inversion of orthogonal matrix
+    ====================================================================== */
+    s = HermitianInv(M, Ortho, Ortho_inv);
+
+    if (s != 0)
+    {
+        printf("\n\n\n\t\tFailed on Lapack inversion routine!\n");
+        printf("\t\t-----------------------------------\n\n");
+
+        printf("\nMatrix given was : \n");
+        cmat_print(M, M, Ortho);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
+        exit(EXIT_FAILURE);
+    }
+    /* =================================================================== */
+
+
+
+
+    /* Inversion of one-body density matrix
+    ====================================================================== */
+    s = HermitianInv(M, rho1, rho_inv);
+
+    if (s != 0)
+    {
+        printf("\n\n\n\t\tFailed on Lapack inversion routine!\n");
+        printf("\t\t-----------------------------------\n\n");
+
+        printf("\nMatrix given was : \n");
+        cmat_print(M, M, rho1);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
+        exit(EXIT_FAILURE);
+    }
+    /* =================================================================== */
+
+
+
+    // Update k-th orbital at discretized position j
+    #pragma omp parallel for private(k, j) schedule(static)
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+            dOdt[k][j] = - I * \
+            nonlinearOrtho(M, k, j, g, Orb, rho_inv, rho2, Ho, Hint, Ortho_inv);
+    }
+
+
+
+    // Release memory
+    cmatFree(M, rho_inv);
+    cmatFree(M, Ortho);
+    cmatFree(M, Ortho_inv);
+    free(to_int);
 }
 
 
@@ -1203,7 +1479,7 @@ void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt)
     // COMPUTE K1
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    realNL_dOdt(MC, S->Omat, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
 
     for (k = 0; k < Morb; k++)
     {
@@ -1227,7 +1503,7 @@ void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt)
     // COMPUTE K2
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    realNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
 
     for (k = 0; k < Morb; k++)
     {
@@ -1250,7 +1526,7 @@ void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt)
     // COMPUTE K3
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    realNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
 
     for (k = 0; k < Morb; k++)
     {
@@ -1273,7 +1549,7 @@ void NL_RK4 (EqDataPkg MC, ManyBodyPkg S, double dt)
     // COMPUTE K4
     // ------------------------------------------------------------------
 
-    NL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
+    realNL_dOdt(MC, Oarg, dOdt, S->Ho, S->Hint, S->rho1, S->rho2);
 
     for (k = 0; k < Morb; k++)
     {
@@ -1755,6 +2031,16 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     Carray
         exp_der = carrDef(Mpos - 1);
 
+    Cmatrix
+        eigvec;
+
+    Rarray
+        eigvals;
+
+
+    eigvals = rarrDef(Morb);
+    eigvec = cmatDef(Morb,Morb);
+
 
 
 
@@ -1933,6 +2219,8 @@ int IMAG_RK4_FFTRK4 (EqDataPkg MC, ManyBodyPkg S, Carray E, Carray virial,
     p = DftiFreeDescriptor(&desc);
     free(exp_der);
 
+    cmatFree(Morb,eigvec);
+    free(eigvals);
 
     return Nsteps + 1;
 }
@@ -2531,6 +2819,8 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
 
+    RegularizeMat(Morb,Npar*5E-8,S->rho1);
+
 
 
     // initial energy
@@ -2543,6 +2833,11 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     sepline();
     printf("\t%.5lf      %15.7E", 0.0, creal(E));
     printf("      %10.2E      %10.7lf", checkOrtho, norm);
+
+    RowMajor(Morb, Morb, S->rho1, rho_vec);
+    RowMajor(Morb, Mpos, S->Omat, orb_vec);
+    carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(orb_file, Morb * Mpos, orb_vec);
 
 
 
@@ -2561,6 +2856,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
+        RegularizeMat(Morb,Npar*5E-8,S->rho1);
 
 
 
@@ -2626,6 +2922,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
+        RegularizeMat(Morb,Npar*5E-8,S->rho1);
 
 
 

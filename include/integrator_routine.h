@@ -50,6 +50,8 @@ double complex nonlinear (int M, int k, int n, double g, Cmatrix Orb,
    configuration-state coefficients as the inverse of  one-body and
    two-body density matrices respectively. Ho and Hint are  assumed
    to be defined accoding to 'Orb' variable as well.            **/
+doublec nonlinearOrtho (int M, int k, int n, double g, Cmatrix Orb,
+        Cmatrix Rinv, Carray R2, Cmatrix Ho, Carray Hint, Cmatrix Ortho );
 
 
 
@@ -73,6 +75,8 @@ void NLTRAP_dOdt(EqDataPkg, Cmatrix , Cmatrix, Cmatrix, Carray, Cmatrix,
 
 
 void NL_dOdt(EqDataPkg, Cmatrix, Cmatrix, Cmatrix, Carray, Cmatrix, Carray);
+void realNL_dOdt (EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix Ho,
+        Carray Hint, Cmatrix rho1, Carray rho2);
 
 
 

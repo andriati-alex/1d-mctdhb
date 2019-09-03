@@ -125,5 +125,8 @@ void CCSvec(int n, Carray vals, int * cols, int m, Carray vec, Carray ans);
 int HermitianInv(int M, Cmatrix A, Cmatrix A_inv);
 /* Invert an hermitian matrix */
 
+int HermitianEig(int n, Cmatrix A, Cmatrix eigvec, Rarray eigvals);
+void RegularizeMat(int n, double x, Cmatrix A);
+
 
 #endif
