@@ -2819,7 +2819,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
 
-    RegularizeMat(Morb,Npar*5E-8,S->rho1);
+    RegularizeMat(Morb,Npar*1E-5,S->rho1);
 
 
 
@@ -2856,7 +2856,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*5E-8,S->rho1);
+        RegularizeMat(Morb,Npar*1E-5,S->rho1);
 
 
 
@@ -2877,7 +2877,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-        LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
+        LP_CNSM(Mpos,Morb,cnmat,upper,lower,mid,S->Omat);
 
         if (cyclic)
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
@@ -2906,23 +2906,12 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-
-
-/*
-        FP_ITERATION(MC, S, Old, OldHo, OldHint, dt);
-
-        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
-        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-*/
-
-
-
         // ANOTHER HALF STEP FOR COEFFICIENTS
         LanczosIntegrator(MC, S->Ho, S->Hint, dt / 2, S->C);
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*5E-8,S->rho1);
+        RegularizeMat(Morb,Npar*1E-5,S->rho1);
 
 
 
@@ -2962,131 +2951,4 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
     fclose(rho_file);
     fclose(orb_file);
-}
-
-
-
-void FP_ITERATION(EqDataPkg MC, ManyBodyPkg S, Cmatrix Old, Cmatrix OldHo,
-     Carray OldHint, double dt)
-{
-
-    int
-        s,
-        i,
-        k,
-        Mpos,
-        Morb;
-
-    Mpos = MC->Mpos;
-    Morb = MC->Morb;
-
-    double
-        g,
-        dx,
-        a2,
-        * V,
-        check;
-
-    double complex
-        nl,
-        a1;
-
-    Rarray
-        diffAbs2 = rarrDef(Mpos);
-
-    Carray
-        diff  = carrDef(Mpos),
-        upper = carrDef(Mpos - 1),
-        lower = carrDef(Mpos - 1),
-        mid   = carrDef(Mpos - 1),
-        rhs   = carrDef(Mpos - 1);
-
-    Cmatrix
-        Rinv = cmatDef(Morb, Morb),
-        Ostep = cmatDef(Morb, Mpos);
-
-    CCSmat
-        cnmat;
-
-    a2 = MC->a2;
-    a1 = MC->a1;
-    dx = MC->dx;
-    g = MC->inter;
-    V = MC->V;
-
-
-
-    // Configure the linear system from Crank-Nicolson scheme
-    cnmat = CNmat(Mpos, dx, dt, a2, a1, g, V, 1, upper, lower, mid);
-
-
-
-    /* Inversion of one-body density matrix
-    ====================================================================== */
-    s = HermitianInv(Morb, S->rho1, Rinv);
-
-    if (s != 0)
-    {
-        printf("\n\n\n\n\t\tFailed on Lapack inversion routine!\n");
-        printf("\t\t-----------------------------------\n\n");
-
-        printf("\nMatrix given was : \n");
-        cmat_print(Morb, Morb, S->rho1);
-
-        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
-        else       printf("\nInvalid argument given : %d\n\n", s);
-
-        exit(EXIT_FAILURE);
-    }
-    /* =================================================================== */
-
-
-
-    while (1)
-    {
-
-        for (k = 0; k < Morb; k ++)
-        {
-            for (i = 0; i < Mpos; i++) Ostep[k][i] = S->Omat[k][i];
-        }
-
-        for (k = 0; k < Morb; k++)
-        {
-            CCSvec(Mpos - 1, cnmat->vec, cnmat->col, cnmat->m, Old[k], rhs);
-
-            for (i = 0; i < Mpos - 1; i ++)
-            {
-                nl = nonlinear(Morb,k,i,g,S->Omat,Rinv,S->rho2,S->Ho,S->Hint);
-                nl = nl + nonlinear(Morb,k,i,g,Old,Rinv,S->rho2,OldHo,OldHint);
-                rhs[i] = rhs[i] + 0.5 * nl * dt;
-            }
-
-            triCyclicSM(Mpos - 1, upper, lower, mid, rhs, S->Omat[k]);
-            S->Omat[k][Mpos - 1] = S->Omat[k][0];
-        }
-
-        check = 0;
-        for (k = 0; k < Morb; k++)
-        {
-            for (i = 0; i < Mpos; i++) diff[i] = S->Omat[k][i] - Ostep[k][i];
-            carrAbs2(Mpos, diff, diffAbs2);
-            check = check + Rsimps(Mpos, diffAbs2, dx);
-        }
-
-        if (check < 1E-12) break;
-
-    }
-
-    free(upper);
-    free(lower);
-    free(mid);
-    free(rhs);
-    free(diff);
-    free(diffAbs2);
-
-    CCSFree(cnmat);
-
-    cmatFree(Morb, Rinv);
-    cmatFree(Morb, Ostep);
-
 }
