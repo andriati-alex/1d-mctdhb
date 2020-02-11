@@ -85,7 +85,7 @@ array_operations.o : src/array_operations.c
 
 
 matrix_operations.o : src/matrix_operations.c
-	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		-I./include src/matrix_operations.c
 
 
@@ -112,7 +112,7 @@ calculus.o : src/calculus.c
 
 
 integrator_routine.o : src/integrator_routine.c
-	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp \
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
 		-I./include src/integrator_routine.c
 
 

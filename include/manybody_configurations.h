@@ -1,16 +1,9 @@
 #ifndef _manybody_configurations_h
 #define _manybody_configurations_h
 
-
-
-
-
+#include <limits.h>
 #include "array_memory.h"
 #include "array_operations.h"
-
-
-
-
 
 #ifdef _OPENMP
     #include <omp.h>
@@ -22,107 +15,50 @@
 
 long fac(int n);
 
-
-
-
-
 int NC(int N, int M);
-/* ************************************
- * Number of possible configurations of
- *
- * N identical particles
- * in M distinct orbital
- *
- * (N + M - 1)! / (N! * (M - 1)!)
- *
- * ************************************/
+/* total Number of configurations - dimension of spanned space */
 
 
 
 
 
 Iarray setupNCmat(int N, int M);
-/* ******************************************************
- *
- * Construct the matrix with  all possible configurations
- * up to N particles and M orbitals. A row index  is  the
- * number of particles and the column index is the number
- * of orbitals. The Matrix has of (N+1) x (M+1) dimension
- * and its values are NCmat[i, j] = NC( i , j )
- *
- * ******************************************************/
-
-
-
-
 
 Iarray setupFocks(int N, int M);
-/* *************************************************************
- *
- * Give a matrix whose the row i contains the occupation numbers
- * of a possible configuration
- *
- * *************************************************************/
+/* Hashing table for Fock states to avoid IndexToFock routine */
 
 
 
 
 
 void IndexToFock(int k, int N, int M, Iarray v);
-/* ************************************************************
- * 
- * Convert an coeficient index into a Fock's occupation vector
- *
- * Given N particles and M orbitals the total number of
- * coeficients is given by NC( N , M ), whereas to num-
- * ber out all coeficients we need 0 <= k < NC( N , M).
- * Starting  from the last orbital check if k is bigger
- * than the number of all possible combinations  of all
- * particles within all orbitals but the last one. That
- * is if k > NC( N , M - 1 ). In positive case we put a
- * particle in the orbital M. Thereafter we subtract 
- * from k the number NC( N , M - 1 ), a kind of a  cost
- * to put a particle in M,  and proceed with N - 1 par-
- * ticles. As soon as k is not bigger than the NC number
- * in a given iteration we try to put in the orbital to
- * the left, that is, reduce M -> M - 1.
- *
- * v end up with occupation vector related to k
- *
- * ***********************************************************/
+/* Convert an configuration index into the corresponding
+ * number occupation vector                           */
 
 
 
 
 
 int FockToIndex(int N, int M, Iarray NCmat, Iarray v);
-/* ****************************************************
- * 
- * Convert a Fock's occupation number vector(v) into its coeficient index
- *
- * Do the reverse job of IndexToFock. The algorithm
- * is design to take out of the vector all the par-
- * ticles, from the last to the first orbital adding
- * up the 'index cost' to put it there, described in
- * IndexToFock.
- *
- * Return the integer corresponding to the index
- *
- * ****************************************************/
+/* Convert a occupation number vector(v) into its coeficient index */
+
+
+
+
 
 Iarray OneOneMap(int N, int M, Iarray NCmat, Iarray IF);
 Iarray allocTwoTwoMap(int nc, int M, Iarray IF);
 Iarray TwoTwoMap(int N, int M, Iarray NCmat, Iarray IF, Iarray strideC);
 Iarray allocOneTwoMap(int nc, int M, Iarray IF);
 Iarray OneTwoMap(int N, int M, Iarray NCmat, Iarray IF, Iarray strideC);
+/* Auxiliar mappings. See the source file to read what are their utility */
 
 
 
 
 
 void OBrho(int N, int M, Iarray Map, Iarray IF, Carray C, Cmatrix rho);
-/* Construct the one-body density matrix given N particles and M orbitals
- * and the coefficients from the state in the occupation number basis **/
+/* Construct the one-body density matrix */
 
 
 
@@ -130,10 +66,9 @@ void OBrho(int N, int M, Iarray Map, Iarray IF, Carray C, Cmatrix rho);
 
 void TBrho(int N, int M, Iarray Map, Iarray MapOT, Iarray MapTT,
      Iarray strideOT, Iarray strideTT, Iarray IF, Carray C, Carray rho);
-/* Construct the two-body density matrix given N particles and M orbitals
- * and the coefficients from the state in the  occupation  number  basis.
- * The storage in memory follow a linearization as follows:
- * rho[k, l, s, q] = rho[k + l * M + s * M^2 + q * M^3]               **/
+/* Construct the two-body density matrix. The storage in memory is as
+ * linearization as follows:
+ * rho[k, l, s, q] = rho[k + l * M + s * M^2 + q * M^3]           **/
 
 
 
@@ -142,10 +77,8 @@ void TBrho(int N, int M, Iarray Map, Iarray MapOT, Iarray MapTT,
 void applyHconf (int N, int M, Iarray Map, Iarray MapOT, Iarray MapTT,
      Iarray strideOT, Iarray strideTT, Iarray IF, Carray C, Cmatrix Ho,
      Carray Hint, Carray out);
-/* Give the state coefficients of a state (out) after apply the many-body
- * Hamiltonian on a state whose  coeficients  in  the  occupation  number
- * basis are C[i]. Ho contains the matrix elements of  one-body  operator
- * and Hint contains the matrix elements of two-body operator.        **/
+/* Act with the Hamiltonian operator on a many-body state expressed
+ * through its coefficients in the configurational basis.        */
 
 
 
