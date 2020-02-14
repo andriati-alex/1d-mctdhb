@@ -1,16 +1,4 @@
 
-import cmath;
-import numpy as np;
-import scipy.linalg as la;
-
-from math import sqrt, pi;
-from scipy.integrate import simps;
-from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128;
-
-
-
-
-
 """
 =============================================================================
 
@@ -27,6 +15,14 @@ from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128
 
 =============================================================================
 """
+
+import cmath;
+import numpy as np;
+import scipy.linalg as la;
+
+from math import sqrt, pi;
+from scipy.integrate import simps;
+from numba import jit, prange, int32, uint32, uint64, int64, float64, complex128;
 
 
 
@@ -158,10 +154,7 @@ def DnormFFT(dx, func, norm = 1):
 
 
 
-
-
-@jit([ uint32(uint32) , uint64(uint64) ], nopython=True, nogil=True)
-
+@jit(uint64(uint64), nopython=True, nogil=True)
 def fac(n):
     """ return n! """
     nfac = 1;
@@ -170,51 +163,47 @@ def fac(n):
 
 
 
-
-
-@jit( uint32(uint32, uint32), nopython=True, nogil=True)
-
-def NC(Npar, Morb):
-    """ return (Npar + Morb - 1)! / ( (Npar)! x (Morb - 1)! )"""
-    n = 1;
-    if (Npar > Morb):
-        for i in prange(Npar + Morb - 1, Npar, -1): n = n * i;
-        return n / fac(Morb - 1);
+@jit(uint32(uint32,uint32), nopython=True, nogil=True)
+def NC(Npar, Norb):
+    """ return (Npar + Norb - 1)! / ( (Npar)! x (Norb - 1)! )"""
+    n = 1
+    j = 2
+    if (Norb > Npar) :
+        for i in prange(Npar + Norb - 1, Norb - 1, -1) :
+            n = n * i
+            if (n % j == 0 and j <= Npar) :
+                n = n / j
+                j = j + 1
+        for k in prange(j,Npar+1) : n = n / k
+        return n
     else :
-        for i in prange(Npar + Morb - 1, Morb - 1, -1): n = n * i;
-        return n / fac(Npar);
+        for i in prange(Npar + Norb - 1, Npar, -1) :
+            n = n * i;
+            if (n % j == 0 and j <= Norb - 1) :
+                n = n / j
+                j = j + 1
+        for k in prange(j,Norb) : n = n / k
+        return n
 
 
 
-
-
-@jit( [ (int32, int32, int32, int32[:]), (int64, int32, int32, int32[:]) ],
-      nopython=True, nogil=True)
-
-def IndexToFock(k, N, M, v):
+@jit((int32, int32, int32, int32[:]), nopython=True, nogil=True)
+def IndexToFock(k,N,M,v):
     """
-    Calling: (void) IndexToFock(k, N, M, v)
-    -------
-
-    Arguments:
-    ---------
     k : Index of configuration-state coefficient
     N : # of particles
     M : # of orbitals
     v : End up with occupation vector(Fock state) of length Morb
     """
-    x = 0;
-    m = M - 1;
-    for i in prange(0, M, 1): v[i] = 0;
-    while (k > 0):
-        while (k - NC(N, m) < 0): m = m - 1;
-        x = k - NC(N, m);
-        while (x >= 0):
-            v[m] = v[m] + 1;
-            N = N - 1;
-            k = x;
-            x = x - NC(N, m);
-    v[0] = v[0] + N;
+    x = 0
+    m = M - 1
+    for i in prange(0,M,1) : v[i] = 0
+    while (k > 0) :
+        while (k - NC(N,m) < 0) : m = m - 1
+        k = k - NC(N, m)
+        v[m] = v[m] + 1
+        N = N - 1
+    if (N > 0) : v[0] = v[0] + N
 
 
 
