@@ -117,7 +117,7 @@
 void TimePrint(double t)
 {
     
-    // format and print time in days / hours / minutes
+/** format and print time in days / hours / minutes **/
 
     int
         tt = (int) t,
@@ -142,7 +142,7 @@ void TimePrint(double t)
 void ReachNewLine(FILE * f)
 {
 
-    // Read until get new line in a opened file.
+/** Read until get new line in a opened file. **/
 
     char
         sentinel;
@@ -239,7 +239,7 @@ void initDiag(EqDataPkg mc, ManyBodyPkg S)
     Npar = mc->Npar;
     Norb = mc->Morb;
 
-    printf("\nGround state in configurational basis with initial orbitals");
+    printf("\nLanczos ground state with initial orbitals");
     printf(" ... ");
 
     // select a suitable number of lanczos iterations
@@ -252,20 +252,15 @@ void initDiag(EqDataPkg mc, ManyBodyPkg S)
 
     E0 = LanczosGround(Lit,mc,S->Omat,S->C);
 
-    printf("Done.\nInitial energy = %.7lf\n",creal(E0)/Npar);
+    printf("Done.\nInitial E0/Npar = %.7lf\n",creal(E0)/Npar);
 }
-
-
-
-
-
-
-
 
 
 
 void SaveConf(FILE * confFileOut, EqDataPkg mc)
 {
+
+/** Record grid and parameters specifications used **/
 
     fprintf(confFileOut, "%d %d %d ", mc->Npar, mc->Morb, mc->Mpos);
 
@@ -285,16 +280,11 @@ void SaveConf(FILE * confFileOut, EqDataPkg mc)
 
 
 
-
-
-
-
-
-
-
 EqDataPkg SetupData(FILE * paramFile, FILE * confFile, double * dt,
           int * N, char Vname [])
 {
+
+/** Read from file input data and return in structure **/
 
     int
         k,
@@ -333,32 +323,17 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, double * dt,
 
 
 
-
-
-
-
-
-
-
 int main(int argc, char * argv[])
 {
 
     omp_set_num_threads(omp_get_max_threads() / 2);
     mkl_set_num_threads(omp_get_max_threads() / 2);
 
-    /* ==================================================================== *
-     *                                                                      *
-     *                      VARIABLES AND WHAT THEY DO                      *
-     *                                                                      *
-     * ==================================================================== */
-
     int
         i,
         k,
         l,
         s;
-
-
 
     int
         N,      // # of time steps to evolve the system
@@ -370,8 +345,6 @@ int main(int argc, char * argv[])
         method, // integration method
         coefInteg,
         resetinit;
-
-
 
     double
         start,      // trigger to measure time
@@ -385,17 +358,11 @@ int main(int argc, char * argv[])
         imag,  // imag part of read data from file
         check; // check norm/orthogonality
 
-
-
     Rarray
         x;
 
-
-
     double complex
         E0;
-
-
 
     char
         c, // sentinel character to jump comment lines
@@ -405,8 +372,6 @@ int main(int argc, char * argv[])
         infname[120],   // file name prefix of input data
         outfname[120],  // file name prefix of output data
         fname[120];     // general manipulation to open files by name
-
-
 
     FILE
         * job_file,  // Contains essential information to perform the job
@@ -420,22 +385,11 @@ int main(int argc, char * argv[])
         * paramFile, // Equation parameters of hamiltonian.
         * confFileOut;
 
-
-
     EqDataPkg
         mc;
 
-
-
     ManyBodyPkg
         S;
-
-
-
-
-
-
-
 
 
 
@@ -893,14 +847,6 @@ int main(int argc, char * argv[])
 
 
 
-
-
-
-
-
-
-
-/** If either the _conf.dat or _eq.dat file have more than one line **/
     for (i = 1; i < Nlines; i++)
     {
 
