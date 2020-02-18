@@ -1,12 +1,8 @@
 #ifndef _tridiagonal_solver_h
 #define _tridiagonal_solver_h
 
-#include "array_memory.h"
+#include "memoryHandling.h"
 #include "array_operations.h"
-
-#ifdef _OPENMP
-    #include <omp.h>
-#endif
 
 double cond(int n, Carray upper, Carray lower, Carray mid);
 double errBack(int n, Carray upper, Carray lower, Carray mid);

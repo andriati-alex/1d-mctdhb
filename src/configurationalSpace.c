@@ -1,4 +1,4 @@
-#include "manybody_configurations.h"
+#include "configurationalSpace.h"
 
 
 
@@ -45,7 +45,7 @@ long fac(int n)
     {
         if (nfac > INT_MAX / (i + 1))
         {
-            printf("\n\n\n\tINTEGER SIZE ERROR : overflow occurred");
+            printf("\n\n\nINTEGER SIZE ERROR : overflow occurred");
             printf(" representing a factorial as ");
             printf("integers of 32 bits\n\n");
             exit(EXIT_FAILURE);

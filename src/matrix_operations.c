@@ -359,9 +359,9 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
 
     ipiv = (int *) malloc(M * sizeof(int));
 
-    ArrayForm = CMKLdef(M * M);
+    ArrayForm = cmklDef(M * M);
 
-    Id = CMKLdef(M * M);
+    Id = cmklDef(M * M);
 
 
 
@@ -424,10 +424,9 @@ int HermitianEig(int n, Cmatrix A, Cmatrix eigvec, Rarray eigvals)
 
     ldz = n;
 
-    Arow = CMKLdef(n * n);
+    Arow = cmklDef(n * n);
 
-    // transcription to mkl row major matrix
-
+    // transcription to mkl row major matrix (UPPER PART ONLY)
     for (i = 0; i < n; i++)
     {
         Arow[i*n + i].real = creal(A[i][i]);
@@ -443,7 +442,6 @@ int HermitianEig(int n, Cmatrix A, Cmatrix eigvec, Rarray eigvals)
     check = LAPACKE_zheev(LAPACK_ROW_MAJOR,'V','U',n,Arow,ldz,eigvals);
 
     // transcription  eigenvectors to default complex datatype
-
     for (i = 0; i < n; i++)
     {
         for (j = 0; j < n; j++)

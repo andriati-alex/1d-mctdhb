@@ -541,8 +541,6 @@ doublec TwoBodyE(int Morb, int Mpos, Cmatrix Omat, double dx, double g,
 
 
 
-
-
 doublec Virial(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 {
 
@@ -553,7 +551,7 @@ doublec Virial(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 
     double
         dx = mc->dx,
-        g  = mc->inter,
+        g  = mc->g,
         a2 = mc->a2,
         *V = mc->V;
 
@@ -575,40 +573,81 @@ doublec Virial(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1, Carray rho2)
 
 
 
+double complex SquaredRampl(int n, Carray f, Carray g, double xi, double dx)
+{
+
+/** Compute < f | r^2 | g > where r denotes the position operator
+    This is an auxiliar function to the MeanQuadraticR        **/
+
+    int
+        i;
+
+    double
+        x;
+
+    double complex
+        r2;
+
+    Carray
+        integ;
+
+    integ = carrDef(n);
+
+    x = xi; // Initiate at boundary of domain
+    for (i = 0; i < n; i ++)
+    {
+        integ[i] = conj(f[i]) * g[i] * x * x;
+        x = x + dx; // update to next grid point
+    }
+
+    r2 = Csimps(n,integ,dx);
+
+    free(integ);
+
+    return r2;
+}
+
 
 
 double MeanQuadraticR(EqDataPkg mc, Cmatrix Orb, Cmatrix rho1)
 {
 
+/** COMPUTE THE MEAN QUADRATIC POSITION OF THE MANY-BODY STATE **/
+
     int
         i,
         j,
-        Npar = mc->Npar,
-        Morb = mc->Morb,
-        M = mc->Mpos;
+        Npar,
+        Norb,
+        Ngrid;
 
     double complex
         R2amp,
         R2;
 
     double
-        r,
-        dx = mc->dx;
+        xi,
+        dx;
+
+    Ngrid = mc->Mpos;
+    Npar = mc->Npar;
+    Norb = mc->Morb;
+    dx = mc->dx;
+    xi = mc->xi;
 
     R2 = 0;
 
-    for (i = 0; i < Morb; i++)
+    for (i = 0; i < Norb; i++)
     {
-
-        R2 = R2 + rho1[i][i] * SquaredRampl(M,Orb[i],Orb[i],dx);
-
-        for (j = i + 1; j < Morb; j++)
+        R2 = R2 + rho1[i][i] * SquaredRampl(Ngrid,Orb[i],Orb[i],xi,dx);
+        for (j = i + 1; j < Norb; j++)
         {
-            R2amp = rho1[i][j] * SquaredRampl(M,Orb[i],Orb[j],dx);
+            R2amp = rho1[i][j] * SquaredRampl(Ngrid,Orb[i],Orb[j],xi,dx);
+            // use hermitian properties to sweep only j > i because for
+            // j < i the number is the complex conjugate.
             R2 = R2 + R2amp + conj(R2amp);
         }
     }
 
     return sqrt(creal(R2) / Npar);
-
 }

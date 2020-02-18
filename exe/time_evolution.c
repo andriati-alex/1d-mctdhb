@@ -1,6 +1,6 @@
-#include <string.h>
-#include "integrator_routine.h"
+#include "integrators.h"
 #include "linear_potential.h"
+#include "structureSetup.h"
 
 
 
@@ -172,7 +172,7 @@ void SaveConf(FILE * confFileOut, EqDataPkg mc)
 
     fprintf(confFileOut, "%.15lf %.15lf ", mc->a2, cimag(mc->a1));
     
-    fprintf(confFileOut, "%.15lf ", mc->inter);
+    fprintf(confFileOut, "%.15lf ", mc->g);
 
     fprintf(confFileOut, "%.15lf ", mc->p[0]);
     fprintf(confFileOut, "%.15lf ", mc->p[1]);
@@ -225,12 +225,6 @@ EqDataPkg SetupData(FILE * paramFile, FILE * confFile, double * dt,
 
     dx = (xf - xi) / Mdx;
 
-    printf("\n\nConfiguration Done\n");
-
-    printf("\n\t# of Particles: %4d", Npar);
-    printf("\n\t# of Orbitals:  %4d", Morb);
-    printf("\n\t# of possible configurations: %d\n", NC(Npar, Morb));
-
 
 
     // Setup Equation parameters
@@ -282,6 +276,7 @@ int main(int argc, char * argv[])
         cyclic, // boundary information
         Nlines, // # of jobs to be executed
         method, // integration method
+        coefInteg,
         resetinit;
 
 
@@ -367,7 +362,7 @@ int main(int argc, char * argv[])
 
     if (job_file == NULL) // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", "job.conf");
+        printf("\n\nERROR: impossible to open file %s\n\n","job.conf");
         exit(EXIT_FAILURE);
     }
 
@@ -383,36 +378,36 @@ int main(int argc, char * argv[])
         switch (i)
         {
             case 1:
-                fscanf(job_file, "%s", fname);
+                fscanf(job_file,"%s", fname);
                 timeinfo = fname[0];
                 i = i + 1;
                 break;
             case 2:
-                fscanf(job_file, "%s", potname);
+                fscanf(job_file,"%s", potname);
                 i = i + 1;
                 break;
             case 3:
-                fscanf(job_file, "%d", &cyclic);
+                fscanf(job_file,"%s", infname);
                 i = i + 1;
                 break;
             case 4:
-                fscanf(job_file, "%s", infname);
+                fscanf(job_file,"%s", outfname);
                 i = i + 1;
                 break;
             case 5:
-                fscanf(job_file, "%s", outfname);
+                fscanf(job_file,"%d", &method);
                 i = i + 1;
                 break;
             case 6:
-                fscanf(job_file, "%d", &method);
+                fscanf(job_file,"%d", &coefInteg);
                 i = i + 1;
                 break;
             case 7:
-                fscanf(job_file, "%d", &Nlines);
+                fscanf(job_file,"%d", &Nlines);
                 i = i + 1;
                 break;
             case 8:
-                fscanf(job_file, "%d", &resetinit);
+                fscanf(job_file,"%d", &resetinit);
                 i = i + 1;
                 break;
         }
@@ -422,10 +417,15 @@ int main(int argc, char * argv[])
     }
 
     fclose(job_file);
+    cyclic = 1;
 
+
+
+    // After read the job definition file check some entries
     if (i < 9)
     {
-        printf("\nNot enough parameters passed in job.conf file.\n\n");
+        printf("\n\nERROR : Not enough parameters found in job file.\n");
+        printf("Could get %d but expected 9.\n\n",i);
         exit(EXIT_FAILURE);
     }
 
@@ -433,14 +433,26 @@ int main(int argc, char * argv[])
     {
         if (timeinfo != 'i' && timeinfo != 'I')
         {
-            printf("\n\n\t!   Invalid integrator identifier   !\n\n");
+            printf("\n\nERROR : Invalid integrator identifier! ");
+            printf("Must be 'imag' or 'real'\n\n");
             exit(EXIT_FAILURE);
         }
     }
 
     if (method != 1 && method != 2 && method != 3)
     {
-        printf("\n\n\tInvalid method Id ! Valid: 1 or 2 or 3\n\n");
+        printf("\n\nERROR : Invalid method Id(Orbitals)! Valid ones are:\n");
+        printf("\t1 - Crank-Niconsol-SM-RK2\n");
+        printf("\t2 - Crank-Niconsol-LU-RK2\n");
+        printf("\t3 - Crank-Niconsol-FFT-RK2\n\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (coefInteg > 5)
+    {
+        printf("\n\nERROR : Invalid Coef. integrator Id! Valid ones are:\n");
+        printf("\t0/1 - 4th order Rung-Kutta\n");
+        printf("\t2/3/4/5 - Lanczos number of iterations\n\n\n");
         exit(EXIT_FAILURE);
     }
 
@@ -448,48 +460,26 @@ int main(int argc, char * argv[])
 
 
 
-    // Print what it is going to do
+    printf("\n\n\n");
+    printf("\t\t****************************************************\n");
+    printf("\t\t*                                                  *\n");
+    printf("\t\t*   MCTDHB program initiated                       *\n");
+    printf("\t\t*   Developer contact: andriati@if.usp.br          *\n");
+    printf("\t\t*                                                  *\n");
+    printf("\t\t*                                                  *\n");
+
     if (timeinfo == 'i' || timeinfo == 'I')
     {
-        printf("\n\nIMAGINARY TIME - Method chosen : %d - ", method);
-        switch (method)
-        {
-            case 1:
-                printf("Crank-Nicolson SM and ");
-                break;
-            case 2:
-                printf("Crank-Nicolson LU and ");
-                break;
-            case 3:
-                printf("FFT and ");
-                break;
-        }
-
-        printf("4th Order Runge-Kutta");
+    printf("\t\t*            IMAGINARY TIME PROPAGATION            *\n");
     }
-
     else
     {
-        printf("\n\nREAL TIME INTEGRATION\n\n");
+    printf("\t\t*               REAL TIME PROPAGATION              *\n");
     }
-
-
-
-
-
-
-
-
-
-
-    /* ====================================================================
-                   CONFIGURE TRAP POTENTIAL AND DISCRETIZATION
-       ==================================================================== */
-
+    printf("\t\t*                                                  *\n");
+    printf("\t\t*                                                  *\n");
+    printf("\t\t****************************************************\n");
     printf("\n\n\n");
-    printf("=========================================================\n\n");
-    printf("Using %s setup files to configure integrator\n\n", infname);
-    printf("=========================================================\n\n");
 
 
 
@@ -508,13 +498,12 @@ int main(int argc, char * argv[])
     strcat(fname, infname);
     strcat(fname, "_conf.dat");
 
-    printf("\n\nLooking for %s", fname);
+    printf("Looking for %s", fname);
 
     confFile = fopen(fname, "r");
-
-    if (confFile == NULL) // impossible to open file
+    if (confFile == NULL)
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -527,13 +516,12 @@ int main(int argc, char * argv[])
     strcat(fname, infname);
     strcat(fname, "_eq.dat");
 
-    printf("\nLooking for %s", fname);
+    printf("Looking for %s", fname);
 
     paramFile = fopen(fname, "r");
-
-    if (paramFile == NULL) // impossible to open file
+    if (paramFile == NULL)
     {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -546,13 +534,12 @@ int main(int argc, char * argv[])
     strcat(fname, infname);
     strcat(fname, "_orb.dat");
 
-    printf("\nLooking for %s ", fname);
+    printf("Looking for %s ", fname);
 
     orb_file = fopen(fname, "r");
-
-    if (orb_file == NULL)  // impossible to open file
+    if (orb_file == NULL)
     {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
@@ -565,18 +552,19 @@ int main(int argc, char * argv[])
     strcat(fname, infname);
     strcat(fname, "_coef.dat");
 
-    printf("\nLooking for %s ", fname);
+    printf("Looking for %s ", fname);
 
     coef_file = fopen(fname, "r");
-
-    if (coef_file == NULL)  // impossible to open file
+    if (coef_file == NULL)
     {
-        printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     } else
     {
         printf(" ... Found !\n");
     }
+
+
 
 
 
@@ -592,10 +580,9 @@ int main(int argc, char * argv[])
         strcat(fname, "_energy_imagtime.dat");
 
         E_file = fopen(fname, "w");
-
         if (E_file == NULL)  // impossible to open file
         {
-            printf("\n\n\tERROR: impossible to open file %s\n\n", fname);
+            printf("\n\nERROR: impossible to open file %s\n\n", fname);
             exit(EXIT_FAILURE);
         }
     }
@@ -607,11 +594,11 @@ int main(int argc, char * argv[])
     confFileOut = fopen(fname, "w");
     if (confFileOut == NULL) // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
 
-    fprintf(confFileOut, "# trap : %s\n", potname);
+    fprintf(confFileOut, "# trap Id : %s\n", potname);
 
 
 
@@ -626,6 +613,7 @@ int main(int argc, char * argv[])
            READ DATA TO SETUP EQUATION PARAMETERS AND INITIAL CONDITIONS
        ==================================================================== */
 
+    printf("\n\n\n\n\n\n\n\n\n");
     mc = SetupData(paramFile, confFile, &dt, &N, potname);
 
     dx = mc->dx;
@@ -635,16 +623,17 @@ int main(int argc, char * argv[])
     Npar = mc->Npar;
     Morb = mc->Morb;
 
+    printf("Configuration Done  for JOB 1:");
+    printf("\n\t# of Particles: %4d", Npar);
+    printf("\n\t# of Orbitals:  %4d", Morb);
+    printf("\n\t# of possible configurations: %d\n", NC(Npar, Morb));
+
     x = rarrDef(Mdx + 1);
     rarrFillInc(Mdx + 1, xi, dx, x);
-
-
 
     S = AllocManyBodyPkg(Npar,Morb,Mdx + 1);
 
     // Setup orbitals
-    // --------------
-
     for (k = 0; k < Mdx + 1; k++)
     {
         for (s = 0; s < Morb; s++)
@@ -653,17 +642,10 @@ int main(int argc, char * argv[])
             S->Omat[s][k] = real + I * imag;
         }
     }
-
     // Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
-
-    // orbitals are not read again
     fclose(orb_file);
 
-
-
     // Setup Coeficients
-    // -----------------
-
     for (k = 0; k < NC(Npar, Morb); k++)
     {
         l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
@@ -683,19 +665,12 @@ int main(int argc, char * argv[])
                        CHECK ORTHOGONALITY AND NORMALIZATION
        ==================================================================== */
 
-    printf("\n\n\n");
-    printf("=========================================================\n\n");
-    printf("Configuration done. Checking orthonormality\n\n");
-    printf("=========================================================\n\n");
+    printf("\nChecking orthonormality ... ");
 
 
     to_int = carrDef(Mdx + 1);
 
-
-
     // Check if off-diagonal elements are zero
-    // ---------------------------------------
-
     check = 0;
     for (k = 0; k < Morb; k++)
     {
@@ -712,41 +687,36 @@ int main(int argc, char * argv[])
 
     if (check > 1E-8)
     {
-        printf("\n\n\t!   ORBITALS ARE NOT ORTHOGONAL   !\n");
-        return -1;
+        printf("\n\n!   ORBITALS ARE NOT ORTHOGONAL   !\n\n");
+        exit(EXIT_FAILURE);
     }
 
-
-
     // Check if Diagonal elements sum up to Morb
-    // -----------------------------------------
-
-    checkDiag = 0;
+    check = 0;
     for (k = 0; k < Morb; k++)
     {
         for (s = 0; s < Mdx + 1; s++)
         {
             to_int[s] = conj(S->Omat[k][s]) * S->Omat[k][s];
         }
-        checkDiag = checkDiag + Csimps(Mdx + 1, to_int, mc->dx);
+        check = check + cabs(Csimps(Mdx + 1, to_int, mc->dx));
     }
 
-    if (abs(creal(checkDiag) - Morb) > 1E-8 || cimag(checkDiag) > 1E-8)
+    if (fabs(check - Morb) > 1E-8)
     {
-        printf("\n\n\t!   ORBITALS DO NOT HAVE NORM = 1   !\n");
-        return -1;
+        printf("\n\n!   ORBITALS DO NOT HAVE NORM = 1   !\n\n");
+        exit(EXIT_FAILURE);
     }
-
-
 
     // Check normalization of coeficients
-    // ----------------------------------
-
-    if ( abs(carrMod2(NC(Npar, Morb), S->C) - 1) > 1E-9 )
+    if ( abs(carrMod2(NC(Npar, Morb),S->C) - 1) > 1E-9 )
     {
-        printf("\n\n\t!   COEFFICIENTS DO NOT HAVE NORM = 1   !\n");
-        return -1;
+        printf("\n\n!   COEFFICIENTS DO NOT HAVE NORM = 1   !\n\n");
+        exit(EXIT_FAILURE);
     }
+
+    // Everything ok
+    printf("Done\n\n");
 
 
 
@@ -760,7 +730,7 @@ int main(int argc, char * argv[])
     /* ====================================================================
                                REAL TIME INTEGRATION
        ==================================================================== */
-
+/*
     if (timeinfo == 'r' || timeinfo =='R')
     {
         printf("\n\n\n");
@@ -802,6 +772,7 @@ int main(int argc, char * argv[])
         return 0;
 
     }
+    */
 
 
 
@@ -821,6 +792,9 @@ int main(int argc, char * argv[])
     // iterations unless either it exceeds half of the dimension of
     // configuration space or if it exceeds a memory Threshold.
 
+    printf("\nUpgrading initial state doing fixed basis diagonalization");
+    printf(" of coefficients ... ");
+
     E   = carrDef(N + 1); // to store energy
     vir = carrDef(N + 1); // check consistency by Virial Theorem
     
@@ -837,16 +811,11 @@ int main(int argc, char * argv[])
     }
     else k = 5E7 / NC(Npar, Morb);
 
-    E[0] = LanczosGround( k, mc, S->Omat, S->C );
+    E[0] = LanczosGround(k,mc,S->Omat,S->C);
     // Renormalize coeficients
     renormalizeVector(NC(Npar, Morb), S->C, 1.0);
 
-    printf("\n=====================================================");
-    printf("==========================\n\n");
-    printf("\tDiagonalization Done. Initial energy = %.5E", creal(E[0]));
-    printf("\n\t# of lanczos iterations used = %d", k);
-    printf("\n\n===================================================");
-    printf("============================");
+    printf("Done. Initial energy = %.5E", creal(E[0]) / Npar);
 
 
 
@@ -872,7 +841,7 @@ int main(int argc, char * argv[])
         case 1:
 
             start = omp_get_wtime();
-            s = IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
+            s = imagCNSM(mc, S, dt, N, coefInteg, cyclic);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -882,7 +851,7 @@ int main(int argc, char * argv[])
         case 2:
 
             start = omp_get_wtime();
-            s = IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
+            s = imagCNLU(mc, S, dt, N, coefInteg, cyclic);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -890,9 +859,8 @@ int main(int argc, char * argv[])
             break;
 
         case 3:
-
             start = omp_get_wtime();
-            s = IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
+            s = imagFFT(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             printf("\n\nTime taken in integration #%d : %lf", 1, time_used);
             printf(" = "); TimePrint(time_used);
@@ -1168,7 +1136,7 @@ int main(int argc, char * argv[])
             case 1:
 
                 start = omp_get_wtime();
-                s = IMAG_RK4_CNSMRK4(mc, S, E, vir, dt, N, cyclic);
+                s = imagCNSM(mc, S, dt, N, coefInteg, cyclic);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
@@ -1179,7 +1147,7 @@ int main(int argc, char * argv[])
             case 2:
 
                 start = omp_get_wtime();
-                s = IMAG_RK4_CNLURK4(mc, S, E, vir, dt, N, cyclic);
+                s = imagCNLU(mc, S, dt, N, coefInteg, cyclic);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);
@@ -1190,7 +1158,7 @@ int main(int argc, char * argv[])
             case 3:
 
                 start = omp_get_wtime();
-                s = IMAG_RK4_FFTRK4(mc, S, E, vir, dt, N);
+                s = imagFFT(mc, S, dt, N, coefInteg);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 printf("\n\nTime taken in execution #%d : %.1lf", i+1, end);

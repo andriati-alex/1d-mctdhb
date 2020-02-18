@@ -1,11 +1,7 @@
 #ifndef _matrix_operations_h
 #define _matrix_operations_h
 
-#ifdef _OPENMP
-    #include <omp.h>
-#endif
-
-#include "array_memory.h"
+#include "memoryHandling.h"
 #include "array_operations.h"
 
 

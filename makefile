@@ -5,38 +5,36 @@
 
 
 
-obj_linalg = array_memory.o 	  \
+obj_linalg = memoryHandling.o 	  \
 			 array_operations.o   \
 			 matrix_operations.o  \
-		   	 iterative_solver.o   \
 			 tridiagonal_solver.o
 
-obj_mctdhb = $(obj_linalg)             \
-			 inout.o                   \
-			 interpolation.o           \
-			 calculus.o                \
-			 linear_potential.o        \
-		 	 manybody_configurations.o \
-			 data_structure.o          \
-			 observables.o             \
-		 	 integrator_routine.o
+obj_mctdhb = $(obj_linalg)          \
+			 inout.o                \
+			 interpolation.o        \
+			 calculus.o             \
+			 linear_potential.o     \
+		 	 configurationalSpace.o \
+			 structureSetup.o       \
+			 observables.o          \
+		 	 integrators.o
 
-linalg_header = include/array.h 			 \
-				include/array_memory.h		 \
+linalg_header = include/dataStructures.h	 \
+				include/memoryHandling.h     \
 				include/array_operations.h   \
 				include/matrix_operations.h  \
-	  		    include/tridiagonal_solver.h \
-				include/iterative_solver.h
+	  		    include/tridiagonal_solver.h
 
-mctdhb_header = $(linalg_header) 	    	      \
-				include/inout.h                   \
-				include/interpolation.h           \
-				include/calculus.h		          \
-		 		include/linear_potential.h        \
-				include/manybody_configurations.h \
-				include/data_structure.h          \
-				include/observables.h             \
-				include/integrator_routine.h
+mctdhb_header = $(linalg_header) 	    	     \
+				include/inout.h                  \
+				include/interpolation.h          \
+				include/calculus.h		         \
+		 		include/linear_potential.h       \
+				include/configurationalSpace.h   \
+				include/structureSetup.h         \
+				include/observables.h            \
+				include/integrators.h
 
 
 
@@ -50,7 +48,7 @@ mctdhb_header = $(linalg_header) 	    	      \
 
 
 
-MCTDHB : libmctdhb.a exe/time_evolution.c include/integrator_routine.h
+MCTDHB : libmctdhb.a exe/time_evolution.c include/integrators.h
 	icc -o MCTDHB exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -qopenmp \
 		-L./lib -I./include -lmctdhb -lm -O3
@@ -74,8 +72,8 @@ libmctdhb.a : $(obj_mctdhb)
 # Object files to the library
 # ---------------------------
 
-array_memory.o : src/array_memory.c
-	icc -c -O3 -I./include src/array_memory.c
+memoryHandling.o : src/memoryHandling.c
+	icc -c -O3 -I./include src/memoryHandling.c
 
 
 
@@ -95,11 +93,6 @@ tridiagonal_solver.o : src/tridiagonal_solver.c
 
 
 
-iterative_solver.o : src/iterative_solver.c
-	icc -c -O3 -qopenmp -I./include src/iterative_solver.c
-
-
-
 linear_potential.o : src/linear_potential.c
 	icc -c -O3 -I./include src/linear_potential.c
 
@@ -111,14 +104,14 @@ calculus.o : src/calculus.c
 
 
 
-integrator_routine.o : src/integrator_routine.c
+integrators.o : src/integrators.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-I./include src/integrator_routine.c
+		-I./include src/integrators.c
 
 
 
-manybody_configurations.o : src/manybody_configurations.c
-	icc -c -O3 -qopenmp -I./include src/manybody_configurations.c
+configurationalSpace.o : src/configurationalSpace.c
+	icc -c -O3 -qopenmp -I./include src/configurationalSpace.c
 
 
 
@@ -127,8 +120,8 @@ observables.o : src/observables.c
 
 
 
-data_structure.o : src/data_structure.c
-	icc -c -O3 -I./include src/data_structure.c
+structureSetup.o : src/structureSetup.c
+	icc -c -O3 -I./include src/structureSetup.c
 
 
 
