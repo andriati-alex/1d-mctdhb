@@ -155,6 +155,7 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     mc->xi = xi;
     mc->xf = xf;
     mc->dx = dx;
+    printf("\n");
     sepline();
     printf("\t\t\tDomain resized to [%.2lf,%.2lf]",xi,xf);
     sepline();
@@ -1172,7 +1173,7 @@ double LanczosGround(int Niter, EqDataPkg MC, Cmatrix Orb, Carray C)
     // Transfer data to use lapack routine
     for (k = 0; k < Niter; k++)
     {
-        if (fabs(cimag(diag[i])) > 1E-10)
+        if (fabs(cimag(diag[k])) > 1E-10)
         {
             printf("\n\nWARNING : Nonzero imaginary part in Lanczos\n\n");
         }
@@ -2349,7 +2350,7 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
         vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
-        if ( (i + 1) % (Nsteps / 1000) == 0 )
+        if ( (i + 1) % (Nsteps / 500) == 0 )
         {
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
@@ -2573,7 +2574,7 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
         vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
-        if ( (i + 1) % (Nsteps / 1000) == 0 )
+        if ( (i + 1) % (Nsteps / 500) == 0 )
         {
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
@@ -2674,6 +2675,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
     CCSmat
         cnmat;
+
 
 
     isTrapped = strcmp(MC->Vname, "harmonic");
@@ -2792,7 +2794,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
         vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
-        if ( (i + 1) % (Nsteps / 1000) == 0 )
+        if ( (i + 1) % (Nsteps / 500) == 0 )
         {
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
