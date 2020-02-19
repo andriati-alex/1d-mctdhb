@@ -120,7 +120,7 @@ int imagCNSM(EqDataPkg,ManyBodyPkg,double,int,int,int);
 
 int imagCNLU(EqDataPkg,ManyBodyPkg,double,int,int,int);
 
-void REAL_FP(EqDataPkg,ManyBodyPkg,double,int,int,char [],int);
+void realCNSM(EqDataPkg,ManyBodyPkg,double,int,int,char [],int);
 
 
 

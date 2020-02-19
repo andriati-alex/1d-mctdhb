@@ -2,6 +2,48 @@
 
 
 
+double eigQuality(EqDataPkg MC, Carray C, Cmatrix Ho, Carray Hint, double E0)
+{
+    int 
+        i,
+        nc = MC->nc,
+        Npar = MC->Npar,
+        Morb = MC->Morb;
+
+    double
+        maxDev;
+
+    Iarray
+        IF = MC->IF,
+        map1 = MC->Map,
+        map12 = MC->MapOT,
+        map22 = MC->MapTT,
+        s12 = MC->strideOT,
+        s22 = MC->strideTT;
+
+    Carray
+        Cout;
+
+    Cout = carrDef(nc);
+
+    applyHconf(Npar,Morb,map1,map12,map22,s12,s22,IF,C,Ho,Hint,Cout);
+
+    maxDev = 0;
+    for (i = 0; i < nc; i++)
+    {
+        if (cabs(E0 * C[i] - Cout[i]/Npar) > maxDev)
+        {
+            maxDev = cabs(E0 * C[i] - Cout[i]/Npar);
+        }
+    }
+
+    free(Cout);
+
+    return maxDev;
+}
+
+
+
 /**************************************************************************
  **************************************************************************
  ****************                                          ****************
@@ -2174,6 +2216,7 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         p;
 
     double
+        eigFactor,
         freq,
         Idt,
         R2,
@@ -2264,12 +2307,14 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
     prevE = E;
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
+    eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|");
+    printf("     |Virial/E|     H[C] - E*C");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+    printf("      %8.5lf",eigFactor);
 
 
 
@@ -2352,9 +2397,11 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
+            eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+            printf("      %8.5lf",eigFactor);
         }
 
 
@@ -2410,16 +2457,21 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
 
 
 
-
-
-
-
-
-
-
 int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
              int coefInteg, int cyclic)
 {
+
+/** INTEGRATE EQUATIONS IN IMAGINARY TIME
+    =====================================
+    Integrate the MCTDHB equations in imaginary time to find the ground
+    state. The integration is done using split-step technique  for  the
+    orbitals, where the nonlinear/potential part is  evolved  with  2nd
+    order Runge-Kutta scheme and the  linear  part  with crank-nicolson
+    finite differences scheme. The coefficients may be chosen in job.conf
+    file between Lanczos and 4th order Runge-Kutta.
+
+    The many-body data in 'S' is updated until find the ground state or
+    reach the requested number of steps                             **/
 
     int i,
         j,
@@ -2432,6 +2484,7 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
     double
         R2,
+        eigFactor,
         dx = MC->dx,
         a2 = MC->a2,
         g = MC->g,
@@ -2472,12 +2525,14 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     prevE = E;
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
+    eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|");
+    printf("     |Virial/E|     H[C] - E*C");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+    printf("      %8.5lf",eigFactor);
 
 
 
@@ -2576,9 +2631,11 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
+            eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+            printf("      %8.5lf",eigFactor);
         }
 
 
@@ -2633,16 +2690,21 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 
-
-
-
-
-
-
-
 int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
              int coefInteg, int cyclic)
 {
+
+/** INTEGRATE EQUATIONS IN IMAGINARY TIME
+    =====================================
+    Integrate the MCTDHB equations in imaginary time to find the ground
+    state. The integration is done using split-step technique  for  the
+    orbitals, where the nonlinear/potential part is  evolved  with  2nd
+    order Runge-Kutta scheme and the  linear  part  with crank-nicolson
+    finite differences scheme. The coefficients may be chosen in job.conf
+    file between Lanczos and 4th order Runge-Kutta.
+
+    The many-body data in 'S' is updated until find the ground state or
+    reach the requested number of steps                             **/
 
     int
         i,
@@ -2656,6 +2718,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
     double
         R2,
+        eigFactor,
         dx = MC->dx,
         a2 = MC->a2,
         g = MC->g,
@@ -2695,12 +2758,14 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     prevE = E;
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
+    eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|");
+    printf("     |Virial/E|     H[C] - E*C");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+    printf("      %8.5lf",eigFactor);
 
 
 
@@ -2796,9 +2861,11 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
+            eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+            printf("      %8.5lf",eigFactor);
         }
 
 
@@ -2853,60 +2920,29 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 
-
-
-
-
-
-
-
-void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
+void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
      char prefix [], int skip)
 {
-
-/** Multi-Configuration Imaginary time propagation
-    ==============================================
-
-
-    Methods
-    -------
-
-    Configuration Coefficients Integrator : 4-th order Runge-Kutta
-
-    Orbitals Integrator : Split-Step with Crank-Nicolson(linear)
-    with Sherman-Morrison and 4-th order  Runge-Kutta(nonlinear)
-
-
-    Description
-    -----------
-
-    Evolve half step linear part, then full step nonlinear part together
-    with coefficients and another half step linear part
-
-**/
-
-
 
     int l,
         i,
         j,
         k,
-        nc = MC->nc,
-        Npar = MC->Npar,
-        Mpos = MC->Mpos,
-        Morb = MC->Morb;
+        nc,
+        Npar,
+        Mpos,
+        Morb;
 
     double
-        checkOrtho,
-        dx = MC->dx,
-        a2 = MC->a2,
-        g = MC->g,
-        * V = MC->V,
-        norm;
+        checkOverlap,
+        norm,
+        dx,
+        a2,
+        g;
 
     double complex
         E,
-        a1 = MC->a1;
+        a1;
 
     char
         fname[100];
@@ -2915,26 +2951,43 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         * rho_file,
         * orb_file;
 
-    Carray
-        rho_vec = carrDef(Morb * Morb),
-        orb_vec = carrDef(Morb * Mpos),
-        upper = carrDef(Mpos - 1),
-        lower = carrDef(Mpos - 1),
-        mid = carrDef(Mpos - 1),
-        OldHint = carrDef(Morb * Morb * Morb * Morb);
+    Rarray
+        V;
 
-    Cmatrix
-        Old = cmatDef(Morb, Mpos),
-        OldHo = cmatDef(Morb,Morb);
+    Carray
+        rho_vec,
+        orb_vec,
+        upper,
+        lower,
+        mid;
 
     CCSmat
         cnmat;
 
 
-    printf("\n\nGREETINGS CN real\n\n");
+
+    // unpack configurational parameters
+    nc = MC->nc;
+    Npar = MC->Npar;
+    Mpos = MC->Mpos;
+    Morb = MC->Morb;
+    // unpack equation parameters
+    dx = MC->dx;
+    a2 = MC->a2;
+    a1 = MC->a1;
+    g = MC->g;
+    V = MC->V;
+
+    rho_vec = carrDef(Morb * Morb);
+    orb_vec = carrDef(Morb * Mpos);
+    // Crank-Nicolson tridiagonal system
+    upper = carrDef(Mpos - 1);
+    lower = carrDef(Mpos - 1);
+    mid = carrDef(Mpos - 1);
 
 
 
+    // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_rho_realtime.dat");
@@ -2942,12 +2995,14 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     rho_file = fopen(fname, "w");
     if (rho_file == NULL) // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
+    fprintf(rho_file, "# Row-major vector representatio of rho_1\n");
 
-    fprintf(rho_file, "# Major-Row vector representatio of rho\n");
 
+
+    // OPEN FILE TO RECORD ORBITALS
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_orb_realtime.dat");
@@ -2955,11 +3010,10 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     orb_file = fopen(fname, "w");
     if (orb_file == NULL) // impossible to open file
     {
-        printf("\n\n\tERROR: impossible to open file %s\n", fname);
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
-
-    fprintf(orb_file, "# Major-Row vector representatio of Orbitals\n");
+    fprintf(orb_file, "# Row-major vector representatio of Orbitals\n");
 
 
 
@@ -2974,20 +3028,20 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
 
-    RegularizeMat(Morb,Npar*1E-5,S->rho1);
+    RegularizeMat(Morb,Npar*1E-7,S->rho1);
 
 
 
     // initial energy
     E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
     norm = carrMod(nc, S->C);
-    checkOrtho = overlapFactor(Morb, Mpos, dx, S->Omat);
+    checkOverlap = overlapFactor(Morb, Mpos, dx, S->Omat);
 
-    printf("\n\n\ttime           Energy               Ortho");
+    printf("\n\ntime           Energy               Ortho");
     printf("          Norm");
     sepline();
-    printf("\t%.5lf      %15.7E", 0.0, creal(E));
-    printf("      %10.2E      %10.7lf", checkOrtho, norm);
+    printf(" %.5lf      %15.7E", 0.0, creal(E));
+    printf("      %10.2E      %10.7lf", checkOverlap, norm);
 
     RowMajor(Morb, Morb, S->rho1, rho_vec);
     RowMajor(Morb, Mpos, S->Omat, orb_vec);
@@ -2996,7 +3050,8 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-    // Configure the linear system from Crank-Nicolson scheme
+    // Configure the linear system from Crank-Nicolson scheme with half
+    // time step from split-step approach
     cnmat = CNmat(Mpos, dx, dt/2, a2, a1, g, V, cyclic, upper, lower, mid);
 
 
@@ -3006,8 +3061,8 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     {
 
         // HALF STEP THE COEFFICIENTS
-
         LanczosIntegrator(3, MC, S->Ho, S->Hint, dt / 2, S->C);
+
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
@@ -3015,23 +3070,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-
-
-
-
-        // COPY TIME STEP DATA TO USED FIXED POINT ITERATIONS
-
-        for (k = 0; k < Morb; k ++)
-        {
-            for (j = 0; j < Mpos; j++) Old[k][j] = S->Omat[k][j];
-
-            for (j = 0; j < Morb; j++) OldHo[k][j] = S->Ho[k][j];    
-        }
-        carrCopy(Morb*Morb*Morb*Morb, S->Hint, OldHint);
-
-
-
-
+        // FULL TIME STEP ORBITALS
         LP_CNSM(Mpos,Morb,cnmat,upper,lower,mid,S->Omat);
 
         if (cyclic)
@@ -3042,11 +3081,7 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
-
-
-        realNL_RK4(MC, S, dt);
-
-
+        realNL_RK4(MC,S,dt);
 
         LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
 
@@ -3060,7 +3095,6 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-
         // ANOTHER HALF STEP FOR COEFFICIENTS
         LanczosIntegrator(3, MC, S->Ho, S->Hint, dt / 2, S->C);
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
@@ -3070,18 +3104,14 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-        E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
-        norm = carrMod(nc, S->C);
-        checkOrtho = overlapFactor(Morb, Mpos, dx, S->Omat);
+        E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint);
+        norm = carrMod(nc,S->C);
+        checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
 
         if (l == skip)
         {
-            printf("\n\t%.5lf      %15.7E", (i + 1) * dt, creal(E));
-            printf("      %10.2E      %10.7lf", checkOrtho, norm);
-        }
-
-        if (l == skip)
-        {
+            printf("\n %.5lf      %15.7E", (i + 1) * dt, creal(E));
+            printf("      %10.2E      %10.7lf", checkOverlap, norm);
             RowMajor(Morb, Morb, S->rho1, rho_vec);
             RowMajor(Morb, Mpos, S->Omat, orb_vec);
             carr_inline(rho_file, Morb * Morb, rho_vec);
@@ -3100,9 +3130,6 @@ void REAL_FP (EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     free(mid);
     free(rho_vec);
     free(orb_vec);
-    free(OldHint);
-    cmatFree(Morb, OldHo);
-    cmatFree(Morb, Old);
 
     fclose(rho_file);
     fclose(orb_file);

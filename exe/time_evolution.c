@@ -645,11 +645,6 @@ int main(int argc, char * argv[])
 
 
 
-
-
-
-
-
     /* ====================================================================
            READ DATA TO SETUP EQUATION PARAMETERS AND INITIAL CONDITIONS
        ==================================================================== */
@@ -705,9 +700,6 @@ int main(int argc, char * argv[])
     // Orthonormality check
     orthoCheck(Npar,Morb,Mdx+1,dx,S->Omat,S->C);
 
-    // Diagonalization with initial orbitals to improve coefficients
-    initDiag(mc,S);
-
 
 
 
@@ -720,13 +712,9 @@ int main(int argc, char * argv[])
     /* ====================================================================
                                REAL TIME INTEGRATION
        ==================================================================== */
-/*
     if (timeinfo == 'r' || timeinfo =='R')
     {
-        printf("\n\n\n");
-        printf("=======================================================\n\n");
-        printf("Start real time Integration\n\n");
-        printf("=======================================================\n\n");
+        printf("\nStart real time Integration\n");
 
         fclose(confFile);
         fclose(paramFile);
@@ -734,12 +722,12 @@ int main(int argc, char * argv[])
 
         start = omp_get_wtime();
 
-        REAL_FP(mc, S, dt, N, cyclic, outfname, 5);
+        realCNSM(mc,S,dt,N,cyclic,outfname,5);
 
         time_used = (double) (omp_get_wtime() - start);
 
-        printf("\n\nTime taken in real time integration : %lf sec",time_used);
-        printf(" = "); TimePrint(time_used);
+        printf("\n\nTime taken in integration : %lf(s) = ",time_used);
+        TimePrint(time_used);
 
         SaveConf(confFileOut, mc);
 
@@ -753,16 +741,13 @@ int main(int argc, char * argv[])
 
         ReleaseEqDataPkg(mc);
         ReleaseManyBodyDataPkg(S);
-        free(to_int);
         free(x);
 
         fclose(confFileOut);
 
-        printf("\n\n");
+        printf("\n\n-- END --\n\n");
         return 0;
-
     }
-    */
 
 
 
@@ -774,6 +759,8 @@ int main(int argc, char * argv[])
 
 
 
+    // Diagonalization with initial orbitals to improve coefficients
+    initDiag(mc,S);
     printf("\nStart imaginary time Integration");
 
     switch (method)
