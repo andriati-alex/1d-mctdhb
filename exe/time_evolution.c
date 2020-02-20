@@ -743,11 +743,24 @@ int main(int argc, char * argv[])
         fclose(paramFile);
         fclose(coef_file);
 
-        start = omp_get_wtime();
-
-        realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
-
-        time_used = (double) (omp_get_wtime() - start);
+        switch (method)
+        {
+            case 1:
+                start = omp_get_wtime();
+                realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
+                time_used = (double) (omp_get_wtime() - start);
+                break;
+            case 2:
+                start = omp_get_wtime();
+                realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
+                time_used = (double) (omp_get_wtime() - start);
+                break;
+            case 3:
+                start = omp_get_wtime();
+                realFFT(mc,S,dt,N,outfname,N/Nlines);
+                time_used = (double) (omp_get_wtime() - start);
+                break;
+        }
 
         printf("\nTime taken in integration : %lf(s) = ",time_used);
         TimePrint(time_used);

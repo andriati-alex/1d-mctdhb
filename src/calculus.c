@@ -4,42 +4,6 @@
 
 
 
-double complex Ctrapezium(int n, Carray f, double h)
-{
-    int
-        i;
-
-    double complex
-        sum;
-
-    sum = 0;
-    for (i = 0; i < n - 1; i++) sum = sum + (f[i+1] + f[i]) * 0.5 * h;
-
-    return sum;
-}
-
-
-
-
-
-double Rtrapezium(int n, Rarray f, double h)
-{
-    int
-        i;
-
-    double
-        sum;
-
-    sum = 0;
-    for (i = 0; i < n - 1; i++) sum = sum + (f[i+1] + f[i]) * 0.5 * h;
-
-    return sum;
-}
-
-
-
-
-
 double complex Csimps(int n, Carray f, double h)
 {
 

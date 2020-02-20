@@ -122,6 +122,8 @@ int imagCNLU(EqDataPkg,ManyBodyPkg,double,int,int,int);
 
 void realCNSM(EqDataPkg,ManyBodyPkg,double,int,int,char [],int);
 
+void realFFT(EqDataPkg,ManyBodyPkg,double,int,char [],int);
+
 
 
 #endif

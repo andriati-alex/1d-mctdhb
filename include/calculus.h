@@ -29,10 +29,6 @@ double complex Csimps(int size_of_f, Carray f, double dx);
 
 double Rsimps(int size_of_f, Rarray f, double dx);
 
-double complex Ctrapezium(int n, Carray f, double dx);
-
-double Rtrapezium(int n, Rarray f, double dx);
-
 void dxFFT(int size_of_f, Carray f, double dx, Carray dfdx);
 
 void dxFD(int size_of_f, Carray f, double dx, Carray dfdx);
