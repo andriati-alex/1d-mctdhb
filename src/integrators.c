@@ -276,7 +276,7 @@ double overlapFactor(int Morb, int Mpos, double dx, Cmatrix Orb)
 
     free(prod);
 
-    return 2 * sum;
+    return sum / Morb;
 }
 
 
@@ -2921,7 +2921,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
-     char prefix [], int skip)
+     char prefix [], int recInterval)
 {
 
     int l,
@@ -2948,6 +2948,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         fname[100];
 
     FILE
+        * t_file,
         * rho_file,
         * orb_file;
 
@@ -2965,6 +2966,9 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         cnmat;
 
 
+
+    // record interval valid values are > 0
+    if (recInterval < 1) recInterval = 1;
 
     // unpack configurational parameters
     nc = MC->nc;
@@ -2988,12 +2992,27 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
     // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
+    strcpy(fname,"output/");
+    strcat(fname,prefix);
+    strcat(fname,"_t_realtime.dat");
+
+    t_file = fopen(fname, "w");
+    if (t_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(t_file, "# time instants solution is recorded");
+
+
+
+    // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_rho_realtime.dat");
 
     rho_file = fopen(fname, "w");
-    if (rho_file == NULL) // impossible to open file
+    if (rho_file == NULL)
     {
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
@@ -3008,7 +3027,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     strcat(fname, "_orb_realtime.dat");
 
     orb_file = fopen(fname, "w");
-    if (orb_file == NULL) // impossible to open file
+    if (orb_file == NULL)
     {
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
@@ -3033,20 +3052,22 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
     // initial energy
-    E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint);
+    E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb, Mpos, dx, S->Omat);
 
-    printf("\n\ntime           Energy               Ortho");
-    printf("          Norm");
+    printf("\n  time         E/Npar      Overlap");
+    printf("     Coef-Norm");
     sepline();
-    printf(" %.5lf      %15.7E", 0.0, creal(E));
-    printf("      %10.2E      %10.7lf", checkOverlap, norm);
+    printf("%10.6lf  %11.6lf",0.0,creal(E));
+    printf("    %8.2E    %9.7lf",checkOverlap,norm);
 
+    // record initial data
     RowMajor(Morb, Morb, S->rho1, rho_vec);
     RowMajor(Morb, Mpos, S->Omat, orb_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
     carr_inline(orb_file, Morb * Mpos, orb_vec);
+    fprintf(t_file,"\n%.6lf",0*dt);
 
 
 
@@ -3061,7 +3082,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     {
 
         // HALF STEP THE COEFFICIENTS
-        LanczosIntegrator(3, MC, S->Ho, S->Hint, dt / 2, S->C);
+        LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
 
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
@@ -3096,7 +3117,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
         // ANOTHER HALF STEP FOR COEFFICIENTS
-        LanczosIntegrator(3, MC, S->Ho, S->Hint, dt / 2, S->C);
+        LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
@@ -3104,23 +3125,37 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-        E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint);
+        E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
         norm = carrMod(nc,S->C);
         checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
 
-        if (l == skip)
+        // If the number of steps done reach record interval, record data
+        if (l == recInterval)
         {
-            printf("\n %.5lf      %15.7E", (i + 1) * dt, creal(E));
-            printf("      %10.2E      %10.7lf", checkOverlap, norm);
+            printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
+            printf("    %8.2E    %9.7lf",checkOverlap,norm);
             RowMajor(Morb, Morb, S->rho1, rho_vec);
             RowMajor(Morb, Mpos, S->Omat, orb_vec);
             carr_inline(rho_file, Morb * Morb, rho_vec);
             carr_inline(orb_file, Morb * Mpos, orb_vec);
+            fprintf(t_file,"\n%.6lf",(i+1)*dt);
             l = 1;
         }
         else { l = l + 1; }
 
     }
+
+    E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+    norm = carrMod(nc,S->C);
+    checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+
+    printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
+    printf("    %8.2E    %9.7lf",checkOverlap,norm);
+    RowMajor(Morb, Morb, S->rho1, rho_vec);
+    RowMajor(Morb, Mpos, S->Omat, orb_vec);
+    carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(orb_file, Morb * Mpos, orb_vec);
+    fprintf(t_file,"\n%.6lf",Nsteps*dt);
 
     sepline();
 
@@ -3131,6 +3166,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     free(rho_vec);
     free(orb_vec);
 
+    fclose(t_file);
     fclose(rho_file);
     fclose(orb_file);
 }

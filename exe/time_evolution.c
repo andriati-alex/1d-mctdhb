@@ -460,7 +460,12 @@ int main(int argc, char * argv[])
 
 
 
-    // After read the job definition file check some entries
+
+
+    /* ====================================================================
+                CHECK IF THERE ARE ERRORS IN JOB.CONF FILE ENTRIES
+       ==================================================================== */
+
     if (i < 9)
     {
         printf("\n\nERROR : Not enough parameters found in job file.\n");
@@ -518,7 +523,7 @@ int main(int argc, char * argv[])
     printf("\t\t*                                                  *\n");
     printf("\t\t*                                                  *\n");
     printf("\t\t****************************************************\n");
-    printf("\n\n\n");
+    printf("\n\n");
 
 
 
@@ -650,9 +655,9 @@ int main(int argc, char * argv[])
        ==================================================================== */
 
     printf("\n\n\n\n\n\n\n\n\n\n\n\n");
-    printf("*****************************      ");
+    printf("******************************      ");
     printf("JOB 1");
-    printf("      *****************************\n\n");
+    printf("      ******************************\n\n");
 
     mc = SetupData(paramFile, confFile, &dt, &N, potname);
 
@@ -696,6 +701,23 @@ int main(int argc, char * argv[])
     printf("\nDomain boundaries: [%.2lf,%.2lf]",xi,xf);
     printf("\nGrid step: %.2lf",dx);
     printf("\nFinal time : %.1lf in steps of %.6lf",N*dt,dt);
+    printf("\nIntegration method : ");
+    if (method < 3)
+    {
+        printf("Crank-Nicolson with Runge-Kutta for Orbitals / ");
+    }
+    else
+    {
+        printf("FFT with Runge-Kutta for Orbitals / ");
+    }
+    if (coefInteg < 2)
+    {
+        printf("RK4 for coeff.");
+    }
+    else
+    {
+        printf("Lanczos for coeff.");
+    }
 
     // Orthonormality check
     orthoCheck(Npar,Morb,Mdx+1,dx,S->Omat,S->C);
@@ -712,6 +734,7 @@ int main(int argc, char * argv[])
     /* ====================================================================
                                REAL TIME INTEGRATION
        ==================================================================== */
+
     if (timeinfo == 'r' || timeinfo =='R')
     {
         printf("\nStart real time Integration\n");
@@ -722,12 +745,13 @@ int main(int argc, char * argv[])
 
         start = omp_get_wtime();
 
-        realCNSM(mc,S,dt,N,cyclic,outfname,5);
+        realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
 
         time_used = (double) (omp_get_wtime() - start);
 
-        printf("\n\nTime taken in integration : %lf(s) = ",time_used);
+        printf("\nTime taken in integration : %lf(s) = ",time_used);
         TimePrint(time_used);
+        printf("\nAverage per time steps : %.1lf(ms)",1000*time_used/N);
 
         SaveConf(confFileOut, mc);
 
@@ -758,8 +782,8 @@ int main(int argc, char * argv[])
 
 
 
-
     // Diagonalization with initial orbitals to improve coefficients
+    // for imaginary time propagation to find ground state
     initDiag(mc,S);
     printf("\nStart imaginary time Integration");
 
@@ -839,7 +863,7 @@ int main(int argc, char * argv[])
 
         printf("\n\n\n\n\n\n\n\n\n\n\n\n");
         printf("*****************************      ");
-        printf("JOB %d",i+1);
+        printf("JOB %d OF %d",i+1,Nlines);
         printf("      *****************************\n\n");
 
         // number of line reading in _conf.dat and _eq.dat files
