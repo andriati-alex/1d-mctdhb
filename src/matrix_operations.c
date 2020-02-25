@@ -458,6 +458,42 @@ int HermitianEig(int n, Cmatrix A, Cmatrix eigvec, Rarray eigvals)
 
 
 
+void hermitianEigvalues(int n, Cmatrix A, Rarray eigvals)
+{
+
+    int
+        i,
+        j,
+        ldz,
+        check;
+
+    CMKLarray
+        Arow;
+
+    ldz = n;
+
+    Arow = cmklDef(n*n);
+
+    // transcription to mkl row major matrix (UPPER PART ONLY)
+    for (i = 0; i < n; i++)
+    {
+        Arow[i*n + i].real = creal(A[i][i]);
+        Arow[i*n + i].imag = 0;
+
+        for (j = i + 1; j < n; j++)
+        {
+            Arow[i*n + j].real = creal(A[i][j]);
+            Arow[i*n + j].imag = cimag(A[i][j]);
+        }
+    }
+
+    check = LAPACKE_zheev(LAPACK_ROW_MAJOR,'N','U',n,Arow,ldz,eigvals);
+
+    free(Arow);
+}
+
+
+
 
 void RegularizeMat(int n, double x, Cmatrix A)
 {

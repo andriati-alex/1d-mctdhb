@@ -2,6 +2,77 @@
 
 
 
+/*************************************************************************
+ *************************************************************************
+ ********************                                 ********************
+ ********************        AUXILIAR ROUTINES        ********************
+ ********************                                 ********************
+ *************************************************************************
+ *************************************************************************/
+
+void recorb_inline(FILE * f, int Morb, int Mrec, int Mpos, Cmatrix Omat)
+{
+
+/** WRITE ALL ORBITALS IN FILE LINE
+    ===============================
+    Concatenate all orbitals that corresponds to rows in 'Omat' and
+    write data in file 'f' current line. There is a 'safety' border
+    since the gas density can expand during the dynamics. The total
+    domain with the safety border must be  larger  than the current
+    solution domain and all extra points are recorded as zero   **/
+
+    int
+        extra,
+        i,
+        k,
+        j;
+
+    double
+        real,
+        imag;
+
+    if (f == NULL)
+    {
+        printf("\n\n\nERROR: NULL file in carr_inline routine");
+        printf(" in module src/inout.c\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // extra number of points to the left and right of solution
+    extra = (Mrec - Mpos) / 2;
+
+    // domain of the solution shall not exceed recording domain
+    if (Mpos > Mrec)
+    {
+        printf("\n\nERROR: exceed max domain boundaries in dynamics\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (k = 0; k < Morb; k++)
+    {
+        for (i = 0; i < Mrec; i++)
+        {
+            j = i - extra;
+            if (j < 0 || j > Mpos - 1)
+            {
+                real = 0;
+                imag = 0;
+            }
+            else
+            {
+                real = creal(Omat[k][j]);
+                imag = cimag(Omat[k][j]);
+            }
+            if (imag >= 0) fprintf(f,"(%.15E+%.15Ej) ",real,imag);
+            else           fprintf(f,"(%.15E%.15Ej) ",real,imag);
+        }
+    }
+
+    fprintf(f,"\n");
+}
+
+
+
 double eigQuality(EqDataPkg MC, Carray C, Cmatrix Ho, Carray Hint, double E0)
 {
 
@@ -60,7 +131,7 @@ double overlapFactor(int Morb, int Mpos, double dx, Cmatrix Orb)
     time integrator used these conservation laws may fail in finite  precision
 
     This function return the sum of absolute values of the off-diagonal  terms
-    of the overlap matrix | <ORB_i,ORB_j> |, that should give us zero      **/
+    of the overlap matrix | <ORB_i,ORB_j> | divide by then umber of orbitals */
 
     int
         i,
@@ -168,17 +239,17 @@ double borderNorm(int m, int chunkSize, Rarray f, double h)
     sum = 0;
     n = chunkSize;
 
-    if (chunkSize < 3)
+    if (chunkSize < 2)
     {
-        printf("\n\nERROR : chunk size must be greater than 2 ");
+        printf("\n\nERROR : chunk size must be greater than 1 ");
         printf("to compute border norm!\n\n");
         exit(EXIT_FAILURE);
     }
 
-    if (chunkSize > m / 4)
+    if (chunkSize > m / 2)
     {
         printf("\n\nERROR : chunk size in border norm is too large!\n");
-        printf("Exceeded 1/4 the size of domain.\n\n");
+        printf("Exceeded 1/2 the size of domain.\n\n");
         exit(EXIT_FAILURE);
     }
 
@@ -213,8 +284,8 @@ int NonVanishingId(int n, Carray f, double dx, double tol)
     Rarray
         chunkAbs2;
 
-    if (n / 30 > 3) { chunkSize = n / 30; }
-    else            { chunkSize = 3;      }
+    if (n / 50 > 2) { chunkSize = n / 50; }
+    else            { chunkSize = 2;      }
 
     i = chunkSize;
     chunkAbs2 = rarrDef(n);
@@ -294,22 +365,20 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     // Method 1 : Use the 'dispersion' of distribution
     R2 = MeanQuadraticR(mc,S->Omat,S->rho1);
     minR2 = 0;
-    while ( fabs(oldx[minR2]) > 6.5 * R2 ) minR2 = minR2 + 1;
+    while ( fabs(oldx[minR2]) > 7 * R2 ) minR2 = minR2 + 1;
 
     // Method 2 : take the norm beginning from the boundary and get the
     // position where it exceed a certain tolerance (last arg below)
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos,S->Omat[i],olddx,2E-7/Morb);
+        j = NonVanishingId(Mpos,S->Omat[i],olddx,2E-8/Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
-    printf("\n\nMin. Id. %d\n\n",minId);
-    printf("\n\nsqrt(<R^2>). %.2lf\n\n",R2);
 
     // Take the weighted average
-    minId = (3 * minId + minR2) / 4;
+    minId = (2 * minId + minR2) / 3;
 
 
 
@@ -340,7 +409,8 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     mc->dx = dx;
     printf("\n");
     sepline();
-    printf("\t\t*    Domain resized to [%.2lf,%.2lf]    *",xi,xf);
+    printf("Useless border from |x| = %.2lf",oldxf-minId*olddx);
+    printf("    *    Domain resized to [%.2lf,%.2lf]",xi,xf);
     sepline();
 
 
@@ -423,24 +493,24 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
     // Method 1 : Use the 'dispersion' of distribution
     R2 = MeanQuadraticR(mc,S->Omat,S->rho1);
     minR2 = 0;
-    while ( fabs(oldx[minR2]) > 6.5 * R2 ) minR2 = minR2 + 1;
+    while ( fabs(oldx[minR2]) > 7 * R2 ) minR2 = minR2 + 1;
 
     // Method 2 : take the norm beginning from the boundary and get the
     // position where it exceed a certain tolerance (last arg below)
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos,S->Omat[i],dx,5E-7/Morb);
+        j = NonVanishingId(Mpos,S->Omat[i],dx,1E-6/Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
 
     // Take the weighted average
-    minId = (3 * minId + minR2) / 4;
+    minId = (2 * minId + minR2) / 3;
 
     // Check if it is woth to resize the domain, i.e, orbitals too
     // close to the boundaries
-    if (minId > 10)
+    if (minId > Mpos/20)
     {
         free(oldx);
         return;
@@ -465,8 +535,6 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
     sepline();
     printf("\t\t*    Domain resized to [%.2lf,%.2lf]    *",xi,xf);
     sepline();
-
-    printf("\n\ndx is the same %.10lf = %.10lf\n\n",(xf-xi)/(newMpos-1),dx);
 
     // SETUP new one-body potential in discretized positions
     free(mc->V);
@@ -2430,6 +2498,7 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         j,
         k,
         m,
+        l,
         nc,
         Npar,
         Mpos,
@@ -2449,7 +2518,8 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         g;
 
     Rarray
-        V;
+        V,
+        occ;
 
     double complex
         vir,
@@ -2483,11 +2553,15 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
     Npar = MC->Npar;
     Mpos = MC->Mpos;
     Morb = MC->Morb;
+    m = Mpos - 1;
+    l = Morb - 1;
+
+    // natural occupations
+    occ = rarrDef(Morb);
 
     // Exponential of derivatives in FFT momentum space. The FFTs ignores
     // the last grid-point assuming periodicity there. Thus the size of
     // functions in FFT must be Mpos - 1
-    m = Mpos - 1;
     exp_der = carrDef(m);
 
 
@@ -2534,13 +2608,14 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
     eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+    hermitianEigvalues(Morb,S->rho1,occ);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|     H[C] - E*C");
+    printf("     |Virial/E|     |H[C]-E*C|    n0");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-    printf("      %8.5lf",eigFactor);
+    printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
 
 
 
@@ -2623,11 +2698,11 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
         R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
+            hermitianEigvalues(Morb,S->rho1,occ);
             eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
-            // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-            printf("      %8.5lf",eigFactor);
+            printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
         }
 
 
@@ -2640,6 +2715,34 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
             {
                 p = DftiFreeDescriptor(&desc);
                 free(exp_der);
+
+                // Check if "it is(good enough) eigenstate". In negative
+                // case perform a final diagonalization
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+                if (eigFactor > 1E-3)
+                {
+                    if (300 * nc < 5E7)
+                    {
+                        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+                        else                  k = 300;
+                    }
+                    else k = 5E7 / nc;
+
+                    E = LanczosGround(k,MC,S->Omat,S->C) / Npar;
+                }
+
+                OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+                TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                      MC->strideTT,MC->IF,S->C,S->rho2);
+
+                E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+                vir = Virial(MC,S->Omat,S->rho1,S->rho2) / Npar;
+                R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+
+                printf("\n -END-     %11.7lf",creal(E));
+                printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+                printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
 
                 sepline();
 
@@ -2659,10 +2762,10 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
     // PROCESS DID NOT STOP AUTOMATICALLY
     // Decide a number of iterations to apprimorate the ground state
     // using Lanczos. Try to avoid memory breakdown
-    if (200 * nc < 5E7)
+    if (300 * nc < 5E7)
     {
-        if (2 * nc / 3 < 200) k = 2 * nc / 3;
-        else                  k = 200;
+        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+        else                  k = 300;
     }
     else k = 5E7 / nc;
 
@@ -2677,6 +2780,7 @@ int imagFFT(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps, int coefInteg)
 
     p = DftiFreeDescriptor(&desc);
     free(exp_der);
+    free(occ);
 
     return Nsteps + 1;
 }
@@ -2702,6 +2806,7 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     int i,
         j,
         k,
+        l,
         nc = MC->nc,
         Npar = MC->Npar,
         Mpos = MC->Mpos,
@@ -2715,6 +2820,9 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         a2 = MC->a2,
         g = MC->g,
         * V = MC->V;
+
+    Rarray
+        occ;
 
     double complex
         E,
@@ -2733,6 +2841,8 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 
+    l = Morb - 1;
+    occ = rarrDef(Morb);
     isTrapped = strcmp(MC->Vname, "harmonic");
 
     // Setup one/two-body hamiltonian matrix elements
@@ -2752,13 +2862,14 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
     eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+    hermitianEigvalues(Morb,S->rho1,occ);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|     H[C] - E*C");
+    printf("     |Virial/E|     |H[C]-E*C|    n0");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-    printf("      %8.5lf",eigFactor);
+    printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
 
 
 
@@ -2858,10 +2969,11 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
             eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+            hermitianEigvalues(Morb,S->rho1,occ);
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-            printf("      %8.5lf",eigFactor);
+            printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
         }
 
 
@@ -2878,6 +2990,35 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
                 free(lower);
                 free(mid);
 
+                // Check if "it is(good enough) eigenstate". In negative
+                // case perform a final diagonalization
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+                if (eigFactor > 1E-3)
+                {
+                    if (300 * nc < 5E7)
+                    {
+                        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+                        else                  k = 300;
+                    }
+                    else k = 5E7 / nc;
+
+                    E = LanczosGround(k,MC,S->Omat,S->C) / Npar;
+                }
+
+                OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+                TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                      MC->strideTT,MC->IF,S->C,S->rho2);
+
+                E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+                vir = Virial(MC,S->Omat,S->rho1,S->rho2) / Npar;
+                R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+                hermitianEigvalues(Morb,S->rho1,occ);
+
+                printf("\n -END-     %11.7lf",creal(E));
+                printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+                printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
+
                 sepline();
 
                 printf("\nProcess ended before because ");
@@ -2891,10 +3032,10 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
     }
 
-    if (200 * nc < 5E7)
+    if (300 * nc < 5E7)
     {
-        if (2 * nc / 3 < 200) k = 2 * nc / 3;
-        else                  k = 200;
+        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+        else                  k = 300;
     }
     else k = 5E7 / nc;
 
@@ -2910,6 +3051,7 @@ int imagCNSM(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     free(upper);
     free(lower);
     free(mid);
+    free(occ);
 
     return Nsteps + 1;
 }
@@ -2936,6 +3078,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         i,
         j,
         k,
+        l,
         nc = MC->nc,
         Npar = MC->Npar,
         Mpos = MC->Mpos,
@@ -2957,6 +3100,9 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         a1 = MC->a1,
         dt = - I * dT;
 
+    Rarray
+        occ;
+
     Carray
         upper  = carrDef(Mpos - 1),
         lower  = carrDef(Mpos - 1),
@@ -2967,6 +3113,8 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 
+    l = Morb - 1;
+    occ = rarrDef(Morb);
     isTrapped = strcmp(MC->Vname, "harmonic");
     // Setup one/two-body hamiltonian matrix elements
     SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
@@ -2985,13 +3133,14 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     vir = Virial(MC, S->Omat, S->rho1, S->rho2) / Npar;
     R2 = MeanQuadraticR(MC, S->Omat, S->rho1);
     eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+    hermitianEigvalues(Morb,S->rho1,occ);
 
     printf("\n\nProgress    E/particle     sqrt<R^2>");
-    printf("     |Virial/E|     H[C] - E*C");
+    printf("     |Virial/E|     |H[C]-E*C|    n0");
     sepline();
     printf("%5.1lf%%     %11.7lf",0.0,creal(E));
     printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-    printf("      %8.5lf",eigFactor);
+    printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
 
 
 
@@ -3088,16 +3237,17 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         if ( (i + 1) % (Nsteps / 500) == 0 )
         {
             eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+            hermitianEigvalues(Morb,S->rho1,occ);
             // Print in screen them on screen
             printf("\n%5.1lf%%     %11.7lf",(100.0*i)/Nsteps,creal(E));
             printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
-            printf("      %8.5lf",eigFactor);
+            printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
         }
 
 
 
         // CHECK IF THE ENERGY HAS STABILIZED TO STOP PROCESS
-        // At every 200 time-steps performed
+        // at every 200 time-steps performed
         if ( (i + 1) % 200 == 0)
         {
             // Check if the energy stop decreasing and break the process
@@ -3107,6 +3257,35 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
                 free(upper);
                 free(lower);
                 free(mid);
+
+                // Check if "it is(good enough) eigenstate". In negative
+                // case perform a final diagonalization
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+                if (eigFactor > 1E-3)
+                {
+                    if (300 * nc < 5E7)
+                    {
+                        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+                        else                  k = 300;
+                    }
+                    else k = 5E7 / nc;
+
+                    E = LanczosGround(k,MC,S->Omat,S->C) / Npar;
+                }
+
+                OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+                TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                      MC->strideTT,MC->IF,S->C,S->rho2);
+
+                E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+                vir = Virial(MC,S->Omat,S->rho1,S->rho2) / Npar;
+                R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+                eigFactor = eigQuality(MC,S->C,S->Ho,S->Hint,E);
+                hermitianEigvalues(Morb,S->rho1,occ);
+
+                printf("\n -END-     %11.7lf",creal(E));
+                printf("     %7.4lf       %9.6lf",R2,cabs(vir/E));
+                printf("      %8.5lf     %3.0lf%%",eigFactor,100*occ[l]/Npar);
 
                 sepline();
 
@@ -3120,16 +3299,14 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
         }
     }
 
-    if (200 * nc < 5E7)
+    if (300 * nc < 5E7)
     {
-        if (2 * nc / 3 < 200) k = 2 * nc / 3;
-        else                  k = 200;
+        if (2 * nc / 3 < 300) k = 2 * nc / 3;
+        else                  k = 300;
     }
     else k = 5E7 / nc;
 
     E = LanczosGround(k,MC,S->Omat,S->C) / Npar;
-    // Renormalize coeficients
-    renormalizeVector(nc, S->C, 1.0);
 
     sepline();
     printf("\nFinal E/particle = %.7lf\n", creal(E));
@@ -3140,6 +3317,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
     free(upper);
     free(lower);
     free(mid);
+    free(occ);
 
     return Nsteps + 1;
 }
@@ -3157,12 +3335,17 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         nc,
         Npar,
         Mpos,
-        Morb;
+        Morb,
+        Mrec,
+        isTrapped;
 
     double
         checkOrbNorm,
         checkOverlap,
         norm,
+        R2,
+        XI,
+        XF,
         dx,
         a2,
         g;
@@ -3180,11 +3363,11 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         * orb_file;
 
     Rarray
-        V;
+        V,
+        occ;
 
     Carray
         rho_vec,
-        orb_vec,
         upper,
         lower,
         mid;
@@ -3194,6 +3377,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
+    isTrapped = strcmp(MC->Vname,"harmonic");
     // record interval valid values are > 0
     if (recInterval < 1) recInterval = 1;
 
@@ -3209,8 +3393,10 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     g = MC->g;
     V = MC->V;
 
+    // natural occupation numbers
+    occ = rarrDef(Morb);
+    // 1-body density matrix in row-major format
     rho_vec = carrDef(Morb * Morb);
-    orb_vec = carrDef(Morb * Mpos);
     // Crank-Nicolson tridiagonal system
     upper = carrDef(Mpos - 1);
     lower = carrDef(Mpos - 1);
@@ -3218,18 +3404,43 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
+    // Configure the linear system from Crank-Nicolson scheme with half
+    // time step from split-step approach
+    cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
+
+
+
+    // RECORD DOMAIN INFORMATION
+    if (isTrapped == 0)
+    {
+        // Define a number of points to the left and to the right in
+        // order to do not interact with the boundariers  throughout
+        // all time evolved. This is given by 'k'.
+        k = Mpos;
+        Mrec = Mpos + 2 * k;
+        XI = MC->xi - k*dx;
+        XF = MC->xf + k*dx;
+    }
+    else
+    {
+        Mrec = Mpos;
+        XI = MC->xi;
+        XF = MC->xf;
+    }
+
+
+
     // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
     strcpy(fname,"output/");
     strcat(fname,prefix);
-    strcat(fname,"_t_realtime.dat");
-
+    strcat(fname,"_domain_realtime.dat");
     t_file = fopen(fname, "w");
     if (t_file == NULL)
     {
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
-    fprintf(t_file, "# time instants solution is recorded");
+    fprintf(t_file, "# time   XI   XF   Ngrid   fig_xi   fig_xf");
 
 
 
@@ -3273,36 +3484,32 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
-
-    RegularizeMat(Morb,Npar*1E-7,S->rho1);
-
+    RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
-    // initial energy
+
+    // Initial observables
     E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("     Coef-Norm      Orb-Avg-Norm");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
-    printf("    %8.2E    %9.7lf",checkOverlap,norm);
-    printf("      %9.7lf",checkOrbNorm);
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
 
-    // record initial data
+    // Record initial data
     RowMajor(Morb, Morb, S->rho1, rho_vec);
-    RowMajor(Morb, Mpos, S->Omat, orb_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
-    carr_inline(orb_file, Morb * Mpos, orb_vec);
-    fprintf(t_file,"\n%.6lf",0*dt);
-
-
-
-    // Configure the linear system from Crank-Nicolson scheme with half
-    // time step from split-step approach
-    cnmat = CNmat(Mpos, dx, dt/2, a2, a1, g, V, cyclic, upper, lower, mid);
+    recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+    fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+            0*dt,XI,XF,Mrec,MC->xi,MC->xf);
 
 
 
@@ -3312,34 +3519,27 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
         // HALF STEP THE COEFFICIENTS
         LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
-
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-7,S->rho1);
+        RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
 
         // FULL TIME STEP ORBITALS
         LP_CNSM(Mpos,Morb,cnmat,upper,lower,mid,S->Omat);
-
         if (cyclic)
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
         else
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = 0;             }
-
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-
         realNL_RK4(MC,S,dt);
-
         LP_CNSM(Mpos, Morb, cnmat, upper, lower, mid, S->Omat);
-
         if (cyclic)
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = S->Omat[k][0]; }
         else
         { for (k = 0; k < Morb; k++) S->Omat[k][Mpos-1] = 0;             }
-
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
@@ -3350,26 +3550,71 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-7,S->rho1);
+        RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
 
-        E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
-        norm = carrMod(nc,S->C);
-        checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
-        checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+        // Check if the boundaries are still good for trapped systems
+        // since the boundaries shall not affect the results
+        if ( (i + 1) % 20 == 0 && isTrapped == 0)
+        {
+            extentDomain(MC,S);
 
-        // If the number of steps done reach record interval, record data
+            Mpos = MC->Mpos;
+            V = MC->V;
+
+            SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
+            SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
+
+            // Reconfigure Finite differences
+            free(upper);
+            free(lower);
+            free(mid);
+            CCSFree(cnmat);
+            upper = carrDef(Mpos - 1);
+            lower = carrDef(Mpos - 1);
+            mid = carrDef(Mpos - 1);
+            // re-onfigure again the Crank-Nicolson Finite-difference matrix
+            cnmat = CNmat(Mpos,dx,dt/2,a2,a1,g,V,cyclic,upper,lower,mid);
+
+        }
+
+
+
+        // Check for consistency in orbitals orthogonality
+        if (checkOverlap > 1E-5)
+        {
+            printf("\n\nERROR : Critical loss of orthogonality ");
+            printf("among orbitals. Exiting ...\n\n");
+            fclose(t_file);
+            fclose(rho_file);
+            fclose(orb_file);
+            exit(EXIT_FAILURE);
+        }
+
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
         if (l == recInterval)
         {
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
-            printf("    %8.2E    %9.7lf",checkOverlap,norm);
-            printf("      %9.7lf",checkOrbNorm);
-            RowMajor(Morb, Morb, S->rho1, rho_vec);
-            RowMajor(Morb, Mpos, S->Omat, orb_vec);
-            carr_inline(rho_file, Morb * Morb, rho_vec);
-            carr_inline(orb_file, Morb * Mpos, orb_vec);
-            fprintf(t_file,"\n%.6lf",(i+1)*dt);
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
+            RowMajor(Morb,Morb,S->rho1,rho_vec);
+            carr_inline(rho_file,Morb*Morb,rho_vec);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (i+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
             l = 1;
         }
         else { l = l + 1; }
@@ -3377,18 +3622,16 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     }
 
     E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc,S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
-    printf("    %8.2E    %9.7lf",checkOverlap,norm);
-    printf("      %9.7lf",checkOrbNorm);
-    // RowMajor(Morb, Morb, S->rho1, rho_vec);
-    // RowMajor(Morb, Mpos, S->Omat, orb_vec);
-    // carr_inline(rho_file, Morb * Morb, rho_vec);
-    // carr_inline(orb_file, Morb * Mpos, orb_vec);
-    // fprintf(t_file,"\n%.6lf",Nsteps*dt);
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
 
     sepline();
 
@@ -3396,8 +3639,8 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     free(upper);
     free(lower);
     free(mid);
+    free(occ);
     free(rho_vec);
-    free(orb_vec);
 
     fclose(t_file);
     fclose(rho_file);
@@ -3418,6 +3661,7 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         Npar,
         Mpos,
         Morb,
+        Mrec,
         isTrapped;
 
     MKL_LONG
@@ -3428,8 +3672,11 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         checkOverlap,
         norm,
         freq,
+        XI,
+        XF,
         dx,
         a2,
+        R2,
         g;
 
     double complex
@@ -3445,11 +3692,11 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         * orb_file;
 
     Rarray
-        V;
+        V,
+        occ;
 
     Carray
         rho_vec,
-        orb_vec,
         exp_der;
 
     DFTI_DESCRIPTOR_HANDLE
@@ -3474,24 +3721,43 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     g = MC->g;
     V = MC->V;
 
+    // RECORD DOMAIN
+    if (isTrapped == 0)
+    {
+        // Define a number of points to the left and to the right in
+        // order to do not interact with the boundariers  throughout
+        // all time evolved. This is given by 'k'.
+        k = Mpos;
+        Mrec = Mpos + 2 * k;
+        XI = MC->xi - k*dx;
+        XF = MC->xf + k*dx;
+    }
+    else
+    {
+        Mrec = Mpos;
+        XI = MC->xi;
+        XF = MC->xf;
+    }
+
+    // natural occupations
+    occ = rarrDef(Morb);
+
     // matrices in row-major form to record data
     rho_vec = carrDef(Morb * Morb);
-    orb_vec = carrDef(Morb * Mpos);
 
 
 
     // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
     strcpy(fname,"output/");
     strcat(fname,prefix);
-    strcat(fname,"_t_realtime.dat");
-
+    strcat(fname,"_domain_realtime.dat");
     t_file = fopen(fname, "w");
     if (t_file == NULL)
     {
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
-    fprintf(t_file, "# time instants solution is recorded");
+    fprintf(t_file, "# time   XI   XF   Ngrid   fig_xi   fig_xf");
 
 
 
@@ -3499,7 +3765,6 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_rho_realtime.dat");
-
     rho_file = fopen(fname, "w");
     if (rho_file == NULL)
     {
@@ -3514,7 +3779,6 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     strcpy(fname, "output/");
     strcat(fname, prefix);
     strcat(fname, "_orb_realtime.dat");
-
     orb_file = fopen(fname, "w");
     if (orb_file == NULL)
     {
@@ -3556,30 +3820,32 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
-
-    RegularizeMat(Morb,Npar*1E-7,S->rho1);
-
+    RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
-    // initial energy
+
+    // Initial observables
     E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("     Coef-Norm      Orb-Avg-Norm");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
-    printf("    %8.2E    %9.7lf",checkOverlap,norm);
-    printf("      %9.7lf",checkOrbNorm);
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
 
-    // record initial data
+    // Record initial data
     RowMajor(Morb, Morb, S->rho1, rho_vec);
-    RowMajor(Morb, Mpos, S->Omat, orb_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
-    carr_inline(orb_file, Morb * Mpos, orb_vec);
-    fprintf(t_file,"\n%.6lf",0*dt);
+    recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+    fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+            0*dt,XI,XF,Mrec,MC->xi,MC->xf);
 
 
 
@@ -3592,20 +3858,16 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-7,S->rho1);
+        RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
 
         // FULL TIME STEP ORBITALS
         LP_FFT(Mpos,Morb,&desc,exp_der,S->Omat);
-
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
-
         realNLTRAP_RK4(MC,S,dt);
-
         LP_FFT(Mpos,Morb,&desc,exp_der,S->Omat);
-
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
@@ -3616,11 +3878,12 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-7,S->rho1);
+        RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
 
-        // Check if the boundaries are still good
+        // Check if the boundaries are still good for trapped systems
+        // since the boundaries shall not affect the physics
         if ( (i + 1) % 20 == 0 && isTrapped == 0)
         {
 
@@ -3653,18 +3916,11 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
                 exp_der[k] = cexp(-0.5*I*dt*(I*a1*freq - a2*freq*freq));
             }
 
-            free(orb_vec);
-            orb_vec = carrDef(Morb * Mpos);
-
         }
 
 
 
-        E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
-        norm = carrMod(nc,S->C);
-        checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
-        checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
-
+        // Check for consistency in orbitals orthogonality
         if (checkOverlap > 1E-5)
         {
             printf("\n\nERROR : Critical loss of orthogonality ");
@@ -3675,17 +3931,29 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             exit(EXIT_FAILURE);
         }
 
-        // If the number of steps done reach record interval, record data
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
         if (l == recInterval)
         {
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
-            printf("    %8.2E    %9.7lf",checkOverlap,norm);
-            printf("      %9.7lf",checkOrbNorm);
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
             RowMajor(Morb, Morb, S->rho1, rho_vec);
-            RowMajor(Morb, Mpos, S->Omat, orb_vec);
             carr_inline(rho_file, Morb * Morb, rho_vec);
-            carr_inline(orb_file, Morb * Mpos, orb_vec);
-            fprintf(t_file,"\n%.6lf",(i+1)*dt);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (i+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
             l = 1;
         }
         else { l = l + 1; }
@@ -3693,27 +3961,24 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     }
 
     E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc,S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
-    printf("    %8.2E    %9.7lf",checkOverlap,norm);
-    printf("      %9.7lf",checkOrbNorm);
-    // RowMajor(Morb, Morb, S->rho1, rho_vec);
-    // RowMajor(Morb, Mpos, S->Omat, orb_vec);
-    // carr_inline(rho_file, Morb * Morb, rho_vec);
-    // carr_inline(orb_file, Morb * Mpos, orb_vec);
-    // fprintf(t_file,"\n%.6lf",Nsteps*dt);
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
 
     sepline();
 
+    // FINISH - FREE MEMORY USED
+    p = DftiFreeDescriptor(&desc);
+    free(occ);
     free(exp_der);
     free(rho_vec);
-    free(orb_vec);
-
-    p = DftiFreeDescriptor(&desc);
-
     fclose(t_file);
     fclose(rho_file);
     fclose(orb_file);

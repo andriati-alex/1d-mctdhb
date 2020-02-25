@@ -9,6 +9,22 @@ void harmonic(int M, Rarray x, Rarray V, double omega)
 
 
 
+void doublewell(int M, Rarray x, Rarray V, double a, double b)
+{
+    double
+        x2,
+        x4;
+
+    for (int i = 0; i < M; i ++)
+    {
+        x2 = x[i] * x[i];
+        x4 = x2 * x2;
+        V[i] = 2 * (b * b * x4 / 4.0 - a * a * x2 / 2.0);
+    }
+}
+
+
+
 void deltabarrier(int M, Rarray x, Rarray V, double height)
 {
     rarrFill(M, 0, V);
@@ -21,9 +37,9 @@ void barrier(int M, Rarray x, Rarray V, double height, double T)
 {
     int i, j;
 
-    if (T < (x[1] - x[0]) )
+    if (T < x[1] - x[0])
     {
-        printf("\n\n\n\t\tERROR : linear potential barrier requires a ");
+        printf("\n\n\nERROR : linear potential barrier requires a ");
         printf("width greater than spatial grid step size dx.\n\n");
         exit(EXIT_FAILURE);
     }
@@ -53,6 +69,12 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
         harmonic(M, x, V, p1);
         return;
     }
+
+    if (strcmp(name, "doublewell") == 0)
+    {
+        doublewell(M, x, V, p1, p2);
+        return;
+    }
     
     if (strcmp(name, "deltabarrier") == 0)
     {
@@ -72,7 +94,7 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
         return;
     }
 
-    printf("\n\n\n\tERROR: Potential '%s' not implemented\n\n", name);
+    printf("\n\n\nERROR: Potential '%s' not implemented\n\n", name);
     exit(EXIT_FAILURE);
 
 }
