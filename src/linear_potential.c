@@ -25,6 +25,20 @@ void doublewell(int M, Rarray x, Rarray V, double a, double b)
 
 
 
+void harmonicgauss(int M, Rarray x, Rarray V, double a, double b, double c)
+{
+    double
+        x2;
+
+    for (int i = 0; i < M; i ++)
+    {
+        x2 = x[i] * x[i];
+        V[i] = a * a * x2 / 2 + b * b * exp(- x2 / (2 * c * c));
+    }
+}
+
+
+
 void deltabarrier(int M, Rarray x, Rarray V, double height)
 {
     rarrFill(M, 0, V);
@@ -73,6 +87,12 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
     if (strcmp(name, "doublewell") == 0)
     {
         doublewell(M, x, V, p1, p2);
+        return;
+    }
+
+    if (strcmp(name, "harmonicgauss") == 0)
+    {
+        harmonicgauss(M, x, V, p1, p2, p3);
         return;
     }
     

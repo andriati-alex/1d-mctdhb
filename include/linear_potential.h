@@ -10,6 +10,8 @@ void harmonic(int , Rarray , Rarray , double);
 
 void doublewell(int , Rarray , Rarray , double , double);
 
+void harmonicgauss(int , Rarray , Rarray , double , double , double);
+
 void deltabarrier(int , Rarray , Rarray , double);
 
 void barrier(int , Rarray , Rarray , double , double );

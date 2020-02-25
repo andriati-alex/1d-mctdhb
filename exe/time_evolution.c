@@ -226,7 +226,7 @@ void orthoCheck(int Npar, int Norb, int Ngrid, double dx, Cmatrix Omat,
 
 
 
-void initDiag(EqDataPkg mc, ManyBodyPkg S)
+void initDiag(EqDataPkg mc, ManyBodyPkg S, int info)
 {
     int
         Lit,
@@ -249,6 +249,8 @@ void initDiag(EqDataPkg mc, ManyBodyPkg S)
         else                         Lit = 200;
     }
     else Lit = 5E7 / NC(Npar,Norb);
+
+    if (info == 1) Lit = 3;
 
     E0 = LanczosGround(Lit,mc,S->Omat,S->C);
 
@@ -344,7 +346,8 @@ int main(int argc, char * argv[])
         Nlines, // # of jobs to be executed
         method, // integration method
         coefInteg,
-        resetinit;
+        resetinit,
+        initLanczos;
 
     double
         start,      // trigger to measure time
@@ -442,10 +445,14 @@ int main(int argc, char * argv[])
                 i = i + 1;
                 break;
             case 7:
-                fscanf(job_file,"%d", &Nlines);
+                fscanf(job_file,"%d", &initLanczos);
                 i = i + 1;
                 break;
             case 8:
+                fscanf(job_file,"%d", &Nlines);
+                i = i + 1;
+                break;
+            case 9:
                 fscanf(job_file,"%d", &resetinit);
                 i = i + 1;
                 break;
@@ -466,7 +473,7 @@ int main(int argc, char * argv[])
                 CHECK IF THERE ARE ERRORS IN JOB.CONF FILE ENTRIES
        ==================================================================== */
 
-    if (i < 9)
+    if (i < 10)
     {
         printf("\n\nERROR : Not enough parameters found in job file.\n");
         printf("Could get %d but expected 9.\n\n",i);
@@ -643,7 +650,6 @@ int main(int argc, char * argv[])
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
-
     fprintf(confFileOut, "# trap Id : %s\n", potname);
 
 
@@ -660,6 +666,13 @@ int main(int argc, char * argv[])
     printf("      ******************************\n\n");
 
     mc = SetupData(paramFile, confFile, &dt, &N, potname);
+    // Check minimal  requirements of input data
+    if (mc->Morb < 2 || mc->Npar < 2)
+    {
+        printf("\n\nERROR: 'Multi' configuration needs at least more ");
+        printf("than 1 particle in more than 1 orbital\n\n");
+        exit(EXIT_FAILURE);
+    }
 
     dx = mc->dx;
     xi = mc->xi;
@@ -724,13 +737,6 @@ int main(int argc, char * argv[])
 
 
 
-
-
-
-
-
-
-
     /* ====================================================================
                                REAL TIME INTEGRATION
        ==================================================================== */
@@ -768,14 +774,6 @@ int main(int argc, char * argv[])
 
         SaveConf(confFileOut, mc);
 
-        // Record Trap potential
-
-        strcpy(fname, "output/");
-        strcat(fname, outfname);
-        strcat(fname, "_trap.dat");
-
-        rarr_txt(fname, Mdx + 1, mc->V);
-
         ReleaseEqDataPkg(mc);
         ReleaseManyBodyDataPkg(S);
         free(x);
@@ -795,9 +793,13 @@ int main(int argc, char * argv[])
 
 
 
+    /* ====================================================================
+                               IMAG TIME INTEGRATION
+       ==================================================================== */
+
     // Diagonalization with initial orbitals to improve coefficients
-    // for imaginary time propagation to find ground state
-    initDiag(mc,S);
+    // for imaginary time propagation if requested in  job.conf file
+    if (initLanczos > 0) initDiag(mc,S,initLanczos);
     printf("\nStart imaginary time Integration");
 
     switch (method)
@@ -992,7 +994,7 @@ int main(int argc, char * argv[])
         orthoCheck(Npar,Morb,Mdx+1,dx,S->Omat,S->C);
 
         // Diagonalization with initial orbitals to improve coefficients
-        initDiag(mc,S);
+        if (initLanczos > 0) initDiag(mc,S,initLanczos);
 
 
 

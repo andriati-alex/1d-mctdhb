@@ -1,8 +1,10 @@
 # HARMONIC TRAP TESTS
 # ===================
-# Natural units are considered, m = h = 1. The trap is considered as
-# V(x) = 0.5 * w^2 * x^2. In the following w = 1.
-# ==================================================================
+# Natural units are considered, m = h = 1. The trap is  considered as
+# V(x) = 0.5 * w^2 * x^2. In the following w = 1.  The  results below
+# were confirmed with the ultracold.org package and the number  match
+# for energy in at least 4 digits and condensate fraction in 2 digits
+# ===================================================================
 # col 1 - Number of particles
 # col 2 - Number of orbitals
 # col 3 - (contact)interaction strength
@@ -11,9 +13,13 @@
 # col 6 - | virial / E |
 # col 7 - || H \Psi - E \Psi ||_inf
 # col 8 - condensate fraction (largest natural occupation)
-6 8  1.0 1.2050078  0.9722  0.000122  0.00010  96%
-6 8  5.0 2.3934272  1.3923  0.000101  0.00009  74%
-6 8 10.0 2.9924792  1.6185  0.000465  0.00010  51%
-4 3  1.0 0.9685859  0.8833  0.000041  0.00001  97%
-4 3  5.0 1.9985113  1.2289  0.000010  0.00002  84%
-4 3 10.0 2.7420095  1.4614  0.000093  0.00009  65%
+50  4   1.0  5.1828050  1.8727  0.000016  0.00000  96%
+ 6  8   1.0  1.2050078  0.9722  0.000122  0.00010  96%
+ 6  8   5.0  2.3934272  1.3923  0.000101  0.00009  74%
+ 6  8  10.0  2.9924792  1.6185  0.000465  0.00010  51%
+ 5  5   1.0  1.0889904  0.9296  0.000141  0.00003  96%
+ 5  5   5.0  2.1771358  1.3251  0.000215  0.00005  72%
+ 5  5  10.0  2.7012350  1.5441  0.000607  0.00008  45%
+ 4  3   1.0  0.9685859  0.8833  0.000041  0.00001  97%
+ 4  3   5.0  1.9985113  1.2289  0.000010  0.00002  84%
+ 4  3  10.0  2.7420095  1.4614  0.000093  0.00009  65%
