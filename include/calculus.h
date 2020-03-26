@@ -31,6 +31,8 @@ double Rsimps(int size_of_f, Rarray f, double dx);
 
 void dxFFT(int size_of_f, Carray f, double dx, Carray dfdx);
 
+void d2xFFT(int size_of_f, Carray f, double dx, Carray dfdx);
+
 void dxFD(int size_of_f, Carray f, double dx, Carray dfdx);
 
 
@@ -59,6 +61,8 @@ void dxFD(int size_of_f, Carray f, double dx, Carray dfdx);
  * ------------------------------------------------------------------------ */
 
 void renormalize(int size_of_f, Carray f, double dx, double norm);
+
+double complex innerL2(int n, Carray fstar, Carray f, double h);
 
 void Ortonormalize(int N_rows, int N_cols, double dx, Cmatrix F);
 

@@ -42,3 +42,10 @@
 # col 7 - condensate fraction (largest natural occupation)
 5   4   1.0  2.7860072  1.6988  0.00088  81%
 10  4   2.0  4.1038147  1.8888  0.00002  68%
+
+# PARTICLES IN A RING
+# ===================
+# Natural units are considered, m = h = 1. None 1-body potential is
+# present and the orbitals are solved with periodic boudary cond.
+5  11   50.0  32.890750  0.2887  0.00086  68%
+5  11  100.0  39.941948  0.2887  0.00000  57%

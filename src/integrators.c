@@ -372,19 +372,19 @@ void ResizeDomain(EqDataPkg mc, ManyBodyPkg S)
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos,S->Omat[i],olddx,2E-8/Morb);
+        j = NonVanishingId(Mpos,S->Omat[i],olddx,5E-8/Morb);
         minId = minId + j;
     }
     minId = minId / Morb;
 
-    // Take the weighted average
-    minId = (2 * minId + minR2) / 3;
+    // Take the weighted average of the two methods
+    minId = (minId + minR2) / 2;
 
 
 
     // Check if it is woth to resize the domain comparing the
     // percentual reduction that would be done
-    if (100 * abs(oldx[minId] - oldxi) / (oldxf - oldxi) < 6)
+    if (100 * abs(oldx[minId] - oldxi) / (oldxf - oldxi) < 5)
     {
         free(x);
         free(oldx);
@@ -493,7 +493,7 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
     // Method 1 : Use the 'dispersion' of distribution
     R2 = MeanQuadraticR(mc,S->Omat,S->rho1);
     minR2 = 0;
-    while ( fabs(oldx[minR2]) > 7 * R2 ) minR2 = minR2 + 1;
+    while ( fabs(oldx[minR2]) > 6.5 * R2 ) minR2 = minR2 + 1;
 
     // Method 2 : take the norm beginning from the boundary and get the
     // position where it exceed a certain tolerance (last arg below)
@@ -506,7 +506,7 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
     minId = minId / Morb;
 
     // Take the weighted average
-    minId = (2 * minId + minR2) / 3;
+    minId = (minId + 2 * minR2) / 3;
 
     // Check if it is woth to resize the domain, i.e, orbitals too
     // close to the boundaries
@@ -516,7 +516,7 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
         return;
     }
 
-    extra = Mpos / 10;
+    extra = Mpos / 15;
     newMpos = Mpos + 2 * extra;
 
     // Define new grid points preserving dx
@@ -3324,7 +3324,7 @@ int imagCNLU(EqDataPkg MC, ManyBodyPkg S, double dT, int Nsteps,
 
 
 
-void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
+void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
      char prefix [], int recInterval)
 {
 
@@ -3337,6 +3337,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         Mpos,
         Morb,
         Mrec,
+        cyclic,
         isTrapped;
 
     double
@@ -3377,7 +3378,25 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
-    isTrapped = strcmp(MC->Vname,"harmonic");
+    // Decide from 1-body potential the type of boundaries
+    isTrapped = 0;
+    cyclic = 1;
+    if (strcmp(MC->Vname,"harmonic") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+    if (strcmp(MC->Vname,"doublewell") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+    if (strcmp(MC->Vname,"harmonicgauss") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+
     // record interval valid values are > 0
     if (recInterval < 1) recInterval = 1;
 
@@ -3411,7 +3430,7 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
     // RECORD DOMAIN INFORMATION
-    if (isTrapped == 0)
+    if (isTrapped)
     {
         // Define a number of points to the left and to the right in
         // order to do not interact with the boundariers  throughout
@@ -3484,7 +3503,6 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
     OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
     TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
           MC->IF,S->C,S->rho2);
-    RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
 
 
@@ -3513,16 +3531,75 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
 
 
 
+    // Evolve in fixed basis while the least occupied state is not
+    // above a given tolerance
     l = 1;
-    for (i = 0; i < Nsteps; i++)
+    j = 0;
+    if (((double)occ[0])/occ[Morb-1] < 3E-4)
     {
+        printf("\n**    Fixed orbital evolution    **");
+    }
+    while (((double)occ[0])/occ[Morb-1] < 3E-4)
+    {
+        LanczosIntegrator(5,MC,S->Ho,S->Hint,dt,S->C);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        hermitianEigvalues(Morb,S->rho1,occ);
+
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
+        if (l == recInterval)
+        {
+            TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                  MC->strideTT,MC->IF,S->C,S->rho2);
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+            printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
+            RowMajor(Morb,Morb,S->rho1,rho_vec);
+            carr_inline(rho_file,Morb*Morb,rho_vec);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (j+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
+            l = 1;
+        }
+        else { l = l + 1; }
+
+        j = j + 1;
+    }
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
+    if (j > 0) printf("\n**    Variational orbital evolution    **");
+
+
+
+    // Evolve with variational orbitals due to occupation raising in
+    // unoccupied states
+    for (i = j; i < Nsteps; i++)
+    {
+
+        if (j > 0 && i == j + 100)
+        {
+            Ortonormalize(Morb,Mpos,dx,S->Omat);
+            SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
+            SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
+        }
 
         // HALF STEP THE COEFFICIENTS
         LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-6,S->rho1);
+        RegularizeMat(Morb,Npar*5E-6,S->rho1);
 
 
 
@@ -3550,13 +3627,13 @@ void realCNSM(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps, int cyclic,
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
         TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
               MC->IF,S->C,S->rho2);
-        RegularizeMat(Morb,Npar*1E-6,S->rho1);
+        RegularizeMat(Morb,Npar*5E-6,S->rho1);
 
 
 
         // Check if the boundaries are still good for trapped systems
         // since the boundaries shall not affect the results
-        if ( (i + 1) % 20 == 0 && isTrapped == 0)
+        if ( (i + 1) % 50 == 0 && isTrapped)
         {
             extentDomain(MC,S);
 
@@ -3655,6 +3732,7 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
     int l,
         i,
+        j,
         m,
         k,
         nc,
@@ -3704,7 +3782,10 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
 
-    isTrapped = strcmp(MC->Vname, "harmonic");
+    isTrapped = 0;
+    if (strcmp(MC->Vname,"harmonic") == 0)      isTrapped = 1;
+    if (strcmp(MC->Vname,"doublewell") == 0)    isTrapped = 1;
+    if (strcmp(MC->Vname,"harmonicgauss") == 0) isTrapped = 1;
 
     // record interval valid values are > 0
     if (recInterval < 1) recInterval = 1;
@@ -3722,7 +3803,7 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     V = MC->V;
 
     // RECORD DOMAIN
-    if (isTrapped == 0)
+    if (isTrapped)
     {
         // Define a number of points to the left and to the right in
         // order to do not interact with the boundariers  throughout
@@ -3849,9 +3930,66 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
 
+    // Evolve in fixed basis while the least occupied state is not
+    // above a given tolerance
     l = 1;
-    for (i = 0; i < Nsteps; i++)
+    j = 0;
+    if (((double)occ[0])/occ[Morb-1] < 1.5E-4)
     {
+        printf("\n**    Fixed orbital evolution    **");
+    }
+    while (((double)occ[0])/occ[Morb-1] < 1.5E-4)
+    {
+        LanczosIntegrator(5,MC,S->Ho,S->Hint,dt,S->C);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        hermitianEigvalues(Morb,S->rho1,occ);
+
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
+        if (l == recInterval)
+        {
+            TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                  MC->strideTT,MC->IF,S->C,S->rho2);
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+            printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
+            RowMajor(Morb,Morb,S->rho1,rho_vec);
+            carr_inline(rho_file,Morb*Morb,rho_vec);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (j+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
+            l = 1;
+        }
+        else { l = l + 1; }
+
+        j = j + 1;
+    }
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
+    if (j > 0) printf("\n**    Variational orbital evolution    **");
+
+
+
+    for (i = j; i < Nsteps; i++)
+    {
+
+        if (j > 0 && i == j + 100)
+        {
+            Ortonormalize(Morb,Mpos,dx,S->Omat);
+            SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
+            SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
+        }
 
         // HALF STEP THE COEFFICIENTS
         LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
@@ -3884,7 +4022,7 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
         // Check if the boundaries are still good for trapped systems
         // since the boundaries shall not affect the physics
-        if ( (i + 1) % 20 == 0 && isTrapped == 0)
+        if ( (i + 1) % 50 == 0 && isTrapped)
         {
 
             extentDomain(MC,S);
@@ -3921,7 +4059,7 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
         // Check for consistency in orbitals orthogonality
-        if (checkOverlap > 1E-5)
+        if (checkOverlap > 5E-5)
         {
             printf("\n\nERROR : Critical loss of orthogonality ");
             printf("among orbitals. Exiting ...\n\n");
@@ -3979,6 +4117,778 @@ void realFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     free(occ);
     free(exp_der);
     free(rho_vec);
+    fclose(t_file);
+    fclose(rho_file);
+    fclose(orb_file);
+}
+
+
+
+
+
+
+
+
+
+
+
+doublec INTER_CONTRACTION(int M, int k, int n, double g, Cmatrix Orb,
+        Cmatrix Rinv, Carray R2)
+{
+
+    int a,
+        s,
+        q,
+        l,
+        M2,
+        M3;
+
+    double complex
+        G,
+        Ginv,
+        X;
+
+    X = 0;
+    M2 = M * M;
+    M3 = M * M * M;
+
+    for (a = 0; a < M; a++)
+    {
+        for (q = 0; q < M; q++)
+        {
+            // Particular case with the two last indices equals
+            // to take advantage of the symmetry afterwards
+            G = Rinv[k][a] * R2[a + M*a + M2*q + M3*q];
+            // Sum interacting part contribution
+            X = X + g * G * conj(Orb[a][n]) * Orb[q][n] * Orb[q][n];
+
+            for (l = q + 1; l < M; l++)
+            {
+                G = 2 * Rinv[k][a] * R2[a + M*a + M2*q + M3*l];
+                // Sum interacting part
+                X = X + g * G * conj(Orb[a][n]) * Orb[l][n] * Orb[q][n];
+            }
+        }
+
+        for (s = a + 1; s < M; s++)
+        {
+
+            for (q = 0; q < M; q++)
+            {
+                // Particular case with the two last indices equals
+                // to take advantage of the symmetry afterwards
+
+                G = Rinv[k][a] * R2[a + M*s + M2*q + M3*q];
+                Ginv = Rinv[k][s] * R2[a + M*s + M2*q + M3*q];
+
+                // Sum interacting part contribution
+                X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                    Orb[q][n]*Orb[q][n];
+
+                for (l = q + 1; l < M; l++)
+                {
+                    G = 2 * Rinv[k][a] * R2[a + M*s + M2*q + M3*l];
+                    Ginv = 2 * Rinv[k][s] * R2[a + M*s + M2*q + M3*l];
+
+                    // Sum interacting part
+                    X = X + g * (G*conj(Orb[s][n]) + Ginv*conj(Orb[a][n])) * \
+                            Orb[l][n]*Orb[q][n];
+                }
+            }
+        }
+    }
+
+    return X;
+}
+
+
+
+void func1(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
+           Carray rho2, Rarray D2DVR)
+{
+
+    int
+        i,
+        k,
+        s,
+        j,
+        l,
+        M,
+        Mpos;
+
+    double
+        g,
+        a2,
+        dx;
+
+    double complex
+        sumMatMul,
+        interPart,
+        proj;
+
+    Rarray
+        V;
+
+    Carray
+        integ;
+
+    Cmatrix
+        Haction,
+        project,
+        overlap,
+        overlap_inv;
+
+    M = MC->Morb;
+    Mpos = MC->Mpos;
+    g = MC->g;
+    V = MC->V;
+    dx = MC->dx;
+    a2 = MC->a2;
+
+    integ = carrDef(Mpos);
+    Haction = cmatDef(M,Mpos);
+    project = cmatDef(M,Mpos);
+    overlap = cmatDef(M,M);
+    overlap_inv = cmatDef(M,M);
+
+    for (k = 0; k < M; k++)
+    {
+        for (l = k; l < M; l++)
+        {
+            for (s = 0; s < Mpos; s++)
+            {
+                integ[s] = conj(Orb[k][s]) * Orb[l][s];
+            }
+            overlap[k][l] = Csimps(Mpos,integ,dx);
+            overlap[l][k] = conj(overlap[k][l]);
+        }
+    }
+
+    // Invert matrix and check if the operation was successfull
+    s = HermitianInv(M,overlap,overlap_inv);
+    if (s != 0)
+    {
+        printf("\n\n\nFailed on Lapack inversion routine ");
+        printf("for overlap matrix !\n");
+        printf("-----------------------------------");
+        printf("--------------------\n\n");
+
+        printf("Matrix given was :\n");
+        cmat_print(M,M,overlap);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n",s);
+        else       printf("\nInvalid argument given : %d\n\n",s);
+
+        exit(EXIT_FAILURE);
+    }
+
+    // COMPUTE THE ACTION OF FULL NON-LINEAR HAMILTONIAN ACTION ON
+    // EACH ORBITAL.
+    #pragma omp parallel for private(k,j,i,sumMatMul,interPart) schedule(static)
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            interPart = INTER_CONTRACTION(M,k,j,g,Orb,rho1_inv,rho2);
+            sumMatMul = V[j] * Orb[k][j];
+            for (i = 0; i < Mpos; i++)
+            {
+                sumMatMul = sumMatMul + D2DVR[j*Mpos + i] * Orb[k][i];
+            }
+            Haction[k][j] = interPart + sumMatMul;
+        }
+    }
+
+    // APPLY PROJECTOR ON ORBITAL SPACE
+    #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
+    for (k = 0; k < M; k++)
+    {
+        for (i = 0; i < Mpos; i++)
+        {
+            proj = 0;
+            for (s = 0; s < M; s++)
+            {
+                for (l = 0; l < M; l++)
+                {
+                    proj = proj + Orb[s][i] * overlap_inv[s][l] * \
+                           innerL2(Mpos,Orb[l],Haction[k],dx);
+                }
+            }
+            project[k][i] = proj;
+        }
+    }
+
+    // SUBTRACT PROJECTION ON ORBITAL SPACE - ORTHOGONAL PROJECTION
+    for (k = 0; k < M; k++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            dOdt[k][j] = - I * (Haction[k][j] - project[k][j]);
+        }
+    }
+
+    // Release memory
+    free(integ);
+    cmatFree(M,Haction);
+    cmatFree(M,project);
+    cmatFree(M,overlap);
+    cmatFree(M,overlap_inv);
+}
+
+
+
+void semiImplicit(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
+{
+
+    int
+        i,
+        j,
+        k,
+        s,
+        Morb,
+        Mpos;
+
+    double
+        g,
+        a2,
+        dx;
+
+    Rarray
+        V;
+
+    double complex
+        a1,
+        sum;
+
+    Cmatrix
+        Ok,
+        dOdt,
+        Oarg,
+        rho1_inv;
+
+    Morb = MC->Morb;
+    Mpos = MC->Mpos;
+    a2 = MC->a2;
+    a1 = MC->a1;
+    g = MC->g;
+    V = MC->V;
+    dx = MC->dx;
+
+    Ok = cmatDef(Morb,Mpos);
+    dOdt = cmatDef(Morb,Mpos);
+    Oarg = cmatDef(Morb,Mpos);
+    rho1_inv = cmatDef(Morb,Morb);
+
+    // Invert matrix and check if the operation was successfull
+    s = HermitianInv(Morb,S->rho1,rho1_inv);
+    if (s != 0)
+    {
+        printf("\n\n\nFailed on Lapack inversion routine!\n");
+        printf("-----------------------------------\n\n");
+
+        printf("Matrix given was :\n");
+        cmat_print(Morb,Morb,S->rho1);
+
+        if (s > 0) printf("\nSingular decomposition : %d\n\n", s);
+        else       printf("\nInvalid argument given : %d\n\n", s);
+
+        exit(EXIT_FAILURE);
+    }
+
+    // COMPUTE K1
+    func1(MC,S->Omat,dOdt,rho1_inv,S->rho2,D2DVR);
+    for (k = 0; k < Morb; k++)
+    {
+        for (i = 0; i < Mpos; i++)
+        {
+            Ok[k][i] = dOdt[k][i];
+            Oarg[k][i] = S->Omat[k][i] + dOdt[k][i] * 0.5 * dt;
+        }
+    }
+
+    // COMPUTE K2
+    func1(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    for (k = 0; k < Morb; k++)
+    {
+        for (i = 0; i < Mpos; i++)
+        {
+            Ok[k][i] += 2 * dOdt[k][i];
+            Oarg[k][i] = S->Omat[k][i] + dOdt[k][i] * 0.5 * dt;
+        }
+    }
+
+    // COMPUTE K3
+    func1(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    for (k = 0; k < Morb; k++)
+    {
+        for (i = 0; i < Mpos; i++)
+        {
+            Ok[k][i] += 2 * dOdt[k][i];
+            Oarg[k][i] = S->Omat[k][i] + dOdt[k][i] * dt;
+        }
+    }
+
+    // COMPUTE K4
+    func1(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    for (k = 0; k < Morb; k++)
+    {
+        for (i = 0; i < Mpos; i++)
+        {
+            Ok[k][i] += dOdt[k][i];
+        }
+    }
+
+    // Until now Ok holds the sum K1 + 2 * K2 + 2 * K3 + K4
+    // from the Fourth order Runge-Kutta algorithm, update:
+    for (k = 0; k < Morb; k++)
+    {   // Update Orbitals
+        for (j = 0; j < Mpos; j++)
+        {
+            S->Omat[k][j] = S->Omat[k][j] + Ok[k][j] * dt / 6;
+        }
+    }
+
+    cmatFree(Morb,Ok);
+    cmatFree(Morb,Oarg);
+    cmatFree(Morb,dOdt);
+    cmatFree(Morb,rho1_inv);
+}
+
+
+
+void realCNdirect(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
+     char prefix [], int recInterval)
+{
+
+    int l,
+        i,
+        j,
+        k,
+        p,
+        q,
+        i1,
+        j1,
+        nc,
+        Npar,
+        Mpos,
+        Morb,
+        Mrec,
+        cyclic,
+        isTrapped;
+
+    double
+        checkOrbNorm,
+        checkOverlap,
+        norm,
+        sum,
+        R2,
+        XI,
+        XF,
+        dx,
+        a2,
+        g,
+        L;
+
+    double complex
+        E,
+        a1;
+
+    char
+        fname[100];
+
+    FILE
+        * t_file,
+        * rho_file,
+        * orb_file;
+
+    Rarray
+        V,
+        occ,
+        uDVR,
+        D2mat,
+        D2DVR;
+
+    Carray
+        rho_vec;
+
+
+
+    // Decide from 1-body potential the type of boundaries
+    isTrapped = 0;
+    cyclic = 1;
+    if (strcmp(MC->Vname,"harmonic") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+    if (strcmp(MC->Vname,"doublewell") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+    if (strcmp(MC->Vname,"harmonicgauss") == 0)
+    {
+        isTrapped = 1;
+        cyclic = 0;
+    }
+
+    // record interval valid values are > 0
+    if (recInterval < 1) recInterval = 1;
+
+    // unpack configurational parameters
+    nc = MC->nc;
+    Npar = MC->Npar;
+    Mpos = MC->Mpos;
+    Morb = MC->Morb;
+    // unpack equation parameters
+    dx = MC->dx;
+    a2 = MC->a2;
+    a1 = MC->a1;
+    g = MC->g;
+    V = MC->V;
+
+    L = (Mpos + 1) * dx; // length of the sine DVR box
+
+    // natural occupation numbers
+    occ = rarrDef(Morb);
+    // 1-body density matrix in row-major format
+    rho_vec = carrDef(Morb * Morb);
+    // VARIABLES REGARDING DVR INTEGRATION
+    D2mat = rarrDef(Mpos);        // second derivative matrix(diagonal)
+    D2DVR = rarrDef(Mpos * Mpos); // second derivative matrix in DVR basis
+    uDVR = rarrDef(Mpos * Mpos);  // unitary transformation to DVR basis
+
+    // Setup DVR transformation matrix with  eigenvector  organized
+    // by columns in row major format. It also setup the derivarive
+    // matrices in the sine basis that are known analytically
+    for (i = 0; i < Mpos; i++)
+    {
+        i1 = i + 1;
+        for (j = 0; j < Mpos; j++)
+        {
+            j1 = j + 1;
+            uDVR[i*Mpos + j] = sqrt(2.0/(Mpos+1)) * sin(i1*j1*PI/(Mpos+1));
+        }
+        D2mat[i] = - (i1 * PI / L) * (i1 * PI / L);
+    }
+
+    // Transform second order derivative matrix to DVR basis
+    // multiplying by the equation coefficient
+    for (i = 0; i < Mpos; i++)
+    {
+        for (j = 0; j < Mpos; j++)
+        {
+            sum = 0;
+            for (k = 0; k < Mpos; k++)
+            {
+                sum += uDVR[i*Mpos + k] * D2mat[k] * uDVR[k*Mpos + j];
+            }
+            D2DVR[i*Mpos + j] = a2 * sum;
+        }
+    }
+    printf("\n\nDVR successfully assembled\n\n");
+
+
+
+    // RECORD DOMAIN INFORMATION
+    if (isTrapped)
+    {
+        // Define a number of points to the left and to the right in
+        // order to do not interact with the boundariers  throughout
+        // all time evolved. This is given by 'k'.
+        k = Mpos;
+        Mrec = Mpos + 2 * k;
+        XI = MC->xi - k*dx;
+        XF = MC->xf + k*dx;
+    }
+    else
+    {
+        Mrec = Mpos;
+        XI = MC->xi;
+        XF = MC->xf;
+    }
+
+
+
+    // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
+    strcpy(fname,"output/");
+    strcat(fname,prefix);
+    strcat(fname,"_domain_realtime.dat");
+    t_file = fopen(fname, "w");
+    if (t_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(t_file, "# time   XI   XF   Ngrid   fig_xi   fig_xf");
+
+
+
+    // OPEN FILE TO RECORD 1-BODY DENSITY MATRIX
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_rho_realtime.dat");
+
+    rho_file = fopen(fname, "w");
+    if (rho_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(rho_file, "# Row-major vector representatio of rho_1\n");
+
+
+
+    // OPEN FILE TO RECORD ORBITALS
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_orb_realtime.dat");
+
+    orb_file = fopen(fname, "w");
+    if (orb_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(orb_file, "# Row-major vector representatio of Orbitals\n");
+
+
+
+
+
+    // Setup one/two-body hamiltonian matrix elements
+    SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+    SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+    // Setup one/two-body density matrix
+    OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
+
+
+
+    // Initial observables
+    E = Energy(Morb, S->rho1, S->rho2, S->Ho, S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
+    norm = carrMod(nc, S->C);
+    checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+    checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+    printf("\n  time         E/Npar      Overlap");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
+    sepline();
+    printf("%10.6lf  %11.6lf",0.0,creal(E));
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+    // Record initial data
+    RowMajor(Morb, Morb, S->rho1, rho_vec);
+    carr_inline(rho_file, Morb * Morb, rho_vec);
+    recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+    fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+            0*dt,XI,XF,Mrec,MC->xi,MC->xf);
+
+
+
+    // Evolve in fixed basis while the least occupied state is not
+    // above a given tolerance
+    l = 1;
+    j = 0;
+    if (((double)occ[0])/occ[Morb-1] < 3E-4)
+    {
+        printf("\n**    Fixed orbital evolution    **");
+    }
+    while (((double)occ[0])/occ[Morb-1] < 3E-4)
+    {
+        LanczosIntegrator(5,MC,S->Ho,S->Hint,dt,S->C);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        hermitianEigvalues(Morb,S->rho1,occ);
+
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
+        if (l == recInterval)
+        {
+            TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,
+                  MC->strideTT,MC->IF,S->C,S->rho2);
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+            printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
+            RowMajor(Morb,Morb,S->rho1,rho_vec);
+            carr_inline(rho_file,Morb*Morb,rho_vec);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (j+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
+            l = 1;
+        }
+        else { l = l + 1; }
+
+        j = j + 1;
+    }
+    TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+          MC->IF,S->C,S->rho2);
+    if (j > 0) printf("\n**    Variational orbital evolution    **");
+
+
+
+    // Evolve with variational orbitals due to occupation raising in
+    // unoccupied states
+    for (i = j; i < Nsteps; i++)
+    {
+
+        if (j > 0 && i == j + 50)
+        {
+            Ortonormalize(Morb,Mpos,dx,S->Omat);
+            SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
+            SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
+        }
+
+        // HALF STEP THE COEFFICIENTS
+        LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
+        RegularizeMat(Morb,Npar*5E-6,S->rho1);
+
+
+
+        // HALF TIME STEP ORBITALS
+        semiImplicit(MC,S,D2DVR,dt/2);
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+
+
+        // ANOTHER HALF STEP FOR COEFFICIENTS
+        LanczosIntegrator(3,MC,S->Ho,S->Hint,dt/2,S->C);
+        OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,MC->Map,MC->MapOT,MC->MapTT,MC->strideOT,MC->strideTT,
+              MC->IF,S->C,S->rho2);
+        RegularizeMat(Morb,Npar*5E-6,S->rho1);
+
+
+
+        // HALF TIME STEP ORBITALS
+        semiImplicit(MC,S,D2DVR,dt/2);
+        SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
+        SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
+
+
+
+        // Check if the boundaries are still good for trapped systems
+        // since the boundaries shall not affect the results
+        if ( (i + 1) % 50 == 0 && isTrapped)
+        {
+            extentDomain(MC,S);
+
+            Mpos = MC->Mpos;
+            V = MC->V;
+
+            SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
+            SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
+            // Setup DVR transformation matrix with  eigenvector  organized
+            // by columns in row major format. It also setup the derivarive
+            // matrices in the sine basis that are known analytically
+            for (p = 0; p < Mpos; p++)
+            {
+                i1 = p + 1;
+                for (q = 0; q < Mpos; q++)
+                {
+                    j1 = q + 1;
+                    uDVR[p*Mpos + q] = sqrt(2.0/(Mpos+1))*sin(i1*j1*PI/(Mpos+1));
+                }
+                D2mat[p] = - (i1 * PI / L) * (i1 * PI / L);
+            }
+
+            // Transform second order derivative matrix to DVR basis
+            // multiplying by the equation coefficient
+            for (p = 0; p < Mpos; p++)
+            {
+                for (q = 0; q < Mpos; q++)
+                {
+                    sum = 0;
+                    for (k = 0; k < Mpos; k++)
+                    {
+                        sum += uDVR[p*Mpos + k] * D2mat[k] * uDVR[k*Mpos + q];
+                    }
+                    D2DVR[p*Mpos + q] = a2 * sum;
+                }
+            }
+        }
+
+
+
+        // Check for consistency in orbitals orthogonality
+        if (checkOverlap > 1E-5)
+        {
+            printf("\n\nERROR : Critical loss of orthogonality ");
+            printf("among orbitals. Exiting ...\n\n");
+            fclose(t_file);
+            fclose(rho_file);
+            fclose(orb_file);
+            exit(EXIT_FAILURE);
+        }
+
+        // If the number of steps done reach record interval = record data
+        // compute some observables to print on screen and record solution
+        if (l == recInterval)
+        {
+            E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+            R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+            hermitianEigvalues(Morb,S->rho1,occ);
+            norm = carrMod(nc,S->C);
+            checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+            printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
+            printf("    %7.1E    %9.7lf",checkOverlap,norm);
+            printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+            // record 1-body density matrix
+            RowMajor(Morb,Morb,S->rho1,rho_vec);
+            carr_inline(rho_file,Morb*Morb,rho_vec);
+            // record orbitals
+            recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
+            fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
+                    (i+1)*dt,XI,XF,Mrec,MC->xi,MC->xf);
+            l = 1;
+        }
+        else { l = l + 1; }
+
+    }
+
+    E = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint) / Npar;
+    R2 = MeanQuadraticR(MC,S->Omat,S->rho1);
+    hermitianEigvalues(Morb,S->rho1,occ);
+    norm = carrMod(nc,S->C);
+    checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+    checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
+
+    printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
+    printf("    %7.1E    %9.7lf",checkOverlap,norm);
+    printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
+    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+
+    sepline();
+    free(occ);
+    free(rho_vec);
+    free(uDVR);
+    free(D2mat);
+    free(D2DVR);
+
     fclose(t_file);
     fclose(rho_file);
     fclose(orb_file);

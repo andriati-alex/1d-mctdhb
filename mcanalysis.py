@@ -3,9 +3,8 @@
 =============================================================================
 
 
-    MODULE DIRECTED TO COLLECT OBSERVABLES FROM MCTDHB
-    --------------------------------------------------
-
+    MODULE DIRECTED TO COLLECT OBSERVABLES FROM MCTDHB OUTPUT
+    ---------------------------------------------------------
 
     The functions contained in this module support the analysis of results 
     from (imaginary/real)time propagation. Some of the functions  are  the
@@ -58,9 +57,9 @@ def dfdxFFT(dx, f):
     """
     n = f.size - 1;
     k = 2 * pi * np.fft.fftfreq(n,dx);
-    dfdx = np.zeros(f.size, dtype = np.complex128);
-    dfdx[:n] = np.fft.fft(f[:n],norm = 'ortho');
-    dfdx[:n] = np.fft.ifft(1.0j * k * dfdx[:n],norm = 'ortho');
+    dfdx = np.zeros(f.size,dtype=np.complex128);
+    dfdx[:n] = np.fft.fft(f[:n],norm='ortho');
+    dfdx[:n] = np.fft.ifft(1.0j * k * dfdx[:n],norm='ortho');
     dfdx[n] = dfdx[0];
     return dfdx;
 
@@ -172,11 +171,7 @@ def IndexToFock(k,N,M,v):
 def FockToIndex(N,M,NCmat,v):
     """
     Calling: (int) = FockToIndex(N, M, NCmat, v)
-    --------
     Return Index of Fock Configuration Coeficient of v
-
-    arguments:
-    ----------
     N     : # of particles
     M     : # of orbitals
     NCmat : see GetNCmat function
@@ -229,17 +224,15 @@ def GetNCmat(N, M):
 def GetFocks(N, M):
     """
     Calling : (numpy 2D array of ints) = GetFocks(N, M)
-    -------
     Row k has the occupation vector corresponding to C[k].
-
-    arguments :
-    ---------
     N : # of particles
     M : # of orbitals
     """
     IF = np.empty([NC(N,M),M],dtype=np.int32);
     for k in range(0,NC(N,M)): IndexToFock(k,N,M,IF[k]);
     return IF;
+
+
 
 
 
@@ -260,7 +253,7 @@ def OBrho(N,M,NCmat,IF,C,rho):
     # Initialize variables
     j    = 0;
     mod2 = 0.0;
-    nc   = NCmat[N][M];
+    nc   = NC(N,M);
     RHO  = 0.0 + 0.0j;
 
     for k in prange(0, M, 1):
@@ -278,7 +271,7 @@ def OBrho(N,M,NCmat,IF,C,rho):
                 if (IF[i][k] < 1): continue;
                 IF[i][k] -= 1;
                 IF[i][l] += 1;
-                j = FockToIndex(N, M, NCmat, IF[i]);
+                j = FockToIndex(N,M,NCmat,IF[i]);
                 IF[i][k] += 1;
                 IF[i][l] -= 1;
                 RHO = RHO + C[i].conjugate() * C[j] * \
@@ -286,11 +279,6 @@ def OBrho(N,M,NCmat,IF,C,rho):
             rho[k][l] = RHO;
             rho[l][k] = RHO.conjugate();
 # End OBrho routine ------------------------------------------------------
-
-
-
-
-
 
 
 
@@ -320,7 +308,7 @@ def TBrho(N,M,NCmat,IF,C,rho):
     # Auxiliar to memory access of two-body matrix
     M2 = M * M;
     M3 = M * M * M;
-    nc = NCmat[N][M];
+    nc = NC(N,M);
 
     # Rule 1: Creation on k k / Annihilation on k k
     for k in prange(0, M, 1):
@@ -329,8 +317,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
             mod2 = C[i].real * C[i].real + C[i].imag * C[i].imag;
             RHO  = RHO + mod2 * IF[i][k] * (IF[i][k] - 1);
         rho[k + M * k + M2 * k + M3 * k] = RHO;
-
-
 
     # Rule 2: Creation on k s / Annihilation on k s
     for k in prange(0, M, 1):
@@ -345,8 +331,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
             rho[s + k * M + k * M2 + s * M3] = RHO;
             rho[s + k * M + s * M2 + k * M3] = RHO;
             rho[k + s * M + s * M2 + k * M3] = RHO;
-
-
 
     # Rule 3: Creation on k k / Annihilation on q q
     for k in prange(0, M, 1):
@@ -363,8 +347,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
             # Use 2-index-'hermiticity'
             rho[k + k * M + q * M2 + q * M3] = RHO;
             rho[q + q * M + k * M2 + k * M3] = RHO.conjugate();
-
-
 
     # Rule 4: Creation on k k / Annihilation on k l
     for k in prange(0, M, 1):
@@ -383,8 +365,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
             rho[l + k * M + k * M2 + k * M3] = RHO.conjugate();
             rho[k + l * M + k * M2 + k * M3] = RHO.conjugate();
 
-
-
     # Rule 5: Creation on k s / Annihilation on s s
     for k in prange(0, M, 1):
         for s in prange(k + 1, M, 1):
@@ -401,8 +381,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
             rho[s + k * M + s * M2 + s * M3] = RHO;
             rho[s + s * M + s * M2 + k * M3] = RHO.conjugate();
             rho[s + s * M + k * M2 + s * M3] = RHO.conjugate();
-
-
 
     # Rule 6.0: Creation on k k / Annihilation on q l (k < q < l)
     for k in prange(0, M, 1):
@@ -424,8 +402,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[l + q * M + k * M2 + k * M3] = RHO.conjugate();
                 rho[q + l * M + k * M2 + k * M3] = RHO.conjugate();
 
-
-
     # Rule 6.1: Creation on k k / Annihilation on q l (q < k < l)
     for q in prange(0, M, 1):
         for k in prange(q + 1, M, 1):
@@ -446,8 +422,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[l + q * M + k * M2 + k * M3] = RHO.conjugate();
                 rho[q + l * M + k * M2 + k * M3] = RHO.conjugate();
 
-
-
     # Rule 6.2: Creation on k k / Annihilation on q l (q < l < k)
     for q in prange(0, M, 1):
         for l in prange(q + 1, M, 1):
@@ -467,8 +441,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[k + k * M + l * M2 + q * M3] = RHO;
                 rho[l + q * M + k * M2 + k * M3] = RHO.conjugate();
                 rho[q + l * M + k * M2 + k * M3] = RHO.conjugate();
-
-
 
     # Rule 7.0: Creation on k s / Annihilation on s l (s < k < l)
     for s in prange(0, M, 1):
@@ -492,8 +464,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[s + l * M + k * M2 + s * M3] = RHO.conjugate();
                 rho[l + s * M + k * M2 + s * M3] = RHO.conjugate();
 
-
-
     # Rule 7.1: Creation on k s / Annihilation on s l (k < s < l)
     for k in prange(0, M, 1):
         for s in prange(k + 1, M, 1):
@@ -516,8 +486,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[s + l * M + k * M2 + s * M3] = RHO.conjugate();
                 rho[l + s * M + k * M2 + s * M3] = RHO.conjugate();
 
-
-
     # Rule 7.2: Creation on k s / Annihilation on s l (k < l < s)
     for k in prange(0, M, 1):
         for l in prange(k + 1, M, 1):
@@ -539,8 +507,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
                 rho[s + l * M + s * M2 + k * M3] = RHO.conjugate();
                 rho[s + l * M + k * M2 + s * M3] = RHO.conjugate();
                 rho[l + s * M + k * M2 + s * M3] = RHO.conjugate();
-
-
 
     # Rule 8: Creation on k s / Annihilation on q l
     for k in prange(0, M, 1):
@@ -587,15 +553,6 @@ def TBrho(N,M,NCmat,IF,C,rho):
 #                                                                         #
 ###########################################################################
 
-
-
-
-
-
-
-
-
-
 def GetOBrho(Npar,Morb,C):
     """
     CALLING : ( 2D array [Morb,Morb] ) = GetOBrho(Npar,Morb,C)
@@ -612,7 +569,7 @@ def GetOBrho(Npar,Morb,C):
 
 
 
-def GetTBrho(Npar, Morb, C):
+def GetTBrho(Npar,Morb,C):
     """
     CALLING : ( 1D array [ Morb⁴ ] ) = GetOBrho(Npar,Morb,C)
     Npar : # of particles
@@ -629,12 +586,13 @@ def GetTBrho(Npar, Morb, C):
 
 
 @jit((int32,float64[:],complex128[:,:]),nopython=True,nogil=True)
-def EigSort(Nvals, RHOeigvals, RHOeigvecs):
+def EigSort(Nvals,RHOeigvals,RHOeigvecs):
     """
     CALLING : (void) EigSort(Nvals, RHOeigvals, RHOeigvecs)
-    Sort the order of eigenvalues to be decreasing and the order
-    of columns of eigenvectors accordingly so that the  k column
-    keep being the eigenvector of k-th eigenvalue.
+    Sort the order of eigenvalues to be  decreasing and the order
+    of columns of eigenvectors accordingly so  that the  k column
+    keep being the eigenvector of k-th eigenvalue. Auxiliar to be
+    used in 'getOccupation' function
     -------------------------------------------------------------------
     Nvals      : dimension of rho = # of orbitals
     RHOeigvals : End up with eigenvalues in decreasing order
@@ -662,6 +620,8 @@ def GetOccupation(Npar,Morb,C):
     """
     CALLING
     (1D array of size Morb) = GetOccupation(Npar,Morb,C)
+    Return natural occupations normalized by the number of particles
+    ----------------------------------------------------------------
     Npar : # of particles
     Morb : # of orbitals
     C    : coefficients of configurations
@@ -689,10 +649,14 @@ def GetNatOrb(Npar,Morb,C,Orb):
 
 
 
-def GetGasDensity(NOocc, NO):
+def GetGasDensity(NOocc,NO):
     """
     CALLING
     ( 1D np array [Mpos] ) = GetGasDensity(NOocc, NO)
+    Give the gas density, i.e, probability distribution to find  a
+    particle in a position. To collect natural occupations and the
+    natural orbitals see function 'GetOccupation' and 'GetNatOrb'
+    --------------------------------------------------------------
     NOocc : natural occupations given by GetOccupation
     NO    : Natural orbitals given by GetNatOrb
     """
@@ -704,9 +668,14 @@ def GetGasMomentumDensity(NOocc,NO,dx,bound = 'zero'):
     """
     CALLING
     ( array freq, array density ) = GetGasMomentumDensity(NOocc,NO,dx,bound)
+    Give the gas density in momentum space,  i.e, probability distribution
+    to find a particle with given momentum. To collect natural occupations
+    and the  natural orbitals see functions 'GetOccupation' and 'GetNatOrb'
+    -----------------------------------------------------------------------
     NOocc : natural occupations given by GetOccupation
     NO    : Natural orbitals given by GetNatOrb
     dx    : grid step
+    bound : boundary condition, default is zero
     """
     # grid factor to extent the domain without changing the
     # position grid step, to improve resolution in momentum
@@ -737,21 +706,10 @@ def GetGasMomentumDensity(NOocc,NO,dx,bound = 'zero'):
 
 
 
-def TimeOccupation(Npar,Morb,rhotime):
-    """
-    CALLING :
-    ( 2D numpy array [Nsteps, Morb] ) = TimeOccupation(Morb,Nsteps,rhotime)
-    Npar    : # of particles
-    Morb    : # of orbitals (# of columns in rhotime)
-    rhotime : each line has row-major matrix representation (a vector)
-              that is the  one-body  densiity matrix at each time-step
-    """
-    Nsteps = rhotime.shape[0];
-    eigval = np.empty([Nsteps,Morb],dtype=np.complex128);
-    for i in range(Nsteps):
-        eigval[i], eigvec = la.eig(rhotime[i].reshape(Morb,Morb));
-        EigSort(Morb, eigval[i].real, eigvec);
-    return eigval / Npar;
+def VonNeumannS(occ):
+    """ (double) = VonNeumannS(natural_occupations) """
+    N = occ.sum();
+    return - ( (occ / N) * np.log(occ / N) ).sum();
 
 
 
@@ -801,7 +759,7 @@ def OBcorre(Morb,Mpos,NOoccu,NO,GasDen,g):
 
 @jit((int32,int32,float64[:],complex128[:,:],float64[:],float64[:,:]),
       nopython=True, nogil=True)
-def AvoidZero_OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
+def AvoidZero_OBcorre(Morb,Mpos,NOoccu,NO,GasDen,g):
     """ Inner loop of GetOB_momentum_corr """
     OrbSum = 0.0;
     for i in prange(Mpos):
@@ -816,7 +774,7 @@ def AvoidZero_OBcorre(Morb, Mpos, NOoccu, NO, GasDen, g):
 
 
 
-def GetOBcorrelation(NOocc, NO):
+def GetOBcorrelation(NOocc,NO):
     """
     CALLING
     ( 2d array [M,M] ) = GetOBcorrelation(occu, NO)
@@ -837,7 +795,7 @@ def GetOBcorrelation(NOocc, NO):
 
 
 
-def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
+def GetOBmomentumCorrelation(NOocc,NO,dx,bound='zero'):
     """
     CALLING
     freq, 2D_corr_img = GetOB_momentum_corr(occu,NO,dx,bound='zero')
@@ -878,7 +836,6 @@ def GetOB_momentum_corr(NOocc, NO, dx, bound='zero'):
     denfft = GetGasDensity(NOocc, NOfft);
     g = np.empty( [k.size , k.size], dtype=np.float64 );
     AvoidZero_OBcorre(Morb, k.size, NOocc, NOfft, denfft, g);
-
     return k, g;
 
 
@@ -890,75 +847,68 @@ def MutualProb(Morb,Mpos,rho2,S,mutprob):
     Auxiliar function to GetTBCorrelation, computes the contraction
     of 2-body density matrix with the orbitals.
     """
-
     M  = Morb;
     M2 = Morb * Morb;
     M3 = Morb * M2;
-
     r2 = complex(0);
     o = complex(0);
     Sum = complex(0);
-
     for i in prange(Mpos):
         for j in prange(Mpos):
-
             Sum = 0;
-
             for k in prange(Morb):
                 for l in prange(Morb):
                     for q in prange(Morb):
                         for s in prange(Morb):
                             r2 = rho2[k+l*M+q*M2+s*M3];
-                            o = S[q,j]*S[s,i]*(S[k,j]*S[l,i]).conjugate();
+                            o = (S[q,j]*S[s,i]).conjugate()*S[k,j]*S[l,i];
                             Sum = Sum + r2 * o;
-
             mutprob[i,j] = Sum;
 
 
 
-
-
-def GetTBcorrelation(Npar, Morb, C, S):
+def GetTBcorrelation(Npar,Morb,C,S):
     """
     CALLING
     -------
-    ( 2d array [Mpos,Mpos] ) = GetTBcorrelation(Npar,Morb,C,S)
-    where Mpos means the number of discretized positions = S.shape[1]
-    ------------------------------------------------------------------
+    ( 2d array [Ngrid,Ngrid] ) = GetTBcorrelation(Npar,Morb,C,S)
+    where Ngrid means the number of grid points = S.shape[1]
+    The two-body correlation here is the probability to simultaneously
+    find two particles at grid points Xi and Xj divided by the
+    probability to find independently one Xi and another at Xj.
+    -----------------------------------------------------------
     Npar : number of particles
     Morb : number of orbitals
     C    : array of coeficients
     S    : Working orbitals organized by rows
-    ------------------------------------------------------------------
-    The two-body correlation here is the probability to  find two
-    particles at (discretized)positions Xi and Xj divided  by the
-    probability to find one-particle independently Xi and another
-    at Xj.
     """
     Mpos = S.shape[1];
-    NOocc = GetOccupation(Npar, Morb, C);
-    NO = GetNatOrb(Npar, Morb, C, S);
-    den = GetGasDensity(NOocc, NO);
+    NOocc = GetOccupation(Npar,Morb,C);
+    NO = GetNatOrb(Npar,Morb,C,S);
+    den = GetGasDensity(NOocc,NO);
 
+    # Normalized 2-body density matrix
     rho2 = GetTBrho(Npar,Morb,C) / Npar / (Npar - 1);
-    mutprob = np.zeros([Mpos,Mpos], dtype=np.complex128);
+    mutprob = np.zeros([Mpos,Mpos],dtype=np.complex128);
     MutualProb(Morb,Mpos,rho2,S,mutprob);
+    # sanity check, it mutual probability must be real
+    z = abs(mutprob.imag).sum()/Mpos**2
+    if (z > 1E-12): print("\nWARNING : Imag part of g2 = %.10lf" % z)
 
     g2 = np.zeros([Mpos,Mpos],dtype=np.complex128);
-
     for i in range(Mpos):
         for j in range(Mpos):
-            g2[i,j] = mutprob[i,j] / den[i] / den[j] - 1;
+            g2[i,j] = mutprob[i,j] / den[i] / den[j];
 
     return g2;
 
 
 
-def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
+def GetTBmomentumCorr(Npar,Morb,C,S,dx,bound = 'zero'):
     """
     CALLING
-    freqs, 2d array [Mpos,Mpos] = GetTB_momentum_corr(Npar,Morb,C,S,dx)
-    where Mpos means the number of discretized positions = S.shape[1]
+    freqs, 2d array G2 = GetTB_momentum_corr(Npar,Morb,C,S,dx)
+    where 'freqs' output is the frequencies the G2 image corresponds.
     --------------------------------------------------------------------
     Npar : number of particles
     Morb : number of orbitals
@@ -1007,18 +957,19 @@ def GetTB_momentum_corr(Npar, Morb, C, S, dx, bound = 'zero'):
             k, Sfft[i] = DnormFFT(dx, extS[i]);
             k, NOfft[i] = DnormFFT(dx, extNO[i]);
 
-    denfft = GetGasDensity(NOocc, NOfft);
+    denfft = GetGasDensity(NOocc,NOfft);
 
     rho2 = GetTBrho(Npar,Morb,C) / Npar / (Npar - 1);
     mutprob = np.zeros([k.size,k.size], dtype=np.complex128);
     MutualProb(Morb,k.size,rho2,Sfft,mutprob);
+    # sanity check, it mutual probability must be real
+    z = abs(mutprob.imag).sum()/Mpos**2
+    if (z > 1E-12): print("\nWARNING : Imag part of g2 = %.10lf" % z)
 
     g2 = np.zeros([k.size,k.size],dtype=np.complex128);
-
     for i in range(k.size):
         for j in range(k.size): g2[i,j] = mutprob[i,j];
-
-    return k, g2, denfft;
+    return k, g2;
 
 
 
@@ -1055,7 +1006,46 @@ def Cutoffmomentum(k,g2,denfft):
 
 
 
-def VonNeumannS(occ):
-    """ (double) = VonNeumannS(occupation_vector of size # of Orbitals) """
-    N = occ.sum();
-    return - ( (occ / N) * np.log(occ / N) ).sum();
+def TimeOccupation(Npar,Morb,rhotime):
+    """
+    CALLING :
+    ( 2D numpy array [Nsteps, Morb] ) = TimeOccupation(Morb,Nsteps,rhotime)
+    Return the natural occupation normalized by the number of particles
+    at each time steps as rows of the output matrix
+    -----------------------------------------------------------------------
+    Npar    : # of particles
+    Morb    : # of orbitals (# of columns in rhotime)
+    rhotime : each line has row-major matrix representation (a vector)
+              that is the  one-body  densiity matrix at each time-step
+    """
+    Nsteps = rhotime.shape[0];
+    eigval = np.empty([Nsteps,Morb],dtype=np.complex128);
+    for i in range(Nsteps):
+        eigval[i], eigvec = la.eig(rhotime[i].reshape(Morb,Morb));
+        EigSort(Morb, eigval[i].real, eigvec);
+    return eigval.real / Npar;
+
+
+
+def TimeDensity(Morb,Mpos,rhotime,S):
+    """
+    CALLING :
+    ( 2D numpy array [Nsteps, Morb] ) = TimeOccupation(Morb,Nsteps,rhotime)
+    Return the natural occupation normalized by the number of particles
+    at each time steps as rows of the output matrix
+    -----------------------------------------------------------------------
+    Npar    : # of particles
+    Morb    : # of orbitals (# of columns in rhotime)
+    rhotime : each line has row-major matrix representation (a vector)
+              that is the  one-body  densiity matrix at each time-step
+    """
+    Nsteps = rhotime.shape[0];
+    den = np.zeros([Nsteps,Mpos],dtype=np.float64);
+    for i in range(Nsteps):
+        eigval, eigvec = la.eig(rhotime[i].reshape(Morb,Morb));
+        eigval = eigval.real
+        eigval = eigval / eigval.sum()
+        EigSort(Morb,eigval,eigvec);
+        NO = np.matmul(eigvec.conj().T,S[i].reshape(Morb,Mpos));
+        den[i] = GetGasDensity(eigval,NO);
+    return den;

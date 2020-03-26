@@ -12,14 +12,21 @@ void harmonic(int M, Rarray x, Rarray V, double omega)
 void doublewell(int M, Rarray x, Rarray V, double a, double b)
 {
     double
+        a2,
+        b2,
+        a4,
         x2,
         x4;
+
+    a2 = a * a;
+    b2 = b * b;
+    a4 = a2 * a2;
 
     for (int i = 0; i < M; i ++)
     {
         x2 = x[i] * x[i];
         x4 = x2 * x2;
-        V[i] = 2 * (b * b * x4 / 4.0 - a * a * x2 / 2.0);
+        V[i] = b2*x4/4.0 - a2*x2/2.0 + a4/(4*b2);
     }
 }
 

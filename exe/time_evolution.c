@@ -752,13 +752,14 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
+                printf("\n\nSEMI-IMPLICIT\n\n");
                 start = omp_get_wtime();
-                realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
+                realCNdirect(mc,S,dt,N,outfname,N/Nlines);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
             case 2:
                 start = omp_get_wtime();
-                realCNSM(mc,S,dt,N,cyclic,outfname,N/Nlines);
+                realCNSM(mc,S,dt,N,outfname,N/Nlines);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
             case 3:

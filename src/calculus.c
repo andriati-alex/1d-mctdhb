@@ -136,6 +136,31 @@ void renormalize(int n, Carray f, double dx, double norm)
 
 
 
+double complex innerL2(int n, Carray fstar, Carray f, double h)
+{
+
+    int
+        i;
+
+    double complex
+        overlap;
+
+    Carray
+        integ;
+
+    integ = carrDef(n);
+
+    for (i = 0; i < n; i++) integ[i] = conj(fstar[i]) * f[i];
+
+    overlap = Csimps(n,integ,h);
+    free(integ);
+    return overlap;
+}
+
+
+
+
+
 void Ortonormalize(int Mfun, int Mpos, double dx, Cmatrix F)
 {
 
@@ -221,6 +246,60 @@ void dxFFT(int n, Carray f, double dx, Carray dfdx)
         if (i <= (N - 1) / 2) { freq = (2 * PI * i) / Ndx;       }
         else                  { freq = (2 * PI * (i - N)) / Ndx; }
         dfdx[i] = dfdx[i] * freq * I;
+    }
+
+    s = DftiComputeBackward(desc, dfdx);
+
+    s = DftiFreeDescriptor(&desc);
+
+    dfdx[N] = dfdx[0]; // boundary point
+}
+
+
+
+
+
+void d2xFFT(int n, Carray f, double dx, Carray dfdx)
+{
+
+/** Compute derivative of a function in n discretized positions with
+  * periodic boundary conditions,  that is f[n - 1] = f[0]. Use Fast
+  * Fouriers Transforms(FFT) to do the job
+  *
+  * Output parameter : dfdx
+  *
+  * Poor performance compared to finite-difference method. **/
+
+    int
+        i,
+        N;
+
+    double
+        Ndx,
+        freq;
+
+    MKL_LONG s; // status of called MKL FFT functions
+
+    DFTI_DESCRIPTOR_HANDLE desc;
+
+    N = n - 1; // Assumes the connection f[n-1] = f[0] at the boundary
+
+    Ndx = N * dx; // total domain length
+
+    carrCopy(N, f, dfdx); // Copy to execute in-place computation.
+
+    s = DftiCreateDescriptor(&desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, N);
+    s = DftiSetValue(desc, DFTI_FORWARD_SCALE, 1.0 / sqrt((double) N));
+    s = DftiSetValue(desc, DFTI_BACKWARD_SCALE, 1.0 / sqrt((double) N));
+    // s = DftiSetValue(desc, DFTI_PLACEMENT, DFTI_NOT_INPLACE);
+    s = DftiCommitDescriptor(desc);
+
+    s = DftiComputeForward(desc, dfdx);
+
+    for (i = 0; i < N; i++) {
+        if (i <= (N - 1) / 2) { freq = (2 * PI * i) / Ndx;       }
+        else                  { freq = (2 * PI * (i - N)) / Ndx; }
+        dfdx[i] = dfdx[i] * (- freq * freq);
     }
 
     s = DftiComputeBackward(desc, dfdx);
