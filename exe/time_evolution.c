@@ -1,4 +1,6 @@
-#include "integrators.h"
+#include "imagtimeIntegrator.h"
+#include "realtimeIntegrator.h"
+#include "coeffIntegration.h"
 #include "linear_potential.h"
 #include "structureSetup.h"
 
@@ -189,7 +191,7 @@ void orthoCheck(int Npar, int Norb, int Ngrid, double dx, Cmatrix Omat,
         }
     }
 
-    if (overlap > 1E-8)
+    if (overlap / Norb > 1E-5)
     {
         printf("\n\n!   ORBITALS ARE NOT ORTHOGONAL   !\n\n");
         exit(EXIT_FAILURE);
@@ -242,7 +244,7 @@ void initDiag(EqDataPkg mc, ManyBodyPkg S, int info)
     printf("\nLanczos ground state with initial orbitals");
     printf(" ... ");
 
-    // select a suitable number of lanczos iterations
+    // SELECT A SUITABLE NUMBER OF LANCZOS ITERATIONS
     if (200 * NC(Npar,Norb) < 5E7)
     {
         if (NC(Npar,Norb) / 2 < 200) Lit = NC(Npar,Norb) / 2;
@@ -465,10 +467,6 @@ int main(int argc, char * argv[])
     fclose(job_file);
     cyclic = 1;
 
-
-
-
-
     /* ====================================================================
                 CHECK IF THERE ARE ERRORS IN JOB.CONF FILE ENTRIES
        ==================================================================== */
@@ -490,22 +488,28 @@ int main(int argc, char * argv[])
         }
     }
 
-    if (method != 1 && method != 2 && method != 3)
+    if (method < 1 || method > 4)
     {
         printf("\n\nERROR : Invalid method Id(Orbitals)! Valid ones are:\n");
-        printf("\t1 - Crank-Niconsol-SM-RK2\n");
-        printf("\t2 - Crank-Niconsol-LU-RK2\n");
-        printf("\t3 - Crank-Niconsol-FFT-RK2\n\n\n");
+        printf("\t1 - Exponential DVR (periodic)\n");
+        printf("\t2 - Sine DVR (hard wall boundary)\n");
+        printf("\t3 - Split Step with Finite Differences\n");
+        printf("\t4 - Split Step with FFT\n\n\n");
         exit(EXIT_FAILURE);
     }
 
-    if (coefInteg > 5)
+    if (coefInteg > 5 || coefInteg < 0)
     {
         printf("\n\nERROR : Invalid Coef. integrator Id! Valid ones are:\n");
         printf("\t0/1 - 4th order Rung-Kutta\n");
         printf("\t2/3/4/5 - Lanczos number of iterations\n\n\n");
         exit(EXIT_FAILURE);
     }
+
+
+
+
+
 
 
 
@@ -540,7 +544,7 @@ int main(int argc, char * argv[])
 
 
 
-    
+
     /* ====================================================================
                          OPEN FILES TO SETUP THE PROBLEM
        ==================================================================== */
@@ -633,7 +637,7 @@ int main(int argc, char * argv[])
         strcat(fname, "_energy_imagtime.dat");
 
         E_file = fopen(fname, "w");
-        if (E_file == NULL)  // impossible to open file
+        if (E_file == NULL)
         {
             printf("\n\nERROR: impossible to open file %s\n\n", fname);
             exit(EXIT_FAILURE);
@@ -645,7 +649,7 @@ int main(int argc, char * argv[])
     strcat(fname, "_conf.dat");
 
     confFileOut = fopen(fname, "w");
-    if (confFileOut == NULL) // impossible to open file
+    if (confFileOut == NULL)
     {
         printf("\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
@@ -666,7 +670,8 @@ int main(int argc, char * argv[])
     printf("      ******************************\n\n");
 
     mc = SetupData(paramFile, confFile, &dt, &N, potname);
-    // Check minimal  requirements of input data
+
+    // CHECK MINIMAL REQUIREMENTS OF MULTI-CONFIGURATIONAL SPACE
     if (mc->Morb < 2 || mc->Npar < 2)
     {
         printf("\n\nERROR: 'Multi' configuration needs at least more ");
@@ -674,6 +679,7 @@ int main(int argc, char * argv[])
         exit(EXIT_FAILURE);
     }
 
+    // UNPACK PARAMETERS FOR AN EASIER ACCESS
     dx = mc->dx;
     xi = mc->xi;
     xf = mc->xf;
@@ -686,7 +692,7 @@ int main(int argc, char * argv[])
 
     S = AllocManyBodyPkg(Npar,Morb,Mdx + 1);
 
-    // Setup orbitals
+    // SETUP ORBITALS
     for (k = 0; k < Mdx + 1; k++)
     {
         for (s = 0; s < Morb; s++)
@@ -695,10 +701,12 @@ int main(int argc, char * argv[])
             S->Omat[s][k] = real + I * imag;
         }
     }
-    // Ortonormalize(Morb, Mdx + 1, dx, S->Omat);
     fclose(orb_file);
+    // THE ORBITALS FILE IS CLOSED. FOR SEVERAL IMAGINARY TIME PROPAGATIONS,
+    // IF REQUESTED, IT WILL BE OPENNED AGAIN TO READ TO SETUP WITH THE SAME
+    // INITIAL CONDITION.
 
-    // Setup Coeficients
+    // SETUP COEFICIENTS
     for (k = 0; k < NC(Npar, Morb); k++)
     {
         l = fscanf(coef_file, " (%lf%lfj)", &real, &imag);
@@ -715,13 +723,33 @@ int main(int argc, char * argv[])
     printf("\nGrid step: %.2lf",dx);
     printf("\nFinal time : %.1lf in steps of %.6lf",N*dt,dt);
     printf("\nIntegration method : ");
-    if (method < 3)
+    if (method == 1)
     {
-        printf("Crank-Nicolson with Runge-Kutta for Orbitals / ");
+        if (timeinfo == 'r' || timeinfo == 'R')
+            printf("Exponential DVR and RK4 / ");
+        else
+            printf("Exponential DVR and RK2 / ");
     }
-    else
+    if (method == 2)
     {
-        printf("FFT with Runge-Kutta for Orbitals / ");
+        if (timeinfo == 'r' || timeinfo == 'R')
+            printf("Sine DVR and RK4 / ");
+        else
+            printf("Sine DVR and RK2 / ");
+    }
+    if (method == 3)
+    {
+        if (timeinfo == 'r' || timeinfo == 'R')
+            printf("Split Step Finite Diff and RK4. / ");
+        else
+            printf("Split Step Finite Diff and RK2. / ");
+    }
+    if (method == 4)
+    {
+        if (timeinfo == 'r' || timeinfo == 'R')
+            printf("Split Step FFT and RK4. / ");
+        else
+            printf("Split Step FFT and RK2. / ");
     }
     if (coefInteg < 2)
     {
@@ -737,13 +765,15 @@ int main(int argc, char * argv[])
 
 
 
+
+
     /* ====================================================================
                                REAL TIME INTEGRATION
        ==================================================================== */
 
     if (timeinfo == 'r' || timeinfo =='R')
     {
-        printf("\nStart real time Integration\n");
+        printf("\nSTARTED REAL TIME INTEGRATION\n");
 
         fclose(confFile);
         fclose(paramFile);
@@ -752,26 +782,30 @@ int main(int argc, char * argv[])
         switch (method)
         {
             case 1:
-                printf("\n\nSEMI-IMPLICIT\n\n");
                 start = omp_get_wtime();
-                realCNdirect(mc,S,dt,N,outfname,N/Nlines);
+                realEXPDVR(mc,S,dt,N,outfname,N/Nlines);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
             case 2:
                 start = omp_get_wtime();
-                realCNSM(mc,S,dt,N,outfname,N/Nlines);
+                realSINEDVR(mc,S,dt,N,outfname,N/Nlines);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
             case 3:
                 start = omp_get_wtime();
-                realFFT(mc,S,dt,N,outfname,N/Nlines);
+                realSSFD(mc,S,dt,N,outfname,N/Nlines);
+                time_used = (double) (omp_get_wtime() - start);
+                break;
+            case 4:
+                start = omp_get_wtime();
+                realSSFFT(mc,S,dt,N,outfname,N/Nlines);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
         }
 
         printf("\nTime taken in integration : %lf(s) = ",time_used);
         TimePrint(time_used);
-        printf("\nAverage per time steps : %.1lf(ms)",1000*time_used/N);
+        printf("\nAverage per time steps : %.1lf(ms)",time_used/N/1000);
 
         SaveConf(confFileOut, mc);
 
@@ -801,28 +835,28 @@ int main(int argc, char * argv[])
     // Diagonalization with initial orbitals to improve coefficients
     // for imaginary time propagation if requested in  job.conf file
     if (initLanczos > 0) initDiag(mc,S,initLanczos);
-    printf("\nStart imaginary time Integration");
+    printf("\nSTARTED IMAGINARY TIME INTEGRATION");
 
     switch (method)
     {
-
         case 1:
-
             start = omp_get_wtime();
-            s = imagCNSM(mc, S, dt, N, coefInteg, cyclic);
+            s = imagEXPDVR(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             break;
-
         case 2:
-
             start = omp_get_wtime();
-            s = imagCNLU(mc, S, dt, N, coefInteg, cyclic);
+            s = imagSSFFT(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             break;
-
         case 3:
             start = omp_get_wtime();
-            s = imagFFT(mc, S, dt, N, coefInteg);
+            s = imagSSFD(mc, S, dt, N, coefInteg);
+            time_used = (double) (omp_get_wtime() - start);
+            break;
+        case 4:
+            start = omp_get_wtime();
+            s = imagSSFFT(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             break;
     }
@@ -831,11 +865,9 @@ int main(int argc, char * argv[])
     TimePrint(time_used);
     printf("\nAverage per time steps : %.1lf(ms)",time_used/s*1000);
 
-    // Record data
-
     E0 = Energy(Morb,S->rho1,S->rho2,S->Ho,S->Hint);
 
-    // setup filename to record solution
+    // RECORD SOLUTION
     strcpy(fname, "output/");
     strcat(fname, outfname);
     strcat(fname, "_job1");
@@ -843,8 +875,7 @@ int main(int argc, char * argv[])
     strcat(fname, "_orb_imagtime.dat");
     cmat_txt_T(fname, Morb, Mdx + 1, S->Omat);
 
-    // Record Coeficients Data
-
+    // RECORD COEFICIENTS
     strcpy(fname, "output/");
     strcat(fname, outfname);
     strcat(fname, "_job1");
@@ -852,8 +883,7 @@ int main(int argc, char * argv[])
 
     carr_txt(fname, mc->nc, S->C);
 
-    // Record Trap potential
-
+    // RECORD TRAP POTENTIAL
     strcpy(fname, "output/");
     strcat(fname, outfname);
     strcat(fname, "_job1");
@@ -861,7 +891,7 @@ int main(int argc, char * argv[])
 
     rarr_txt(fname,Mdx+1,mc->V);
 
-    fprintf(E_file, "%.10E\n", creal(E0));
+    fprintf(E_file,"%.10E\n",creal(E0));
 
     SaveConf(confFileOut, mc);
 
@@ -967,8 +997,6 @@ int main(int argc, char * argv[])
             xf = mc->xf;
             dx = mc->dx;
             rarrFillInc(Mdx + 1, xi, dx, x);
-
-            // Ortonormalize(Morb,Mdx + 1,dx,S->Omat);
         }
         else
         {
@@ -997,34 +1025,32 @@ int main(int argc, char * argv[])
         // Diagonalization with initial orbitals to improve coefficients
         if (initLanczos > 0) initDiag(mc,S,initLanczos);
 
-
-
         // Call imaginary integrator
-        printf("\nStart imaginary time Integration");
+        printf("\nSTART IMAGINARY TIME INTEGRATION");
 
         switch (method)
         {
-
             case 1:
-
                 start = omp_get_wtime();
-                s = imagCNSM(mc, S, dt, N, coefInteg, cyclic);
+                s = imagEXPDVR(mc, S, dt, N, coefInteg);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 break;
-
             case 2:
-
                 start = omp_get_wtime();
-                s = imagCNLU(mc, S, dt, N, coefInteg, cyclic);
+                s = imagSSFFT(mc, S, dt, N, coefInteg);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 break;
-
             case 3:
-
                 start = omp_get_wtime();
-                s = imagFFT(mc, S, dt, N, coefInteg);
+                s = imagSSFD(mc, S, dt, N, coefInteg);
+                end = (double) (omp_get_wtime() - start);
+                time_used += end;
+                break;
+            case 4:
+                start = omp_get_wtime();
+                s = imagSSFFT(mc, S, dt, N, coefInteg);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
                 break;
@@ -1033,8 +1059,6 @@ int main(int argc, char * argv[])
         printf("Time taken in job%d : %.1lf(s) = ",i+1,end);
         TimePrint(end);
         printf("\nAverage per time steps : %.1lf(ms)",end/s*1000);
-
-
 
         // Record data
 

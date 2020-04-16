@@ -18,7 +18,12 @@ obj_mctdhb = $(obj_linalg)          \
 		 	 configurationalSpace.o \
 			 structureSetup.o       \
 			 observables.o          \
-		 	 integrators.o
+		 	 auxIntegration.o       \
+             coeffIntegration.o     \
+             linearPartIntegration.o \
+             orbTimeDerivativeDVR.o \
+             imagtimeIntegrator.o \
+             realtimeIntegrator.o
 
 linalg_header = include/dataStructures.h	 \
 				include/memoryHandling.h     \
@@ -34,7 +39,11 @@ mctdhb_header = $(linalg_header) 	    	     \
 				include/configurationalSpace.h   \
 				include/structureSetup.h         \
 				include/observables.h            \
-				include/integrators.h
+		 	    auxIntegration.h       \
+                coeffIntegration.h     \
+                linearPartIntegration.h \
+                imagtimeIntegrator.h \
+                realtimeIntegrator.h
 
 
 
@@ -48,7 +57,7 @@ mctdhb_header = $(linalg_header) 	    	     \
 
 
 
-MCTDHB : libmctdhb.a exe/time_evolution.c include/integrators.h
+MCTDHB : libmctdhb.a exe/time_evolution.c
 	icc -o MCTDHB exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -qopenmp \
 		-L./lib -I./include -lmctdhb -lm -O3
@@ -104,9 +113,38 @@ calculus.o : src/calculus.c
 
 
 
-integrators.o : src/integrators.c
+auxIntegration.o : src/auxIntegration.c
+	icc -c -O3 -qopenmp -I./include src/auxIntegration.c
+
+
+
+coeffIntegration.o : src/coeffIntegration.c
 	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
-		-I./include src/integrators.c
+		-I./include src/coeffIntegration.c
+
+
+
+linearPartIntegration.o : src/linearPartIntegration.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		-I./include src/linearPartIntegration.c
+
+
+
+orbTimeDerivativeDVR.o : src/orbTimeDerivativeDVR.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		-I./include src/orbTimeDerivativeDVR.c
+
+
+
+imagtimeIntegrator.o : src/imagtimeIntegrator.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		-I./include src/imagtimeIntegrator.c
+
+
+
+realtimeIntegrator.o : src/realtimeIntegrator.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		-I./include src/realtimeIntegrator.c
 
 
 

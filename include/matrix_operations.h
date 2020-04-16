@@ -70,6 +70,8 @@ void RowMajor(int m, int n, Cmatrix M, Carray v);
 CCSmat CNmat(int M, double dx, doublec dt, double a2, doublec a1, double inter,
        Rarray V, int cyclic, Carray upper, Carray lower, Carray mid);
 
+void setupTriDiagonal(EqDataPkg,Carray,Carray,Carray,doublec,int);
+
 
 
 

@@ -252,6 +252,54 @@ CCSmat CNmat(int M, double dx, doublec dt, double a2, doublec a1, double inter,
 
 
 
+void setupTriDiagonal(EqDataPkg MC, Carray upper, Carray lower, Carray mid,
+        doublec dt, int isTrapped)
+{
+
+    int
+        i,
+        N;
+
+    double
+        a2,
+        dx;
+
+    double complex
+        a1;
+
+    Rarray
+        V;
+
+    N = MC->Mpos;
+    a2 = MC->a2;
+    a1 = MC->a1;
+    dx = MC->dx;
+    V = MC->V;
+
+    for (i = 0; i < N; i++)
+    {
+        mid[i] = I + a2*dt/dx/dx - dt*V[i]/2;
+    }
+    for (i = 0; i < N - 2; i++)
+    {
+        upper[i] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+        lower[i] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+    }
+
+    if (isTrapped)
+    {
+        upper[N-2] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+        lower[N-2] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+    }
+    else
+    {
+        upper[N-2] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+        lower[N-2] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+    }
+
+}
+
+
 
 
 
