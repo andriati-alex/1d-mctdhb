@@ -48,41 +48,33 @@ typedef MKL_Complex16 * CMKLarray;
 // STRUCTURES TO COMPRESS RELEVANT DATA TO SOLVE THE EQUATIONS
 struct _EquationDataPkg
 {
-
     char
-        Vname[80]; // One-Body potential name
-
+        Vname[80];  // One-Body potential name
     int 
-        nc,       // Total # of configurations
-        Mpos,     // # of grid points (# grid steps + 1)
-        Morb,     // # of orbitals
-        Npar;     // # of particles
-
+        nc,         // Total # of configurations
+        Mpos,       // # of grid points (# grid steps + 1)
+        Morb,       // # of orbitals
+        Npar;       // # of particles
     Iarray
         IF,    // IF[i*Morb] point to the occupation number vetor of C[i]
         NCmat, // NCmat[i + j*(Npar+1)] = NC(i,j)
-        Map,   // Mappings for jumps of particles among orbitals
+        Map,   // Mappings for 1-jump of particles among orbitals
         MapOT,
         MapTT,
         strideOT,
         strideTT;
-
     double
         dx, // grid step size
-        xi, // left boundary of domain (first grid point)
-        xf, // right boundaty of domain (last grid point)
+        xi, // left boundary of domain (initial grid point)
+        xf, // right boundaty of domain (final grid point)
         a2, // factor multiplying d2 / dx2
         g;  // know as g, contact interaction strength
-
     Rarray
-        V;  // One-body potential(trap) computed at grid points
-
+        V;  // One-body potential/trap computed at grid points
     double
         p[3];   // Extra parameters to one-body potential function
-
     double complex
-        a1;     // factor multiplying d / dx (pure imaginary)
-
+        a1;     // factor multiplying d / dx (purely imaginary)
 };
 
 
@@ -110,7 +102,8 @@ struct _ManyBodyDataPkg
 
 
 
-struct _CCSmat{
+struct _CCSmat
+{
     int  m;     // max number of non-zero elements in a same row
 	int * col;  // Column index of elemetns.
 	Carray vec; // column oriented vector.

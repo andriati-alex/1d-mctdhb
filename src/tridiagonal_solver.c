@@ -236,8 +236,6 @@ void triDiag(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
 
 
 
-
-
 void triCyclicLU(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
      Carray ans)
 {
@@ -325,8 +323,6 @@ void triCyclicLU(int n, Carray upper, Carray lower, Carray mid, Carray RHS,
     free(h);
     free(g);
 }
-
-
 
 
 

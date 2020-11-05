@@ -74,7 +74,7 @@ doublec INTER_CONTRACTION(int M, int k, int n, double g, Cmatrix Orb,
 
 
 void derSINEDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
-           Carray rho2, Rarray D2DVR)
+           Carray rho2, Rarray D2DVR, int impOrtho)
 {
 
     int
@@ -121,35 +121,38 @@ void derSINEDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
     overlap = cmatDef(M,M);
     overlap_inv = cmatDef(M,M);
 
-    for (k = 0; k < M; k++)
+    if (impOrtho)
     {
-        for (l = k; l < M; l++)
+        for (k = 0; k < M; k++)
         {
-            for (s = 0; s < Mpos; s++)
+            for (l = k; l < M; l++)
             {
-                integ[s] = conj(Orb[k][s]) * Orb[l][s];
+                for (s = 0; s < Mpos; s++)
+                {
+                    integ[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                overlap[k][l] = Csimps(Mpos,integ,dx);
+                overlap[l][k] = conj(overlap[k][l]);
             }
-            overlap[k][l] = Csimps(Mpos,integ,dx);
-            overlap[l][k] = conj(overlap[k][l]);
         }
-    }
 
-    // Invert matrix and check if the operation was successfull
-    s = HermitianInv(M,overlap,overlap_inv);
-    if (s != 0)
-    {
-        printf("\n\n\nFailed on Lapack inversion routine ");
-        printf("for overlap matrix !\n");
-        printf("-----------------------------------");
-        printf("--------------------\n\n");
+        // Invert matrix and check if the operation was successfull
+        s = HermitianInv(M,overlap,overlap_inv);
+        if (s != 0)
+        {
+            printf("\n\n\nFailed on Lapack inversion routine ");
+            printf("for overlap matrix !\n");
+            printf("-----------------------------------");
+            printf("--------------------\n\n");
 
-        printf("Matrix given was :\n");
-        cmat_print(M,M,overlap);
+            printf("Matrix given was :\n");
+            cmat_print(M,M,overlap);
 
-        if (s > 0) printf("\nSingular decomposition : %d\n\n",s);
-        else       printf("\nInvalid argument given : %d\n\n",s);
+            if (s > 0) printf("\nSingular decomposition : %d\n\n",s);
+            else       printf("\nInvalid argument given : %d\n\n",s);
 
-        exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
+        }
     }
 
     // COMPUTE THE ACTION OF FULL NON-LINEAR HAMILTONIAN ACTION ON
@@ -170,21 +173,40 @@ void derSINEDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
     }
 
     // APPLY PROJECTOR ON ORBITAL SPACE
-    #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
-    for (k = 0; k < M; k++)
+    if (impOrtho)
     {
-        for (i = 0; i < Mpos; i++)
+        #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
+        for (k = 0; k < M; k++)
         {
-            proj = 0;
-            for (s = 0; s < M; s++)
+            for (i = 0; i < Mpos; i++)
             {
-                for (l = 0; l < M; l++)
+                proj = 0;
+                for (s = 0; s < M; s++)
                 {
-                    proj = proj + Orb[s][i] * overlap_inv[s][l] * \
-                           innerL2(Mpos,Orb[l],Haction[k],dx);
+                    for (l = 0; l < M; l++)
+                    {
+                        proj = proj + Orb[s][i] * overlap_inv[s][l] * \
+                               innerL2(Mpos,Orb[l],Haction[k],dx);
+                    }
                 }
+                project[k][i] = proj;
             }
-            project[k][i] = proj;
+        }
+    }
+    else
+    {
+        #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
+        for (k = 0; k < M; k++)
+        {
+            for (i = 0; i < Mpos; i++)
+            {
+                proj = 0;
+                for (s = 0; s < M; s++)
+                {
+                    proj = proj + Orb[s][i]*innerL2(Mpos,Orb[s],Haction[k],dx);
+                }
+                project[k][i] = proj;
+            }
         }
     }
 
@@ -208,7 +230,7 @@ void derSINEDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
 
 
 void derEXPDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
-           Carray rho2, Carray DerDVR)
+           Carray rho2, Carray DerDVR, int impOrtho)
 {
 
     int
@@ -255,35 +277,38 @@ void derEXPDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
     overlap = cmatDef(M,M);
     overlap_inv = cmatDef(M,M);
 
-    for (k = 0; k < M; k++)
+    if (impOrtho)
     {
-        for (l = k; l < M; l++)
+        for (k = 0; k < M; k++)
         {
-            for (s = 0; s < Mpos; s++)
+            for (l = k; l < M; l++)
             {
-                integ[s] = conj(Orb[k][s]) * Orb[l][s];
+                for (s = 0; s < Mpos; s++)
+                {
+                    integ[s] = conj(Orb[k][s]) * Orb[l][s];
+                }
+                overlap[k][l] = Csimps(Mpos,integ,dx);
+                overlap[l][k] = conj(overlap[k][l]);
             }
-            overlap[k][l] = Csimps(Mpos,integ,dx);
-            overlap[l][k] = conj(overlap[k][l]);
         }
-    }
 
-    // Invert matrix and check if the operation was successfull
-    s = HermitianInv(M,overlap,overlap_inv);
-    if (s != 0)
-    {
-        printf("\n\n\nFailed on Lapack inversion routine ");
-        printf("for overlap matrix !\n");
-        printf("-----------------------------------");
-        printf("--------------------\n\n");
+        // Invert matrix and check if the operation was successfull
+        s = HermitianInv(M,overlap,overlap_inv);
+        if (s != 0)
+        {
+            printf("\n\n\nFailed on Lapack inversion routine ");
+            printf("for overlap matrix !\n");
+            printf("-----------------------------------");
+            printf("--------------------\n\n");
 
-        printf("Matrix given was :\n");
-        cmat_print(M,M,overlap);
+            printf("Matrix given was :\n");
+            cmat_print(M,M,overlap);
 
-        if (s > 0) printf("\nSingular decomposition : %d\n\n",s);
-        else       printf("\nInvalid argument given : %d\n\n",s);
+            if (s > 0) printf("\nSingular decomposition : %d\n\n",s);
+            else       printf("\nInvalid argument given : %d\n\n",s);
 
-        exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
+        }
     }
 
     // COMPUTE THE ACTION OF FULL NON-LINEAR HAMILTONIAN ACTION ON
@@ -306,21 +331,40 @@ void derEXPDVR(EqDataPkg MC, Cmatrix Orb, Cmatrix dOdt, Cmatrix rho1_inv,
     }
 
     // APPLY PROJECTOR ON ORBITAL SPACE
-    #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
-    for (k = 0; k < M; k++)
+    if (impOrtho)
     {
-        for (i = 0; i < Mpos; i++)
+        #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
+        for (k = 0; k < M; k++)
         {
-            proj = 0;
-            for (s = 0; s < M; s++)
+            for (i = 0; i < Mpos; i++)
             {
-                for (l = 0; l < M; l++)
+                proj = 0;
+                for (s = 0; s < M; s++)
                 {
-                    proj = proj + Orb[s][i] * overlap_inv[s][l] * \
-                           innerL2(Mpos,Orb[l],Haction[k],dx);
+                    for (l = 0; l < M; l++)
+                    {
+                        proj = proj + Orb[s][i] * overlap_inv[s][l] * \
+                               innerL2(Mpos,Orb[l],Haction[k],dx);
+                    }
                 }
+                project[k][i] = proj;
             }
-            project[k][i] = proj;
+        }
+    }
+    else
+    {
+        #pragma omp parallel for private(k,i,s,l,j,proj) schedule(static)
+        for (k = 0; k < M; k++)
+        {
+            for (i = 0; i < Mpos; i++)
+            {
+                proj = 0;
+                for (s = 0; s < M; s++)
+                {
+                    proj = proj + Orb[s][i]*innerL2(Mpos,Orb[s],Haction[k],dx);
+                }
+                project[k][i] = proj;
+            }
         }
     }
 

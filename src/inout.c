@@ -172,15 +172,13 @@ void carr_txt(char fname [], int M, Carray v)
     FILE
         * data_file = fopen(fname, "w");
 
-
-
     if (data_file == NULL)
     {
-        printf("\n\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
 
-    for (j = 0; j < M - 1; j ++)
+    for (j = 0; j < M; j ++)
     {
 
         real = creal(v[j]);
@@ -191,12 +189,6 @@ void carr_txt(char fname [], int M, Carray v)
 
         fprintf(data_file, "\n");
     }
-
-    real = creal(v[M-1]);
-    imag = cimag(v[M-1]);
-
-    if (imag >= 0) fprintf(data_file, "(%.15E+%.15Ej)", real, imag);
-    else           fprintf(data_file, "(%.15E%.15Ej)", real, imag);
 
     fclose(data_file);
 }
@@ -215,17 +207,15 @@ void rarr_txt(char fname [], int M, Rarray v)
 
     if (data_file == NULL)
     {
-        printf("\n\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
 
-    for (int j = 0; j < M - 1; j ++)
+    for (int j = 0; j < M; j ++)
     {
         fprintf(data_file, "%.15E", v[j]);
         fprintf(data_file, "\n");
     }
-
-    fprintf(data_file, "%.15E", v[M-1]);
 
     fclose(data_file);
 }
@@ -248,7 +238,7 @@ void carr_inline(FILE * f, int M, Carray v)
 
     if (f == NULL)
     {
-        printf("\n\n\n\tERROR: NULL file in carr_inline routine");
+        printf("\n\n\nERROR: NULL file in carr_inline routine");
         printf(" in module src/inout.c\n\n");
         exit(EXIT_FAILURE);
     }
@@ -264,7 +254,7 @@ void carr_inline(FILE * f, int M, Carray v)
 
     }
 
-    fprintf(f, "\n");
+    fprintf(f,"\n");
 }
 
 
@@ -281,7 +271,7 @@ void rarr_inline(FILE * f, int M, Rarray v)
 
     if (f == NULL)
     {
-        printf("\n\n\n\tERROR: NULL file in carr_inline routine");
+        printf("\n\n\nERROR: NULL file in carr_inline routine");
         printf(" in module src/inout.c\n\n");
         exit(EXIT_FAILURE);
     }
@@ -295,7 +285,7 @@ void rarr_inline(FILE * f, int M, Rarray v)
 
 
 
-void cmat_txt (char fname [], int m, int n, Cmatrix A)
+void cmat_txt(char fname [], int m, int n, Cmatrix A)
 {
 
     int
@@ -309,17 +299,13 @@ void cmat_txt (char fname [], int m, int n, Cmatrix A)
     FILE
         * f = fopen(fname, "w");
 
-
-
     if (f == NULL)
     {   // impossible to open file with the given name
         printf("\n\n\n\tERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
 
-
-
-    for (i = 0; i < m - 1; i++)
+    for (i = 0; i < m; i++)
     {
 
         for (j = 0; j < n; j++)
@@ -335,24 +321,12 @@ void cmat_txt (char fname [], int m, int n, Cmatrix A)
         fprintf(f, "\n");
     }
 
-    for (j = 0; j < n; j++)
-    {
-
-        real = creal(A[m-1][j]);
-        imag = cimag(A[m-1][j]);
-
-        if (imag >= 0) fprintf(f, "(%.15E+%.15Ej) ", real, imag);
-        else           fprintf(f, "(%.15E%.15Ej) ", real, imag);
-    }
-
     fclose(f);
 }
 
 
 
-
-
-void cmat_txt_T (char fname [], int m, int n, Cmatrix A)
+void cmat_txt_T(char fname [], int m, int n, Cmatrix A)
 {
 
     int
@@ -366,17 +340,13 @@ void cmat_txt_T (char fname [], int m, int n, Cmatrix A)
     FILE
         * f = fopen(fname, "w");
 
-
-
     if (f == NULL)
     {   // impossible to open file with the given name
-        printf("\n\n\n\tERROR: impossible to open file %s\n\n", fname);
+        printf("\n\n\nERROR: impossible to open file %s\n\n", fname);
         exit(EXIT_FAILURE);
     }
 
-
-
-    for (j = 0; j < n - 1; j++)
+    for (j = 0; j < n; j++)
     {
 
         for (i = 0; i < m; i++)
@@ -390,16 +360,6 @@ void cmat_txt_T (char fname [], int m, int n, Cmatrix A)
         }
 
         fprintf(f, "\n");
-    }
-
-    for (i = 0; i < m; i++)
-    {
-
-        real = creal(A[i][n-1]);
-        imag = cimag(A[i][n-1]);
-
-        if (imag >= 0) fprintf(f, "(%.15E+%.15Ej) ", real, imag);
-        else           fprintf(f, "(%.15E%.15Ej) ", real, imag);
     }
 
     fclose(f);

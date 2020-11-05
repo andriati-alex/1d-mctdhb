@@ -665,6 +665,7 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     FILE
         * t_file,
         * rho_file,
+        * rho2_file,
         * orb_file;
 
     Rarray
@@ -765,6 +766,20 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
 
+    // OPEN FILE TO RECORD 2-BODY DENSITY MATRIX
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_rho2_realtime.dat");
+    rho2_file = fopen(fname, "w");
+    if (rho2_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(rho2_file, "# Row-major vector representatio of rho_2\n");
+
+
+
     // OPEN FILE TO RECORD ORBITALS
     strcpy(fname, "output/");
     strcat(fname, prefix);
@@ -801,16 +816,17 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0(%)");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     // Record initial data
     RowMajor(Morb, Morb, S->rho1, rho_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
     recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
     fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
             0*dt,XI,XF,Mrec,MC->xi,MC->xf);
@@ -847,11 +863,12 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -913,7 +930,7 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
         // Check if the boundaries are still good for trapped systems
         // since the boundaries shall not affect the results
-        if ( (i + 1) % 50 == 0 && isTrapped)
+        if (i+1 == Nsteps/20 && isTrapped)
         {
             extentDomain(MC,S);
 
@@ -944,6 +961,7 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             printf("among orbitals. Exiting ...\n\n");
             fclose(t_file);
             fclose(rho_file);
+            fclose(rho2_file);
             fclose(orb_file);
             exit(EXIT_FAILURE);
         }
@@ -962,11 +980,12 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -987,7 +1006,7 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     sepline();
 
@@ -999,6 +1018,7 @@ void realSSFD(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
     fclose(t_file);
     fclose(rho_file);
+    fclose(rho2_file);
     fclose(orb_file);
 }
 
@@ -1045,6 +1065,7 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     FILE
         * t_file,
         * rho_file,
+        * rho2_file,
         * orb_file;
 
     Rarray
@@ -1134,6 +1155,20 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
 
+    // OPEN FILE TO RECORD 2-BODY DENSITY MATRIX
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_rho2_realtime.dat");
+    rho2_file = fopen(fname, "w");
+    if (rho2_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(rho2_file, "# Row-major vector representatio of rho_2\n");
+
+
+
     // OPEN FILE TO RECORD ORBITALS
     strcpy(fname, "output/");
     strcat(fname, prefix);
@@ -1192,16 +1227,17 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0(%)");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     // Record initial data
     RowMajor(Morb, Morb, S->rho1, rho_vec);
-    carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(rho_file,Morb*Morb,rho_vec);
+    carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
     recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
     fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
             0*dt,XI,XF,Mrec,MC->xi,MC->xf);
@@ -1238,11 +1274,12 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -1300,7 +1337,7 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
         // Check if the boundaries are still good for trapped systems
         // since the boundaries shall not affect the physics
-        if ( (i + 1) % 50 == 0 && isTrapped)
+        if (i+1 == Nsteps/20 && isTrapped)
         {
 
             extentDomain(MC,S);
@@ -1337,12 +1374,13 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
         // Check for consistency in orbitals orthogonality
-        if (checkOverlap > 5E-5)
+        if (checkOverlap > 1E-4)
         {
             printf("\n\nERROR : Critical loss of orthogonality ");
             printf("among orbitals. Exiting ...\n\n");
             fclose(t_file);
             fclose(rho_file);
+            fclose(rho2_file);
             fclose(orb_file);
             exit(EXIT_FAILURE);
         }
@@ -1361,11 +1399,12 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb, Morb, S->rho1, rho_vec);
             carr_inline(rho_file, Morb * Morb, rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -1386,7 +1425,7 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     sepline();
 
@@ -1397,6 +1436,7 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     free(rho_vec);
     fclose(t_file);
     fclose(rho_file);
+    fclose(rho2_file);
     fclose(orb_file);
 }
 
@@ -1420,7 +1460,8 @@ void realSSFFT(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
 
 
-void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
+void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt,
+                int impOrtho)
 {
 
     int
@@ -1479,7 +1520,7 @@ void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
     }
 
     // COMPUTE K1
-    derSINEDVR(MC,S->Omat,dOdt,rho1_inv,S->rho2,D2DVR);
+    derSINEDVR(MC,S->Omat,dOdt,rho1_inv,S->rho2,D2DVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1490,7 +1531,7 @@ void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
     }
 
     // COMPUTE K2
-    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1501,7 +1542,7 @@ void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
     }
 
     // COMPUTE K3
-    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1512,7 +1553,7 @@ void SINEDVRRK4(EqDataPkg MC, ManyBodyPkg S, Rarray D2DVR, double dt)
     }
 
     // COMPUTE K4
-    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR);
+    derSINEDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,D2DVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1556,7 +1597,8 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         Mpos,
         Morb,
         Mrec,
-        isTrapped;
+        isTrapped,
+        improveOrtho;
 
     double
         checkOrbNorm,
@@ -1581,6 +1623,7 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     FILE
         * t_file,
         * rho_file,
+        * rho2_file,
         * orb_file;
 
     Rarray
@@ -1696,6 +1739,18 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     }
     fprintf(rho_file, "# Row-major vector representatio of rho_1\n");
 
+    // OPEN FILE TO RECORD 2-BODY DENSITY MATRIX
+    strcpy(fname, "output/");
+    strcat(fname, prefix);
+    strcat(fname, "_rho2_realtime.dat");
+    rho2_file = fopen(fname, "w");
+    if (rho2_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(rho2_file, "# Row-major vector representatio of rho_2\n");
+
     // OPEN FILE TO RECORD ORBITALS
     strcpy(fname, "output/");
     strcat(fname, prefix);
@@ -1723,19 +1778,21 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+    if (checkOverlap > 1E-8) improveOrtho = 1;
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0(%)");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     // RECORD INITIAL DATA
     RowMajor(Morb, Morb, S->rho1, rho_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
     recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
     fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
             0*dt,XI,XF,Mrec,MC->xi,MC->xf);
@@ -1764,16 +1821,18 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            if (checkOverlap > 1E-8) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -1807,7 +1866,7 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
         // HALF TIME STEP ORBITALS
-        SINEDVRRK4(MC,S,D2DVR,dt/2);
+        SINEDVRRK4(MC,S,D2DVR,dt/2,improveOrtho);
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
@@ -1819,12 +1878,12 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
         // HALF TIME STEP ORBITALS
-        SINEDVRRK4(MC,S,D2DVR,dt/2);
+        SINEDVRRK4(MC,S,D2DVR,dt/2,improveOrtho);
         SetupHo(Morb, Mpos, S->Omat, dx, a2, a1, V, S->Ho);
         SetupHint(Morb, Mpos, S->Omat, dx, g, S->Hint);
 
         // CHECK IF THE BOUNDARIES ARE STILL GOOD FOR TRAPPED SYSTEMS
-        if ( (i + 1) % 50 == 0 && isTrapped) extentDomain(MC,S);
+        if (i+1 == Nsteps/20 && isTrapped) extentDomain(MC,S);
         if (Mpos < MC->Mpos)
         {
             Mpos = MC->Mpos;
@@ -1870,12 +1929,13 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         }
 
         // CHECK FOR CONSISTENCY IN ORBITALS ORTHOGONALITY
-        if (checkOverlap > 1E-5)
+        if (checkOverlap > 1E-4)
         {
             printf("\n\nERROR : Critical loss of orthogonality ");
             printf("among orbitals. Exiting ...\n\n");
             fclose(t_file);
             fclose(rho_file);
+            fclose(rho2_file);
             fclose(orb_file);
             exit(EXIT_FAILURE);
         }
@@ -1889,16 +1949,18 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            if (checkOverlap > 1E-8) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -1919,7 +1981,7 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     sepline();
     free(occ);
@@ -1930,12 +1992,14 @@ void realSINEDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
     fclose(t_file);
     fclose(rho_file);
+    fclose(rho2_file);
     fclose(orb_file);
 }
 
 
 
-void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt)
+void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt,
+               int impOrtho)
 {
 
     int
@@ -1977,7 +2041,7 @@ void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt)
     }
 
     // COMPUTE K1
-    derEXPDVR(MC,S->Omat,dOdt,rho1_inv,S->rho2,DerDVR);
+    derEXPDVR(MC,S->Omat,dOdt,rho1_inv,S->rho2,DerDVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1988,7 +2052,7 @@ void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt)
     }
 
     // COMPUTE K2
-    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR);
+    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -1999,7 +2063,7 @@ void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt)
     }
 
     // COMPUTE K3
-    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR);
+    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -2010,7 +2074,7 @@ void EXPDVRRK4(EqDataPkg MC, ManyBodyPkg S, Carray DerDVR, double dt)
     }
 
     // COMPUTE K4
-    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR);
+    derEXPDVR(MC,Oarg,dOdt,rho1_inv,S->rho2,DerDVR,impOrtho);
     for (k = 0; k < Morb; k++)
     {
         for (i = 0; i < Mpos; i++)
@@ -2056,7 +2120,8 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         Mpos,
         Morb,
         Mrec,
-        isTrapped;
+        isTrapped,
+        improveOrtho;
 
     double
         checkOrbNorm,
@@ -2082,6 +2147,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     FILE
         * t_file,
         * rho_file,
+        * rho2_file,
         * orb_file;
 
     Rarray
@@ -2096,16 +2162,17 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     Carray
         rho_vec;
 
-
-
     // FROM 1-BODY POTENTIAL DECIDE THE TYPE OF BOUNDARIES
     isTrapped = 0;
     if (strcmp(MC->Vname,"harmonic") == 0)      isTrapped = 1;
     if (strcmp(MC->Vname,"doublewell") == 0)    isTrapped = 1;
     if (strcmp(MC->Vname,"harmonicgauss") == 0) isTrapped = 1;
+    if (isTrapped) printf("\nSystem has trap %s\n",MC->Vname);
 
     // RECORD INTERVAL VALID VALUES MUST BE POSITIVE INTEGER
     if (recInterval < 1) recInterval = 1;
+
+    improveOrtho = 0;
 
     // UNPACK DOMAIN PARAMETERS TO LOCAL VARIABLES
     nc = MC->nc;
@@ -2244,6 +2311,18 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     }
     fprintf(rho_file, "# Row-major vector representatio of rho_1\n");
 
+    // OPEN FILE TO RECORD 2-BODY DENSITY MATRIX
+    strcpy(fname,"output/");
+    strcat(fname,prefix);
+    strcat(fname,"_rho2_realtime.dat");
+    rho2_file = fopen(fname, "w");
+    if (rho2_file == NULL)
+    {
+        printf("\n\nERROR: impossible to open file %s\n\n", fname);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(rho2_file,"# Row-major vector representatio of rho_2\n");
+
     // OPEN FILE TO RECORD ORBITALS
     strcpy(fname, "output/");
     strcat(fname, prefix);
@@ -2271,10 +2350,11 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+    if (checkOverlap > 1E-8) improveOrtho = 1;
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
-    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0");
+    printf("    Coef-Norm    O-Avg-Norm   sqrt<R^2>   n0(%)");
     sepline();
     printf("%10.6lf  %11.6lf",0.0,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
@@ -2284,6 +2364,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     // RECORD INITIAL DATA
     RowMajor(Morb, Morb, S->rho1, rho_vec);
     carr_inline(rho_file, Morb * Morb, rho_vec);
+    carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
     recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
     fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
             0*dt,XI,XF,Mrec,MC->xi,MC->xf);
@@ -2312,16 +2393,18 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            if (checkOverlap > 1E-8) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -2342,7 +2425,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     for (i = j; i < Nsteps; i++)
     {
 
-        if (j > 0 && i == j + 50)
+        if (j > 0 && i == j + 20)
         {
             // small occupations can make it unstable in the first
             // few steps, thus ortonormalize
@@ -2359,7 +2442,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
         // HALF TIME STEP ORBITALS
-        EXPDVRRK4(MC,S,DerDVR,dt/2);
+        EXPDVRRK4(MC,S,DerDVR,dt/2,improveOrtho);
         SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
         SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
 
@@ -2371,12 +2454,12 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         RegularizeMat(Morb,Npar*1E-6,S->rho1);
 
         // ANOTHER HALF TIME STEP ORBITALS
-        EXPDVRRK4(MC,S,DerDVR,dt/2);
+        EXPDVRRK4(MC,S,DerDVR,dt/2,improveOrtho);
         SetupHo(Morb,Mpos,S->Omat,dx,a2,a1,V,S->Ho);
         SetupHint(Morb,Mpos,S->Omat,dx,g,S->Hint);
 
         // CHECK IF THE BOUNDARIES ARE STILL GOOD FOR TRAPPED SYSTEMS
-        if ((i + 1) % 50 == 0 && isTrapped) extentDomain(MC,S);
+        if ((i + 1) == Nsteps/20 && isTrapped) extentDomain(MC,S);
 
         // IF DOMAIN WAS ENLARGED UPDATE VARIABLES
         if (Mpos < MC->Mpos)
@@ -2441,13 +2524,14 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
         }
 
         // CHECK FOR CONSISTENCY IN ORBITALS ORTHOGONALITY
-        if (checkOverlap > 1E-5)
+        if (checkOverlap > 1E-4)
         {
             printf("\n\nERROR : Critical loss of orthogonality ");
             printf("among orbitals. Exiting ...\n\n");
             fclose(t_file);
             fclose(rho_file);
             fclose(orb_file);
+            fclose(rho2_file);
             exit(EXIT_FAILURE);
         }
 
@@ -2460,16 +2544,18 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
+            if (checkOverlap > 1E-8) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));
             printf("    %7.1E    %9.7lf",checkOverlap,norm);
             printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-            printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+            printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
             // record 1-body density matrix
             RowMajor(Morb,Morb,S->rho1,rho_vec);
             carr_inline(rho_file,Morb*Morb,rho_vec);
+            carr_inline(rho2_file,Morb*Morb*Morb*Morb,S->rho2);
             // record orbitals
             recorb_inline(orb_file,Morb,Mrec,Mpos,S->Omat);
             fprintf(t_file,"\n%.6lf %.10lf %.10lf %d %.10lf %.10lf",
@@ -2492,7 +2578,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     printf("\n%10.6lf  %11.6lf",Nsteps*dt,creal(E));
     printf("    %7.1E    %9.7lf",checkOverlap,norm);
     printf("    %9.7lf     %6.4lf",checkOrbNorm,R2);
-    printf("    %3.0lf%%",100*occ[Morb-1]/Npar);
+    printf("    %3.0lf",100*occ[Morb-1]/Npar);
 
     sepline();
     free(occ);
@@ -2503,5 +2589,6 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
 
     fclose(t_file);
     fclose(rho_file);
+    fclose(rho2_file);
     fclose(orb_file);
 }

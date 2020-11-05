@@ -446,7 +446,8 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
         minR2,
         minId,
         extra,
-        newMpos;
+        newMpos,
+        isTrapped;
 
     double
         R2,
@@ -463,7 +464,12 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
         newOrb;
 
     // If the system is not trapped do nothing
-    if (strcmp(mc->Vname, "harmonic") != 0) return;
+    isTrapped = 0;
+    if (strcmp(mc->Vname,"harmonic") == 0)      isTrapped = 1;
+    if (strcmp(mc->Vname,"doublewell") == 0)    isTrapped = 1;
+    if (strcmp(mc->Vname,"harmonicgauss") == 0) isTrapped = 1;
+
+    if (!isTrapped) return;
 
     // Unpack some structure parameters
     Morb = mc->Morb;
@@ -477,30 +483,30 @@ void extentDomain(EqDataPkg mc, ManyBodyPkg S)
     // Method 1 : Use the 'dispersion' of distribution
     R2 = MeanQuadraticR(mc,S->Omat,S->rho1);
     minR2 = 0;
-    while ( fabs(oldx[minR2]) > 6.5 * R2 ) minR2 = minR2 + 1;
+    while (fabs(oldx[minR2]) > 6*R2) minR2++;
 
     // Method 2 : take the norm beginning from the boundary and get the
     // position where it exceed a certain tolerance (last arg below)
     minId = 0;
     for (i = 0; i < Morb; i++)
     {
-        j = NonVanishingId(Mpos,S->Omat[i],dx,1E-6/Morb);
+        j = NonVanishingId(Mpos,S->Omat[i],dx,1E-6);
         minId = minId + j;
     }
     minId = minId / Morb;
 
     // Take the weighted average
-    minId = (minId + 2 * minR2) / 3;
+    minId = (minId + 2*minR2)/3;
 
     // Check if it is woth to resize the domain, i.e, orbitals too
     // close to the boundaries
-    if (minId > Mpos/20)
+    if (minId > Mpos/10)
     {
         free(oldx);
         return;
     }
 
-    extra = Mpos / 15;
+    extra = Mpos / 5;
     newMpos = Mpos + 2 * extra;
 
     // Define new grid points preserving dx

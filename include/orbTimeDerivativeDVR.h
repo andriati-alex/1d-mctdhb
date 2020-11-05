@@ -6,8 +6,8 @@
 #include "calculus.h"
 #include "inout.h"
 
-void derSINEDVR(EqDataPkg,Cmatrix,Cmatrix,Cmatrix,Carray,Rarray);
-void derEXPDVR(EqDataPkg,Cmatrix,Cmatrix,Cmatrix,Carray,Carray);
+void derSINEDVR(EqDataPkg,Cmatrix,Cmatrix,Cmatrix,Carray,Rarray,int);
+void derEXPDVR(EqDataPkg,Cmatrix,Cmatrix,Cmatrix,Carray,Carray,int);
 void imagderEXPDVR(EqDataPkg,Cmatrix,Cmatrix,Cmatrix,Carray,Carray);
 
 #endif

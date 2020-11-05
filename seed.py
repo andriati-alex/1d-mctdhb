@@ -201,10 +201,10 @@ def ThermalCoef(Npar,Norb):
 
 Npar  = int(sys.argv[1])   # Number of Particles
 Norb  = int(sys.argv[2])   # Number of orbitals
-xi    = float(sys.argv[3]) # initial position
-xf    = float(sys.argv[4]) # final position
+xi    = float(sys.argv[3]) # initial grid point
+xf    = float(sys.argv[4]) # final grid point
 Ndiv  = int(sys.argv[5])   # Number of division in the grid domain
-fname = sys.argv[6]        # function Identification - one of the above
+fname = sys.argv[6]        # function name - one of the above
 
 # extra parameters to the seed function
 params = []

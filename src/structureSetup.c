@@ -11,11 +11,8 @@ EqDataPkg PackEqData(int Npar, int Morb, int Mpos, double xi, double xf,
 
     double
         dx;
-
     Rarray
         x;
-
-
 
     EqDataPkg MC = (EqDataPkg) malloc(sizeof(struct _EquationDataPkg));
 
@@ -87,10 +84,10 @@ ManyBodyPkg AllocManyBodyPkg(int Npar, int Morb, int Mpos)
     S->Omat = cmatDef(Morb,Mpos);
     // density matrices
     S->rho1 = cmatDef(Morb,Morb);
-    S->rho2 = carrDef(Morb * Morb * Morb * Morb);
+    S->rho2 = carrDef(Morb*Morb*Morb*Morb);
     // one- and two-body matrices of orbitals
     S->Ho   = cmatDef(Morb,Morb);
-    S->Hint = carrDef(Morb * Morb * Morb * Morb);
+    S->Hint = carrDef(Morb*Morb*Morb*Morb);
 
     return S;
 }
