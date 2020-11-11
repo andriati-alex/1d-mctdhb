@@ -1049,3 +1049,24 @@ def TimeDensity(Morb,Mpos,rhotime,S):
         NO = np.matmul(eigvec.conj().T,S[i].reshape(Morb,Mpos));
         den[i] = GetGasDensity(eigval,NO);
     return den;
+
+
+
+def current(Morb,rho,S,dx):
+    eigval, eigvec = la.eig(rho);
+    eigval = eigval.real / eigval.sum()
+    EigSort(Morb,eigval,eigvec);
+    NO = np.matmul(eigvec.conj().T,S);
+    J = np.zeros(NO.shape[1],dtype=np.complex128)
+    for k in range(Morb):
+        J = J - 1.0j*(NO[k].conj()*dfdx(dx,NO[k]) - NO[k]*dfdx(dx,NO[k].conj()))*eigval[k]
+    return J.real
+
+
+
+def Timecurrent(Morb,Mpos,rhotime,S,dx):
+    Nsteps = thotime.shape[0]
+    J = np.zeros([Nsteps,Mpos],dtype=np.float64)
+    for i in range(Nsteps):
+        J[i] = current(Morb,rhotime[i].reshape(Morb,Morb),S[i].reshape(Morb,Mpos),dx)
+    return J
