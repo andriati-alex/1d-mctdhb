@@ -1054,7 +1054,8 @@ def TimeDensity(Morb,Mpos,rhotime,S):
 
 def current(Morb,rho,S,dx):
     eigval, eigvec = la.eig(rho);
-    eigval = eigval.real / eigval.sum()
+    eigval = eigval.real
+    eigval = eigval / eigval.sum()
     EigSort(Morb,eigval,eigvec);
     NO = np.matmul(eigvec.conj().T,S);
     J = np.zeros(NO.shape[1],dtype=np.complex128)
@@ -1065,8 +1066,43 @@ def current(Morb,rho,S,dx):
 
 
 def Timecurrent(Morb,Mpos,rhotime,S,dx):
-    Nsteps = thotime.shape[0]
+    Nsteps = rhotime.shape[0]
     J = np.zeros([Nsteps,Mpos],dtype=np.float64)
     for i in range(Nsteps):
         J[i] = current(Morb,rhotime[i].reshape(Morb,Morb),S[i].reshape(Morb,Mpos),dx)
     return J
+
+
+
+@jit(complex128(int32,complex128[:,:],complex128[:],complex128[:,:]))
+def avgP2(Morb,rho1,rho2,mat):
+    summ = complex(0.0)
+    ind = int(0)
+    for m in prange(Morb):
+        for s in prange(Morb):
+            for n in prange(Morb):
+                summ = summ + rho1[m,s]*mat[m,n]*mat[n,s]
+                for p in prange(Morb):
+                    ind = m+s*Morb+n*Morb*Morb+p*Morb*Morb*Morb
+                    summ = summ + rho2[ind]*mat[m,n]*mat[s,p]
+    return summ
+
+
+
+def avgP(Morb,rho1,mat):
+    summ = 0.+0.j
+    for m in range(Morb):
+        for s in range(Morb):
+            summ = summ + rho1[m,s]*mat[m,s]
+    return summ
+
+
+
+def MomentumVariance(Morb,rho1,rho2,S):
+    mat = np.zeros([Morb,Morb],dtye=np.complex128)
+    for k in range(Morb):
+        mat[k,j] = -1.0j*simps(S[k].conj()*dfdx(dx,S[k]))
+        for j in range(k+1,Morb):
+            mat[k,j] = -1.0j*simps(S[k].conj()*dfdx(dx,S[j]))
+            mat[j,k] = mat[k,j].conj()
+    return avgP2(Morb,rho1,rho2,mat) - avgP(Morb,rho1,mat)**2
