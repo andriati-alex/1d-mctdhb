@@ -1098,11 +1098,16 @@ def avgP(Morb,rho1,mat):
 
 
 
-def MomentumVariance(Morb,rho1,rho2,S):
-    mat = np.zeros([Morb,Morb],dtye=np.complex128)
-    for k in range(Morb):
-        mat[k,j] = -1.0j*simps(S[k].conj()*dfdx(dx,S[k]))
-        for j in range(k+1,Morb):
-            mat[k,j] = -1.0j*simps(S[k].conj()*dfdx(dx,S[j]))
-            mat[j,k] = mat[k,j].conj()
+def MomentumVariance(Morb,rho1,rho2,mat):
     return avgP2(Morb,rho1,rho2,mat) - avgP(Morb,rho1,mat)**2
+
+
+
+def GetMomentumMat(Morb,rho1,rho2,S,dx):
+    mat = np.empty([Morb,Morb],dtype=np.complex128)
+    for k in range(Morb):
+        mat[k,k] = -1.0j*simps(S[k].conj()*dfdx(dx,S[k]),dx=dx)
+        for j in range(k+1,Morb):
+            mat[k,j] = -1.0j*simps(S[k].conj()*dfdx(dx,S[j]),dx=dx)
+            mat[j,k] = mat[k,j].conj()
+    return mat
