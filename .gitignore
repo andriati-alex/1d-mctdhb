@@ -1,0 +1,6 @@
+input/
+output/
+build/
+lib/
+__pycache__/
+job.conf

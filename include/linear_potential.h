@@ -16,6 +16,8 @@ void deltabarrier(int , Rarray , Rarray , double);
 
 void barrier(int , Rarray , Rarray , double , double );
 
+void opticallattice(int, Rarray, Rarray, double, double);
+
 void GetPotential(int , char [], Rarray , Rarray , double , double , double );
 
 #endif

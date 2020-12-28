@@ -2350,7 +2350,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     hermitianEigvalues(Morb,S->rho1,occ);
     norm = carrMod(nc, S->C);
     checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
-    if (checkOverlap > 1E-8) improveOrtho = 1;
+    if (checkOverlap > 1E-12) improveOrtho = 1;
     checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
     printf("\n  time         E/Npar      Overlap");
@@ -2372,11 +2372,11 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
     // EVOLVE IN FIXED BASIS WHILE LEAST OCCUPATION IS SMALL
     l = 1;
     j = 0; // number of steps evolved in fixed orbital basis
-    if (occ[0]/occ[Morb-1] < 1E-4)
+    if (occ[0]/occ[Morb-1] < 1E-8)
     {
         printf("\n**    Fixed orbital evolution    **");
     }
-    while (occ[0]/occ[Morb-1] < 1E-4)
+    while (occ[0]/occ[Morb-1] < 1E-8)
     {
         LanczosIntegrator(5,MC,S->Ho,S->Hint,dt,S->C);
         OBrho(Npar,Morb,MC->Map,MC->IF,S->C,S->rho1);
@@ -2393,7 +2393,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
-            if (checkOverlap > 1E-8) improveOrtho = 1;
+            if (checkOverlap > 1E-12) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(j+1)*dt,creal(E));
@@ -2544,7 +2544,7 @@ void realEXPDVR(EqDataPkg MC, ManyBodyPkg S, double dt, int Nsteps,
             hermitianEigvalues(Morb,S->rho1,occ);
             norm = carrMod(nc,S->C);
             checkOverlap = overlapFactor(Morb,Mpos,dx,S->Omat);
-            if (checkOverlap > 1E-8) improveOrtho = 1;
+            if (checkOverlap > 1E-12) improveOrtho = 1;
             checkOrbNorm = avgOrbNorm(Morb,Mpos,dx,S->Omat);
 
             printf("\n%10.6lf  %11.6lf",(i+1)*dt,creal(E));

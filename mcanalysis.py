@@ -649,6 +649,21 @@ def GetNatOrb(Npar,Morb,C,Orb):
 
 
 
+def GetNatOrb_FromRho(Morb,rho,Orb):
+    """
+    CALLING
+    ( 2D numpy array [Morb x Mpos] ) = GetNatOrb(Npar,Morb,C,Orb)
+    Npar : # of particles
+    Morb : # of orbitals
+    C    : coefficients of many-body state in condiguration basis
+    Orb  : Matrix with each row a 'working' orbital
+    """
+    eigval, eigvec = la.eig(rho);
+    EigSort(Morb,eigval.real,eigvec);
+    return np.matmul(eigvec.conj().T,Orb);
+
+
+
 def GetGasDensity(NOocc,NO):
     """
     CALLING

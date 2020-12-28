@@ -208,7 +208,7 @@ void orthoCheck(int Npar, int Norb, int Ngrid, double dx, Cmatrix Omat,
         overlap = overlap + cabs(Csimps(Ngrid,Integ,dx));
     }
 
-    if (fabs(overlap - Norb) > 1E-8)
+    if (fabs(overlap - Norb) > 1E-4)
     {
         printf("\n\n!   ORBITALS DO NOT HAVE NORM = 1   !\n\n");
         exit(EXIT_FAILURE);

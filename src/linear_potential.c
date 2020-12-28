@@ -81,6 +81,22 @@ void barrier(int M, Rarray x, Rarray V, double height, double T)
 
 
 
+void opticallattice(int M, Rarray x, Rarray V, double V0, double k)
+{
+    int
+        i;
+    double
+        L;
+
+    L = x[M-1] - x[0];  // get length of domain grid
+    for (i = 0; i < M; i++)
+    {
+        V[i] = V0*sin(PI*k*x[i]/L)*sin(PI*k*x[i]/L);
+    }
+}
+
+
+
 void GetPotential(int M, char name [], Rarray x, Rarray V,
      double p1, double p2, double p3)
 {
@@ -112,6 +128,12 @@ void GetPotential(int M, char name [], Rarray x, Rarray V,
     if (strcmp(name, "barrier") == 0)
     {
         barrier(M, x, V, p1, p2);
+        return;
+    }
+
+    if (strcmp(name, "opticallattice") == 0)
+    {
+        opticallattice(M,x,V,p1,p2);
         return;
     }
 
