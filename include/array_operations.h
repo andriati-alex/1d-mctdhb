@@ -1,12 +1,7 @@
 #ifndef _array_operations_h
 #define _array_operations_h
 
-#ifdef _OPENMP
-    #include <omp.h>
-#endif
-
-#include <math.h>
-#include "array.h"
+#include "dataStructures.h"
 
 
 
@@ -27,11 +22,11 @@ void Carray2MKL(int n, Carray b, CMKLarray a);
 
 
 
-/*          ***********************************************
-
-                     BASIC OPERATIONS ELEMENT-WISE
-
-            ***********************************************          */
+/**********************************************************************
+****************                                       ****************
+****************     BASIC OPERATIONS ELEMENT-WISE     ****************
+****************                                       ****************
+***********************************************************************/
 
 
 

@@ -176,7 +176,7 @@ void RowMajor(int m, int n, Cmatrix M, Carray v)
 
     for (i = 0; i < m; i++)
     {
-        for (j = 0; j < n; j++) v[i * m + j] = M[i][j];
+        for (j = 0; j < n; j++) v[i * n + j] = M[i][j];
     }
 }
 
@@ -250,6 +250,54 @@ CCSmat CNmat(int M, double dx, doublec dt, double a2, doublec a1, double inter,
     return Mat;
 }
 
+
+
+void setupTriDiagonal(EqDataPkg MC, Carray upper, Carray lower, Carray mid,
+        doublec dt, int isTrapped)
+{
+
+    int
+        i,
+        N;
+
+    double
+        a2,
+        dx;
+
+    double complex
+        a1;
+
+    Rarray
+        V;
+
+    N = MC->Mpos;
+    a2 = MC->a2;
+    a1 = MC->a1;
+    dx = MC->dx;
+    V = MC->V;
+
+    for (i = 0; i < N; i++)
+    {
+        mid[i] = I + a2*dt/dx/dx - dt*V[i]/2;
+    }
+    for (i = 0; i < N - 2; i++)
+    {
+        upper[i] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+        lower[i] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+    }
+
+    if (isTrapped)
+    {
+        upper[N-2] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+        lower[N-2] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+    }
+    else
+    {
+        upper[N-2] = - a2*dt/dx/dx/2 + a1*dt/dx/4;
+        lower[N-2] = - a2*dt/dx/dx/2 - a1*dt/dx/4;
+    }
+
+}
 
 
 
@@ -359,9 +407,9 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
 
     ipiv = (int *) malloc(M * sizeof(int));
 
-    ArrayForm = CMKLdef(M * M);
+    ArrayForm = cmklDef(M * M);
 
-    Id = CMKLdef(M * M);
+    Id = cmklDef(M * M);
 
 
 
@@ -405,4 +453,152 @@ int HermitianInv(int M, Cmatrix A, Cmatrix A_inv)
     free(ArrayForm);
 
     return l;
+}
+
+
+
+
+int HermitianEig(int n, Cmatrix A, Cmatrix eigvec, Rarray eigvals)
+{
+
+    int
+        i,
+        j,
+        ldz,
+        check;
+
+    CMKLarray
+        Arow;
+
+    ldz = n;
+
+    Arow = cmklDef(n * n);
+
+    // transcription to mkl row major matrix (UPPER PART ONLY)
+    for (i = 0; i < n; i++)
+    {
+        Arow[i*n + i].real = creal(A[i][i]);
+        Arow[i*n + i].imag = 0;
+
+        for (j = i + 1; j < n; j++)
+        {
+            Arow[i*n + j].real = creal(A[i][j]);
+            Arow[i*n + j].imag = cimag(A[i][j]);
+        }
+    }
+
+    check = LAPACKE_zheev(LAPACK_ROW_MAJOR,'V','U',n,Arow,ldz,eigvals);
+
+    // transcription  eigenvectors to default complex datatype
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            eigvec[i][j] = Arow[i*n + j].real + I * Arow[i*n + j].imag;
+        }
+    }
+
+    free(Arow);
+
+    return check;
+
+}
+
+
+
+void hermitianEigvalues(int n, Cmatrix A, Rarray eigvals)
+{
+
+    int
+        i,
+        j,
+        ldz,
+        check;
+
+    CMKLarray
+        Arow;
+
+    ldz = n;
+
+    Arow = cmklDef(n*n);
+
+    // transcription to mkl row major matrix (UPPER PART ONLY)
+    for (i = 0; i < n; i++)
+    {
+        Arow[i*n + i].real = creal(A[i][i]);
+        Arow[i*n + i].imag = 0;
+
+        for (j = i + 1; j < n; j++)
+        {
+            Arow[i*n + j].real = creal(A[i][j]);
+            Arow[i*n + j].imag = cimag(A[i][j]);
+        }
+    }
+
+    check = LAPACKE_zheev(LAPACK_ROW_MAJOR,'N','U',n,Arow,ldz,eigvals);
+
+    free(Arow);
+}
+
+
+
+
+void RegularizeMat(int n, double x, Cmatrix A)
+{
+
+/** For a positive definite matrix (only positive eigenvalues) regularize
+  * small eigenvalues (near numerical precision) in order to maintain the
+  * existence of inverse matrix.   It  impose  a  minimum value x for all
+  * eigenvalues whereas maintain the larger ones unaffected.          **/
+
+    int
+        i,
+        j,
+        k,
+        check;
+
+    double complex
+        z;
+
+    Cmatrix
+        eigvec;
+
+    Rarray
+        eigvals;
+
+    eigvec = cmatDef(n,n);
+    eigvals = rarrDef(n);
+
+
+
+    check = HermitianEig(n,A,eigvec,eigvals);
+
+    if (check != 0)
+    {
+        printf("\n\nERROR IN DIAGONALIZATION\n\n");
+        printf("In Lapack call of zheev function it returned %d\n\n", check);
+        exit(EXIT_FAILURE);
+    }
+
+    // Evaluate two matrix multiplications to return to original basis
+    // after exponential done in diagonal  basis.  The  transformation
+    // matrices are given by the eigenvector.
+
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            z = 0;
+            for (k = 0; k < n; k++)
+            {
+                z += eigvec[i][k]*(x*exp(-eigvals[k]/x))*conj(eigvec[j][k]);
+            }
+
+            A[i][j] = A[i][j] + z;
+        }
+    }
+
+    cmatFree(n,eigvec);
+    free(eigvals);
+
 }

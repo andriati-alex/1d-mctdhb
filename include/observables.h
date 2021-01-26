@@ -1,13 +1,8 @@
 #ifndef _observables_h
 #define _observables_h
 
-#ifdef _OPENMP
-    #include <omp.h>
-#endif
-
 #include "calculus.h"
-#include "array_memory.h"
-#include "data_structure.h"
+#include "memoryHandling.h"
 
 
 
