@@ -3,4 +3,7 @@ output/
 build/
 lib/
 __pycache__/
-job.conf
+*.conf
+bin/*
+poetry.lock
+dist/

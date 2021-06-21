@@ -58,7 +58,7 @@ mctdhb_header = $(linalg_header) 	    	     \
 
 
 MCTDHB : libmctdhb.a exe/time_evolution.c
-	icc -o MCTDHB exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
+	icc -o ./bin/MCTDHB exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -qopenmp \
 		-L./lib -I./include -lmctdhb -lm -O3
 
@@ -176,4 +176,4 @@ interpolation.o : src/interpolation.c
 clean :
 	-rm build/*.o
 	-rm lib/lib*
-	-rm MCTDHB
+	-rm bin/*
