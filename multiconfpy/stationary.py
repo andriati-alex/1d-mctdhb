@@ -17,10 +17,12 @@ class GroundState:
     and compute some important observables. Some key quantities, as natural
     occupations and orbitals are computed directly on initialization due to
     their central role in many-body physics analysis. The grid and trap can
-    also be consulted through some attributes kept in initialization.
+    also be consulted through some attributes kept in initialization. Below
+    some important attributes corresponding to specific job set by method
+    ``self.lock_job``
 
-    Attributes
-    ----------
+    Main Attributes
+    ---------------
     npar - number of particles
     norb - number of orbitals
     npts - number of grid points
@@ -32,32 +34,69 @@ class GroundState:
 
     """
 
-    def __init__(self, files_prefix, dir_path, job_id):
-        path_prefix = os.path.join(dir_path, files_prefix)
+    def __init__(self, files_prefix, dir_path):
+        self.__dir_path = dir_path
+        self.__files_prefix = files_prefix
+        self.path_prefix = os.path.join(dir_path, files_prefix)
+        with open(self.path_prefix + "_conf.dat") as f:
+            info_line = f.readline().strip()
+            self.trap_name = info_line.split(":")[1].replace(" ", "")
+        eq_setup = np.loadtxt(self.path_prefix + "_conf.dat")
+        if eq_setup.ndim == 1:
+            eq_setup = eq_setup.reshape(1, eq_setup.size)
+        self.eq_setup = eq_setup
+        self.njobs = eq_setup.shape[0]
+        self.colormap = "gnuplot"  # For imshow plot
+        self.lock_job(1)
+
+    def lock_job(self, job_id):
+        """
+        Lock on specific job with number `job_id`
+        All methods use data from files set by current locked job
+        """
+        if job_id > self.njobs:
+            print("job {} not available".format(job_id))
+            print("Locked in job {} of {}".format(self.job_id, self.njobs))
+            return
+        self.job_id = job_id
+        coef_suffix = "_job{}_coef_imagtime.dat".format(job_id)
+        orb_suffix = "_job{}_orb_imagtime.dat".format(job_id)
+        trap_suffix = "_job{}_trap.dat".format(job_id)
         self.orbitals = np.loadtxt(
-            path_prefix + "_job{}_orb_imagtime.dat".format(job_id),
-            dtype=np.complex128,
+            self.path_prefix + orb_suffix, dtype=np.complex128
         ).T
         self.coef = np.loadtxt(
-            path_prefix + "_job{}_coef_imagtime.dat".format(job_id),
-            dtype=np.complex128,
+            self.path_prefix + coef_suffix, dtype=np.complex128
         )
-        self.trap = np.loadtxt(path_prefix + "_job{}_trap.dat".format(job_id))
-        eq_setup = np.loadtxt(path_prefix + "_conf.dat")
-        if eq_setup.ndim > 1:
-            eq_setup = eq_setup[job_id - 1]
-        self.npar = int(eq_setup[0])
-        self.norb = int(eq_setup[1])
-        self.npts = int(eq_setup[2])
-        self.xi = eq_setup[3]
-        self.xf = eq_setup[4]
+        self.trap = np.loadtxt(self.path_prefix + trap_suffix)
+        row = job_id - 1
+        self.npar = int(self.eq_setup[row, 0])
+        self.norb = int(self.eq_setup[row, 1])
+        self.npts = int(self.eq_setup[row, 2])
+        self.xi = self.eq_setup[row, 3]
+        self.xf = self.eq_setup[row, 4]
         self.dx = (self.xf - self.xi) / (self.npts - 1)
         self.grid = np.linspace(self.xi, self.xf, self.npts)
+        self.g = self.eq_setup[row, 7]
+        self.trap_params = self.eq_setup[row, 8:]
         self.rho1 = self.get_onebody_dm()
         self.rho2 = self.get_twobody_dm()
         self.occ = self.natural_occupations()
         self.natorb = self.natural_orbitals()
-        self.colormap = "gnuplot"
+
+    def lock_job_info(self):
+        """Print on screen the current job information"""
+        print(
+            "Job setup files: {} at dir {}".format(
+                self.__files_prefix, self.__dir_path
+            )
+        )
+        print("Locked on job {} with parameters:".format(self.job_id))
+        print("\tparticles : {}".format(self.npar))
+        print("\torbitals  : {}".format(self.norb))
+        print("\ttrap      : {}".format(self.trap_name))
+        print("\ttrap_par  : {}".format(self.trap_params))
+        print("\tg         : {}".format(self.g))
 
     def get_onebody_dm(self):
         """
