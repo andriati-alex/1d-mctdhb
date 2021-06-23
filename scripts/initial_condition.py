@@ -148,7 +148,7 @@ if __name__ == "__main__":
     p.add_argument(
         "-preview",
         action="store_true",
-        help="show plots of orbitals absolute square",
+        help="show plots of orbitals absolute square before exiting script",
     )
     args = p.parse_args()
     if args.input_dir == default_input_dir:
@@ -175,8 +175,8 @@ if __name__ == "__main__":
     f = open(prefix_path + "_conf.dat", "w")
     # Arbitrary value for time step and number of steps
     f.write(
-        "{} {} {} {:.10f} {:.10f} 0.001 100000".format(
-            args.Npar, args.Norb, args.nx, args.xi, args.xf
+        "{} {} {} {:.10f} {:.10f} 0.002 10000".format(
+            args.Npar, args.Norb, args.nx - 1, args.xi, args.xf
         )
     )
     f.close()

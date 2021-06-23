@@ -118,7 +118,7 @@
 
 void TimePrint(double t)
 {
-    
+
 /** format and print time in days / hours / minutes **/
 
     int
@@ -271,7 +271,7 @@ void SaveConf(FILE * confFileOut, EqDataPkg mc)
     fprintf(confFileOut, "%.10lf %.10lf ", mc->xi, mc->xf);
 
     fprintf(confFileOut, "%.15lf %.15lf ", mc->a2, cimag(mc->a1));
-    
+
     fprintf(confFileOut, "%.15lf ", mc->g);
 
     fprintf(confFileOut, "%.15lf ", mc->p[0]);
@@ -358,7 +358,7 @@ int main(int argc, char * argv[])
         dx,
         xi,
         xf,    // Domain of orbitals [xi, xf] in steps of dx
-        dt,    // time step (both for real and imaginary)  
+        dt,    // time step (both for real and imaginary)
         real,  // real part of read data from file
         imag,  // imag part of read data from file
         check; // check norm/orthogonality
@@ -883,6 +883,20 @@ int main(int argc, char * argv[])
 
     carr_txt(fname, mc->nc, S->C);
 
+    OBrho(Npar,Morb,mc->Map,mc->IF,S->C,S->rho1);
+    TBrho(Npar,Morb,mc->Map,mc->MapOT,mc->MapTT,mc->strideOT,
+          mc->strideTT,mc->IF,S->C,S->rho2);
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_job1");
+    strcat(fname, "_rho2_imagtime.dat");
+    carr_txt(fname, Morb * Morb * Morb * Morb, S->rho2);
+    strcpy(fname, "output/");
+    strcat(fname, outfname);
+    strcat(fname, "_job1");
+    strcat(fname, "_rho1_imagtime.dat");
+    cmat_txt(fname, Morb, Morb, S->rho1);
+
     // RECORD TRAP POTENTIAL
     strcpy(fname, "output/");
     strcat(fname, outfname);
@@ -925,7 +939,7 @@ int main(int argc, char * argv[])
         {
 
             // Setup Coeficients from file because the number of particles
-            // changed. The file was left opened,  thus the all vectors of 
+            // changed. The file was left opened,  thus the all vectors of
             // coefficients for different jobs must be concatenated
 
             free(S->C);
@@ -1083,6 +1097,22 @@ int main(int argc, char * argv[])
 
         carr_txt(fname, mc->nc, S->C);
 
+        OBrho(Npar,Morb,mc->Map,mc->IF,S->C,S->rho1);
+        TBrho(Npar,Morb,mc->Map,mc->MapOT,mc->MapTT,mc->strideOT,
+              mc->strideTT,mc->IF,S->C,S->rho2);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_job");
+        strcat(fname, strnum);
+        strcat(fname, "_rho2_imagtime.dat");
+        carr_txt(fname, Morb * Morb * Morb * Morb, S->rho2);
+        strcpy(fname, "output/");
+        strcat(fname, outfname);
+        strcat(fname, "_job");
+        strcat(fname, strnum);
+        strcat(fname, "_rho1_imagtime.dat");
+        cmat_txt(fname, Morb, Morb, S->rho1);
+
         // Record trap potential
 
         strcpy(fname, "output/");
@@ -1123,7 +1153,7 @@ int main(int argc, char * argv[])
     printf("      ***************************\n\n");
     printf("\nTotal time taken: %.1lf(min) = ",time_used/60.0);
     TimePrint(time_used);
-    
+
     printf("\n\nAverage time per state: %.1lf(s) = ",time_used/Nlines);
     TimePrint(time_used/Nlines);
 
