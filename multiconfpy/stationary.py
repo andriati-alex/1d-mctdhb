@@ -1,13 +1,8 @@
 import os
 import numpy as np
-import scipy.linalg as linalg
 import matplotlib.pyplot as plt
 
-from multiconfpy import (
-    configurational_space as cs,
-    density_matrices as dm,
-    function_tools as ft,
-)
+from multiconfpy import observables as obs
 
 
 class GroundState:
@@ -31,10 +26,26 @@ class GroundState:
     rho2 - numpy.array(norb ** 4) raw-orbitals 2-body density matrix
     occ  - numpy.array(norb) natural occupation fraction
     natorb - numpy.ndarray([norb, npts]) natural orbitals in rows
+    energy - numpy.array(njobs) energy per particle for every job
+    njobs - number of jobs found
+
+    A better documentation on routines to compute observables are written
+    in `multiconfpy.observables` that provide the core implementation and
+    is the backend for this class methods.
 
     """
 
     def __init__(self, files_prefix, dir_path):
+        """
+        Structure for many-body state loading from main program output files
+
+        Parameters
+        ----------
+        `files_prefix` : ``str``
+            string with prefix common to all files
+        `dir_path` : ``str``
+            string with path containing the files
+        """
         self.__dir_path = dir_path
         self.__files_prefix = files_prefix
         self.path_prefix = os.path.join(dir_path, files_prefix)
@@ -45,14 +56,18 @@ class GroundState:
         if eq_setup.ndim == 1:
             eq_setup = eq_setup.reshape(1, eq_setup.size)
         self.eq_setup = eq_setup
+        self.energy = (
+            np.loadtxt(self.path_prefix + "_energy_imagtime.dat")
+            / self.eq_setup[:, 0]
+        )
         self.njobs = eq_setup.shape[0]
-        self.colormap = "gnuplot"  # For imshow plot
+        self.colormap = "gnuplot"
         self.lock_job(1)
 
     def lock_job(self, job_id):
         """
-        Lock on specific job with number `job_id`
-        All methods use data from files set by current locked job
+        Lock on specific job with number `job_id` loading its data
+        that is used to call `multiconfpy.observables` routines
         """
         if job_id > self.njobs:
             print("job {} not available".format(job_id))
@@ -79,187 +94,70 @@ class GroundState:
         self.grid = np.linspace(self.xi, self.xf, self.npts)
         self.g = self.eq_setup[row, 7]
         self.trap_params = self.eq_setup[row, 8:]
-        self.rho1 = self.get_onebody_dm()
-        self.rho2 = self.get_twobody_dm()
+        self.rho1 = self.onebody_dm()
+        self.rho2 = self.twobody_dm()
         self.occ = self.natural_occupations()
         self.natorb = self.natural_orbitals()
 
-    def lock_job_info(self):
+    def locked_job_info(self):
         """Print on screen the current job information"""
         print(
-            "Job setup files: {} at dir {}".format(
+            "\nJob setup files: {} at dir {}".format(
                 self.__files_prefix, self.__dir_path
             )
         )
-        print("Locked on job {} with parameters:".format(self.job_id))
+        print(
+            "Locked on job {} of {} with parameters:".format(
+                self.job_id, self.njobs
+            )
+        )
         print("\tparticles : {}".format(self.npar))
         print("\torbitals  : {}".format(self.norb))
         print("\ttrap      : {}".format(self.trap_name))
         print("\ttrap_par  : {}".format(self.trap_params))
-        print("\tg         : {}".format(self.g))
+        print("\tg         : {}\n".format(self.g))
 
-    def get_onebody_dm(self):
-        """
-        Return one-body density matrix
-        Interface for `density_matrices.set_onebody_dm`
-        """
-        rho = np.empty([self.norb, self.norb], dtype=np.complex128)
-        conf_mat = cs.configurational_matrix(self.npar, self.norb)
-        ht = cs.fock_space_matrix(self.npar, self.norb)
-        dm.set_onebody_dm(self.npar, self.norb, conf_mat, ht, self.coef, rho)
-        return rho
+    def onebody_dm(self):
+        return obs.onebody_dm(self.npar, self.norb, self.coef)
 
-    def get_twobody_dm(self):
-        """
-        Return two-body density matrix in array format
-        Interface for `density_matrices.set_twobody_dm`
-        """
-        rho = np.empty(self.norb ** 4, dtype=np.complex128)
-        conf_mat = cs.configurational_matrix(self.npar, self.norb)
-        ht = cs.fock_space_matrix(self.npar, self.norb)
-        dm.set_twobody_dm(self.npar, self.norb, conf_mat, ht, self.coef, rho)
-        return rho
+    def twobody_dm(self):
+        return obs.twobody_dm(self.npar, self.norb, self.coef)
 
     def natural_occupations(self):
-        """Return occupations in natural orbitals. `self.occ`"""
-        eigval, eigvec = linalg.eig(self.rho1)
-        sort_ind = eigval.real.argsort()[::-1]
-        return eigval[sort_ind].real / self.npar
+        return obs.natural_occupations(self.npar, self.rho1)
 
     def natural_orbitals(self):
-        """Return natural orbitals in rows of a matrix. `self.natorb`"""
-        eigval, eigvec = linalg.eig(self.rho1)
-        sort_ind = eigval.real.argsort()[::-1]
-        eigvec_ord = eigvec[:, sort_ind]
-        return np.matmul(eigvec_ord.conj().T, self.orbitals)
+        return obs.natural_orbitals(self.rho1, self.orbitals)
 
     def occupation_entropy(self):
-        """Entropy of natural orbital occupations"""
-        return -((self.occ) * np.log(self.occ)).sum()
+        return obs.occupation_entropy(self.occ)
 
     def density(self):
-        """Total gas density normalized to 1"""
-        return np.matmul(self.occ, abs(self.natorb) ** 2)
+        return obs.density(self.occ, self.natorb)
 
     def condensate_density(self):
-        """Density of condensed atoms normalized to 1"""
         return abs(self.natorb[0]) ** 2
 
     def momentum_density(self, kmin=-10, kmax=10, bound=0, gf=7):
-        """
-        Momentum density distribution normalized to 1
-
-        Parameters
-        ----------
-        `kmin` : ``float``
-            minimum momentum cutoff
-        `kmax` : ``float``
-            maximum momentum cutoff
-        `bound` : ``int {0, 1}``
-            boundary information
-            0 : open
-            1 : periodic
-        `gf` : ``int {odd}``
-            grid amplification factor to improve momentum resolution
-        """
-        freq, no_fft = ft.fft_ordered_norm(
-            ft.extend_grid(self.natorb, bound, gf), self.dx, 1, bound
+        return obs.momentum_density(
+            self.occ, self.natorb, self.dx, kmin, kmax, bound, gf
         )
-        momentum_den = np.matmul(self.occ, abs(no_fft) ** 2)
-        slice_ind = (freq - kmin) * (freq - kmax) < 0
-        freq_cut = freq[slice_ind]
-        momentum_den_cut = momentum_den[slice_ind]
-        return freq_cut, momentum_den_cut
 
     def position_rdm(self):
-        """
-        Compute the spatial single particle Reduced Density Matrix (1-RDM)
-        The convention is the same as G^(1) as (2.4) of reference:
-
-        "Spatial coherence and density correlations of trapped Bose gases"
-        Glauber and Naraschewski, Phys Rev A 59, 4595(1999)
-        doi : https://doi.org/10.1103/PhysRevA.59.4595
-
-        Return
-        ------
-        ``numpy.ndarray([self.npts, self.npts])``
-            matrix with 1-RDM values at every grid point pair
-        """
-        diag_occ = np.diag(self.occ)
-        trans = self.natorb.transpose()
-        return np.matmul(trans, np.matmul(diag_occ, self.natorb.conj()))
+        return obs.position_rdm(self.occ, self.natorb)
 
     def position_onebody_correlation(self):
-        """
-        One body correlation is the 1-RDM weighted by densities
-        The convention is the same as g^(1) as (2.16) of reference:
-
-        "Spatial coherence and density correlations of trapped Bose gases"
-        Glauber and Naraschewski, Phys Rev A 59, 4595(1999)
-        doi : https://doi.org/10.1103/PhysRevA.59.4595
-
-        Return
-        ------
-        ``numpy.ndarray([self.npts, self.npts])``
-            matrix with 1-body correlation values at every grid point pair
-        """
-        pos_rdm = self.position_rdm()
-        den = self.density()
-        den_rows, den_cols = np.meshgrid(den, den)
-        return abs(pos_rdm) ** 2 / (den_rows * den_cols)
+        return obs.position_onebody_correlation(self.occ, self.natorb)
 
     def momentum_rdm(self, kmin=-10, kmax=10, bound=0, gf=7):
-        """
-        Equivalent to `self.position_rdm` but in momentum space
-
-        Paramters
-        ---------
-        `kmin` : ``float``
-            min value for the cutoff applied
-        `kmax` : ``float``
-            max value of cutoff
-        `bound` : ``int``
-            Must be either 0 (open boundary) or 1 (periodic boundary)
-        `gf` : ``int``
-            gird expansion factor. Improve the resolution as larger is `gf`
-
-        Return
-        ------
-        ``numpy.ndarray([self.npts, self.npts])``
-        """
-        diag_occ = np.diag(self.occ)
-        freq, no_fft = ft.fft_ordered_norm(
-            ft.extend_grid(self.natorb, bound, gf), self.dx, 1, bound
+        return obs.momentum_rdm(
+            self.occ, self.natorb, self.dx, kmin, kmax, bound, gf
         )
-        slice_ind = (freq - kmin) * (freq - kmax) < 0
-        freq_cut = freq[slice_ind]
-        no_fft = no_fft[:, slice_ind]
-        trans = no_fft.T
-        return freq_cut, np.matmul(trans, np.matmul(diag_occ, no_fft.conj()))
 
     def momentum_onebody_correlation(self, kmin=-10, kmax=10, bound=0, gf=7):
-        """
-        Equivalent to `self.position_onebody_correlation` in momentum space
-
-        Paramters
-        ---------
-        `kmin` : ``float``
-            min value for the cutoff applied
-        `kmax` : ``float``
-            max value of cutoff
-        `bound` : ``int``
-            Must be either 0 (open boundary) or 1 (periodic boundary)
-        `gf` : ``int``
-            gird expansion factor. Improve the resolution as larger is `gf`
-
-        Return
-        ------
-        ``numpy.ndarray([self.npts, self.npts])``
-        """
-        mom_rdm = self.momentum_rdm(kmin, kmax, bound, gf)[1]
-        freq, den = self.momentum_density(kmin, kmax, bound, gf)
-        den_rows, den_cols = np.meshgrid(den, den)
-        return freq, abs(mom_rdm) ** 2 / (den_rows * den_cols)
+        return obs.momentum_onebody_correlation(
+            self.occ, self.natorb, self.dx, kmin, kmax, bound, gf
+        )
 
     def plot_density(self, show_trap=False, show_condensate=False):
         den = self.density()
@@ -292,7 +190,7 @@ class GroundState:
         plt.show()
 
     def imshow_position_abs_rdm(self):
-        """Plot absolute square value of `self.position_rdm`"""
+        """Absolute square value of `self.position_rdm` mapped to colors"""
         obcorr = self.position_rdm()
         fig = plt.figure(figsize=(9, 7))
         ax = fig.add_subplot()
@@ -307,7 +205,7 @@ class GroundState:
         plt.show()
 
     def imshow_momentum_abs_rdm(self, kmin=-10, kmax=10, bound=0, gf=7):
-        """Plot absolute square value of `self.momentum_rdm`"""
+        """Absolute square value of `self.momentum_rdm` mapped to colors"""
         k, obcorr = self.momentum_rdm(kmin, kmax, bound, gf)
         im_min = k.min()
         im_max = k.max()
@@ -324,6 +222,7 @@ class GroundState:
         plt.show()
 
     def imshow_position_onebody_correlation(self):
+        """Display `self.position_onebody_correlation` mapped to colors"""
         obcorr = self.position_onebody_correlation()
         fig = plt.figure(figsize=(9, 7))
         ax = fig.add_subplot()
@@ -340,6 +239,7 @@ class GroundState:
     def imshow_momentum_onebody_correlation(
         self, kmin=-10, kmax=10, bound=0, gf=7
     ):
+        """Display `self.momentum_onebody_correlation` mapped to colors"""
         k, obcorr = self.momentum_onebody_correlation(kmin, kmax, bound, gf)
         im_min = k.min()
         im_max = k.max()
