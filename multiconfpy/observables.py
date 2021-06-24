@@ -28,6 +28,7 @@ Parameters abbreviation conventions
 import numpy as np
 import scipy.linalg as linalg
 
+from numba import prange, njit, int32, complex128
 from multiconfpy import configurational_space as cs
 from multiconfpy import density_matrices as dm
 from multiconfpy import function_tools as ft
@@ -234,3 +235,151 @@ def momentum_onebody_correlation(
     freq, den = momentum_density(occ, natorb, dx, kmin, kmax, bound, gf)
     den_rows, den_cols = np.meshgrid(den, den)
     return freq, abs(mom_rdm) ** 2 / (den_rows * den_cols)
+
+
+@njit((int32, int32, complex128[:], complex128[:, :], complex128[:, :]))
+def __set_mutual_probability(Norb, grid_size, rho2, orbitals, mutprob):
+    """Compiled optimized routine to support mutual probability functions"""
+    s1 = Norb
+    s2 = Norb ** 2
+    s3 = Norb ** 3
+    # Some auxiliar variables to evaluate sum over all indexes
+    o = complex(0)
+    r2 = complex(0)
+    contract = complex(0)
+    for i in prange(grid_size):
+        for j in range(grid_size):
+            contract = 0
+            for k in range(Norb):
+                for l in range(Norb):
+                    for q in range(Norb):
+                        for s in range(Norb):
+                            rho2_ind = k + l * s1 + q * s2 + s * s3
+                            r2 = rho2[rho2_ind]
+                            o = (
+                                (orbitals[k, j] * orbitals[l, i]).conjugate()
+                                * orbitals[q, j]
+                                * orbitals[s, i]
+                            )
+                            contract = contract + r2 * o
+            mutprob[i, j] = contract
+
+
+def position_mutual_probability(npar, rho2, orbitals):
+    """
+    Mutual probability of finding two particles in abitrary grid points
+    This is a two-body operator since it requires 4-fields coupling
+
+    Return
+    ------
+    ``numpy.ndarray([orbitals.shape[1], orbitals.shape[1]])``
+        Square matrix which row `i` col `j` is the probability
+        to find two particles at grid points `x[i]` and `x[j]`
+    """
+    grid_size = orbitals.shape[1]
+    norb = orbitals.shape[0]
+    mutprob = np.empty([grid_size, grid_size], dtype=np.complex128)
+    __set_mutual_probability(norb, grid_size, rho2, orbitals, mutprob)
+    return mutprob.real / npar / (npar - 1)
+
+
+def momentum_mutual_probability(
+    npar, rho2, orbitals, dx, kmin=-10, kmax=10, bound=0, gf=7
+):
+    """
+    Equivalent to `position_mutual_probability` but in momentum space
+
+    Paramters
+    ---------
+    `dx` : ``float``
+        grid spacing
+    `kmin` : ``float``
+        min value for the cutoff applied
+    `kmax` : ``float``
+        max value of cutoff
+    `bound` : ``int``
+        Must be either 0 (open boundary) or 1 (periodic boundary)
+    `gf` : ``int``
+        gird expansion factor. Improve the resolution as larger is `gf`
+
+    Return
+    ------
+    ``tuple(numpy.array, numpy.ndarray)``
+        Frequency values and mutual probability in momentum space
+        Element `[i, j]` of mutual probability matrix returned is
+        the probability to simultaneous get particles with momenta
+        `k[i]` and `k[j]` of the frequency numpy array
+    """
+    norb = orbitals.shape[0]
+    freq, orb_fft = ft.fft_ordered_norm(
+        ft.extend_grid(orbitals, bound, gf), dx, 1, bound
+    )
+    slice_ind = (freq - kmin) * (freq - kmax) < 0
+    freq = freq[slice_ind]
+    orb_fft = orb_fft[:, slice_ind]
+    grid_size = orb_fft.shape[1]
+    mutprob = np.empty([grid_size, grid_size], dtype=np.complex128)
+    __set_mutual_probability(norb, grid_size, rho2, orb_fft, mutprob)
+    return (freq, mutprob.real / npar / (npar - 1))
+
+
+def position_twobody_correlation(npar, rho2, orbitals, den):
+    """
+    Result of ``position_mutual_probability`` weighted by 1-body probability
+    Regions where it is greater than 1 are likely to have more than 1 particle
+
+    Parameters
+    ----------
+    `den` : ``numpy.array(orbitals.shape[1])``
+        density probability to find a single particle for each grid point
+        Can be compute using ``density``
+
+    Return
+    ------
+    ``numpy.ndarray([orbitals.shape[1], orbitals.shape[1]])``
+        Square matrix which row `i` col `j` is the mutual probability
+        to find two particles at grid points `x[i]` and `x[j]` weighted
+        by the respective individual probability to find only one particle
+    """
+    mutprob = position_mutual_probability(npar, rho2, orbitals)
+    den_rows, den_cols = np.meshgrid(den, den)
+    return mutprob / (den_rows * den_cols)
+
+
+def momentum_twobody_correlation(
+    npar, rho2, orbitals, den, dx, kmin=-10, kmax=10, bound=0, gf=7
+):
+    """
+    Result of ``momentum_mutual_probability`` weighted by 1-body probability
+    Regions where it is greater than 1 are likely to have more than 1 particle
+
+    Parameters
+    ----------
+    `den` : ``numpy.array(orbitals.shape[1])``
+        density probability to find a single particle for each grid point
+        in momentum space from ``momentum_density``
+    `dx` : ``float``
+        grid spacing
+    `kmin` : ``float``
+        min value for the cutoff applied
+    `kmax` : ``float``
+        max value of cutoff
+    `bound` : ``int``
+        Must be either 0 (open boundary) or 1 (periodic boundary)
+    `gf` : ``int``
+        gird expansion factor. Improve the resolution as larger is `gf`
+
+    Return
+    ------
+    ``numpy.ndarray([orbitals.shape[1], orbitals.shape[1]])``
+        Square matrix which row `i` col `j` is the mutual probability
+        to find two particles at grid points `x[i]` and `x[j]` weighted
+        by the respective individual probability to find only one particle
+    """
+    k, mutprob = momentum_mutual_probability(
+        npar, rho2, orbitals, dx, kmin, kmax, bound, gf
+    )
+    if k.size != den.size:
+        raise ValueError("Invalid `den.size`")
+    den_rows, den_cols = np.meshgrid(den, den)
+    return (k, mutprob / (den_rows * den_cols))

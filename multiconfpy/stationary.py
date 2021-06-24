@@ -159,6 +159,28 @@ class GroundState:
             self.occ, self.natorb, self.dx, kmin, kmax, bound, gf
         )
 
+    def position_mutual_probability(self):
+        return obs.position_mutual_probability(
+            self.npar, self.rho2, self.orbitals
+        )
+
+    def momentum_mutual_probability(self, kmin=-10, kmax=10, bound=0, gf=7):
+        return obs.momentum_mutual_probability(
+            self.npar, self.rho2, self.orbitals, self.dx, kmin, kmax, bound, gf
+        )
+
+    def position_twobody_correlation(self):
+        return obs.position_twobody_correlation(
+            self.npar, self.rho2, self.orbitals, self.density()
+        )
+
+    def momentum_twobody_correlation(self, kmin=-10, kmax=10, bound=0, gf=7):
+        den = self.momentum_density(kmin, kmax, bound, gf)[1]
+        extra_args = (den, self.dx, kmin, kmax, bound, gf)
+        return obs.momentum_twobody_correlation(
+            self.npar, self.rho2, self.orbitals, *extra_args
+        )
+
     def plot_density(self, show_trap=False, show_condensate=False):
         den = self.density()
         plt.plot(self.grid, den, color="black", label="Gas density")
@@ -189,52 +211,46 @@ class GroundState:
         ax.set_xlabel("Fourier frequency", fontsize=16)
         plt.show()
 
-    def imshow_position_abs_rdm(self):
-        """Absolute square value of `self.position_rdm` mapped to colors"""
-        obcorr = self.position_rdm()
+    def __data_image_view(self, data, ext, cmap):
+        """General routine to plot 2d data within matplotlib imshow"""
         fig = plt.figure(figsize=(9, 7))
         ax = fig.add_subplot()
         im = ax.imshow(
-            abs(obcorr) ** 2,
-            extent=[self.xi, self.xf, self.xi, self.xf],
+            abs(data) ** 2,
+            extent=ext,
             origin="lower",
             aspect="equal",
-            cmap=self.colormap,
+            cmap=cmap,
         )
         fig.colorbar(im, ax=ax)
         plt.show()
+
+    def imshow_position_abs_rdm(self):
+        """Absolute square value of `self.position_rdm` mapped to colors"""
+        obcorr = self.position_rdm()
+        self.__data_image_view(
+            abs(obcorr) ** 2,
+            [self.xi, self.xf, self.xi, self.xf],
+            self.colormap,
+        )
 
     def imshow_momentum_abs_rdm(self, kmin=-10, kmax=10, bound=0, gf=7):
         """Absolute square value of `self.momentum_rdm` mapped to colors"""
         k, obcorr = self.momentum_rdm(kmin, kmax, bound, gf)
         im_min = k.min()
         im_max = k.max()
-        fig = plt.figure(figsize=(9, 7))
-        ax = fig.add_subplot()
-        im = ax.imshow(
-            abs(obcorr) ** 2,
-            extent=[im_min, im_max, im_min, im_max],
-            origin="lower",
-            aspect="equal",
-            cmap=self.colormap,
+        self.__data_image_view(
+            abs(obcorr) ** 2, [im_min, im_max, im_min.im_max], self.colormap
         )
-        fig.colorbar(im, ax=ax)
-        plt.show()
 
     def imshow_position_onebody_correlation(self):
         """Display `self.position_onebody_correlation` mapped to colors"""
         obcorr = self.position_onebody_correlation()
-        fig = plt.figure(figsize=(9, 7))
-        ax = fig.add_subplot()
-        im = ax.imshow(
+        self.__data_image_view(
             obcorr,
-            extent=[self.xi, self.xf, self.xi, self.xf],
-            origin="lower",
-            aspect="equal",
-            cmap=self.colormap,
+            [self.xi, self.xf, self.xi, self.xf],
+            self.colormap,
         )
-        fig.colorbar(im, ax=ax)
-        plt.show()
 
     def imshow_momentum_onebody_correlation(
         self, kmin=-10, kmax=10, bound=0, gf=7
@@ -243,14 +259,46 @@ class GroundState:
         k, obcorr = self.momentum_onebody_correlation(kmin, kmax, bound, gf)
         im_min = k.min()
         im_max = k.max()
-        fig = plt.figure(figsize=(9, 7))
-        ax = fig.add_subplot()
-        im = ax.imshow(
-            obcorr,
-            extent=[im_min, im_max, im_min, im_max],
-            origin="lower",
-            aspect="equal",
-            cmap=self.colormap,
+        self.__data_image_view(
+            obcorr, [im_min, im_max, im_min, im_max], self.colormap
         )
-        fig.colorbar(im, ax=ax)
-        plt.show()
+
+    def imshow_position_mutual_probability(self):
+        """Display ``self.position_mutual_probability`` mapped to colors"""
+        mutprob = self.position_mutual_probability()
+        self.__data_image_view(
+            mutprob,
+            [self.xi, self.xf, self.xi, self.xf],
+            self.colormap,
+        )
+
+    def imshow_momentum_mutual_probability(
+        self, kmin=-10, kmax=10, bound=0, gf=7
+    ):
+        """Display ``self.momentum_mutual_probability`` mapped to colors"""
+        k, mutprob = self.momentum_mutual_probability(kmin, kmax, bound, gf)
+        im_min = k.min()
+        im_max = k.max()
+        self.__data_image_view(
+            mutprob, [im_min, im_max, im_min, im_max], self.colormap
+        )
+
+    def imshow_position_twobody_correlation(self):
+        """Display ``self.position_twobody_correlation`` mapped to colors"""
+        tbcorr = self.position_twobody_correlation()
+        self.__data_image_view(
+            tbcorr,
+            [self.xi, self.xf, self.xi, self.xf],
+            self.colormap,
+        )
+
+    def imshow_momentum_twobody_correlation(
+        self, kmin=-10, kmax=10, bound=0, gf=7
+    ):
+        """Display ``self.momentum_twobody_correlation`` mapped to colors"""
+        k, tbcorr = self.momentum_twobody_correlation(kmin, kmax, bound, gf)
+        im_min = k.min()
+        im_max = k.max()
+        self.__data_image_view(
+            tbcorr, [im_min, im_max, im_min, im_max], self.colormap
+        )
