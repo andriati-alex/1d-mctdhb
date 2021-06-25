@@ -9,6 +9,12 @@ to suit the operator action for any system of units always as the last
 parameter. The other parameter always present is the first one `state`
 a ``numpy.array`` with the discretized representation
 
+Two examples included in this module
+
+``position(state -> numpy.array, x -> numpy.array, mult ->float)``
+
+``momentum(state -> numpy.array, dx -> float, bound -> int, mult -> float)``
+
 """
 
 from multiconfpy import function_tools as ft
@@ -43,3 +49,32 @@ def projection(state, proj_state, dx):
     `dx` : ``float`` grid spacing
     """
     return ft.simps(proj_state.conj() * state, dx=dx) * proj_state
+
+
+def combine(state, callable_list, args_list):
+    """
+    Given a list of operator functions apply them sequentially (composing)
+
+    Parameters
+    ----------
+    `callable_list` : ``list[callable]``
+        list of functions to call representing operators these operators
+        are applied according to list index starting from 0
+    `args_list` : ``list[tuple]``
+        list with tuples to pass for each function in `callable_list`
+
+    Return
+    ------
+    ``numpy.array(state.size, dtype=state.dtyp)``
+    """
+    l1 = len(callable_list)
+    l2 = len(args_list)
+    if l1 != l2:
+        raise ValueError(
+            "length of callable and args list are different: "
+            "{} and {} respectively".format(l1, l2)
+        )
+    composed = state.copy()
+    for fun, args in zip(callable_list, args_list):
+        composed = fun(composed, *args)
+    return composed

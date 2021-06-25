@@ -138,9 +138,19 @@ class GroundState:
     def condensate_density(self):
         return abs(self.natorb[0]) ** 2
 
+    def subset_density(self, subset_ind):
+        return obs.density(self.occ, self.natorb, subset_ind)
+
     def momentum_density(self, kmin=-10, kmax=10, bound=0, gf=7):
         return obs.momentum_density(
             self.occ, self.natorb, self.dx, kmin, kmax, bound, gf
+        )
+
+    def subset_momentum_density(
+        self, subset_ind, kmin=-10, kmax=10, bound=0, gf=7
+    ):
+        return obs.momentum_density(
+            self.occ, self.natorb, self.dx, kmin, kmax, bound, gf, subset_ind
         )
 
     def position_rdm(self):
@@ -179,6 +189,30 @@ class GroundState:
         extra_args = (den, self.dx, kmin, kmax, bound, gf)
         return obs.momentum_twobody_correlation(
             self.npar, self.rho2, self.orbitals, *extra_args
+        )
+
+    def average_onebody_operator(self, op_action, args=(), subset_ind=None):
+        """
+        Compute average of an arbritrary extensive 1-body operator
+
+        Parameters
+        ----------
+        `op_action` : ``callable``
+            function which apply the operator to a state
+            see examples ``multiconfpy.operator_action``
+        `args` : ``tuple``
+            arguments needed for specific for each evaluation
+        `subset_ind` : ``list[int] / numpy.array(dtype=int)``
+            restrict evaluation of average to subset of natural orbitals
+            by default no restriction is applied (``None``)
+            `0 <= subset_ind[i] < self.norb` without repetitions if provided
+
+        Return
+        ------
+        ``float``
+        """
+        return obs.average_onebody_operator(
+            self.occ, self.natorb, op_action, self.dx, args, subset_ind
         )
 
     def plot_density(self, show_trap=False, show_condensate=False):

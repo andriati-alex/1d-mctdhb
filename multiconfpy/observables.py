@@ -91,9 +91,18 @@ def occupation_entropy(occ):
     return -((occ) * np.log(occ)).sum()
 
 
-def density(occ, natorb):
-    """Total gas density normalized to 1"""
-    return np.matmul(occ, abs(natorb) ** 2)
+def density(occ, natorb, subset_ind=None):
+    """
+    Total gas density normalized to 1 unless `subset_ind` is specified
+    If `subset_ind` is specified return the density restricted to some
+    natural orbitals. Useful to separate excitations and condensate
+    `subset_ind` : ``list[int] / numpy.array(dtype=int)``
+    `0 <= subset_ind[i] < occ.size` without repetitions if given
+    """
+    if subset_ind is None:
+        subset_ind = np.arange(occ.size, dtype=int)
+    frac = occ[subset_ind].sum()
+    return np.matmul(occ[subset_ind], abs(natorb[subset_ind, :]) ** 2) / frac
 
 
 def condensate_density(natorb):
@@ -101,9 +110,13 @@ def condensate_density(natorb):
     return abs(natorb[0]) ** 2
 
 
-def momentum_density(occ, natorb, dx, kmin=-10, kmax=10, bound=0, gf=7):
+def momentum_density(
+    occ, natorb, dx, kmin=-10, kmax=10, bound=0, gf=7, subset_ind=None
+):
     """
-    Momentum density distribution normalized to 1
+    Return normalized density of the gas or of specific subset of orbitals
+    Restriction in orbitals are possible using `subset_ind` to select some
+    orbitals indexes. By default all orbitals are used
 
     Parameters
     ----------
@@ -119,16 +132,23 @@ def momentum_density(occ, natorb, dx, kmin=-10, kmax=10, bound=0, gf=7):
         1 : periodic
     `gf` : ``int {odd}``
         grid amplification factor to improve momentum resolution
+    `subset_ind` : ``list[int] / numpy.array(dtype=int)``
+        `0 <= subset_ind[i] < occ.size` without repetitions if provided
 
     Return
     ------
     ``tuple(numpy.array, numpy.array)``
-        Frequency values and density distribution in momentum space
+        Frequency values and density of subset of orbitals in momentum space
     """
+    if subset_ind is None:
+        subset_ind = np.arange(occ.size, dtype=int)
+    frac = occ[subset_ind].sum()
     freq, no_fft = ft.fft_ordered_norm(
         ft.extend_grid(natorb, bound, gf), dx, 1, bound
     )
-    momentum_den = np.matmul(occ, abs(no_fft) ** 2)
+    momentum_den = (
+        np.matmul(occ[subset_ind], abs(no_fft[subset_ind, :]) ** 2) / frac
+    )
     slice_ind = (freq - kmin) * (freq - kmax) < 0
     freq_cut = freq[slice_ind]
     momentum_den_cut = momentum_den[slice_ind]
@@ -385,7 +405,7 @@ def momentum_twobody_correlation(
     return (k, mutprob / (den_rows * den_cols))
 
 
-def average_onebody_operator(occ, natorb, op_action, dx, args=()):
+def average_onebody_operator(occ, natorb, op_action, dx, args=(), ind=None):
     """
     Compute many-body average of a extensive 1-particle operator
 
@@ -399,15 +419,22 @@ def average_onebody_operator(occ, natorb, op_action, dx, args=()):
         grid spacing for integration
     `args` : ``tuple``
         extra arguments specific for `op_action` call
+    `ind` : ``list[int] / numpy.array(dtype=int)``
+        set of orbitals indexes to restrict the average
+        by default no restriction is applied (``None``)
+        `0 <= ind[i] < occ.size` without repetitions if provided
 
     Return
     ------
     ``float``
         many-body expectation value
     """
-    overlap = np.array(natorb.shape[0], dtype=natorb.dtype)
-    for i in range(natorb.shape[0]):
-        overlap[i] = ft.simps(
+    if ind is None:
+        ind = np.arange(occ.size, dtype=np.int32)
+    frac = occ[ind].sum()
+    sum_contrib = 0.0
+    for i in ind:
+        sum_contrib = sum_contrib + occ[i] * ft.simps(
             natorb[i].conj() * op_action(natorb[i], *args), dx=dx
         )
-    return (occ * overlap).real.sum()
+    return sum_contrib.real / frac
