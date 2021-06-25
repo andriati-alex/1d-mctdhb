@@ -29,8 +29,6 @@ import numpy as np
 from math import sqrt, pi
 from scipy.integrate import simps
 
-# from numba import njit, prange, int32, float64, complex128
-
 
 def normalize(f, dx, norm=1):
     """Return `f` normalized to `norm` within grid spacing `dx`"""

@@ -383,3 +383,31 @@ def momentum_twobody_correlation(
         raise ValueError("Invalid `den.size`")
     den_rows, den_cols = np.meshgrid(den, den)
     return (k, mutprob / (den_rows * den_cols))
+
+
+def average_onebody_operator(occ, natorb, op_action, dx, args=()):
+    """
+    Compute many-body average of a extensive 1-particle operator
+
+    Parameters
+    ----------
+    `op_action` : ``callable(numpy.array, *args) -> numpy.array``
+        function to return action of 1-particle operator over a state
+        either take some example from ``multiconfpy.operator_action``
+        or provide a new one
+    `dx` : ``float``
+        grid spacing for integration
+    `args` : ``tuple``
+        extra arguments specific for `op_action` call
+
+    Return
+    ------
+    ``float``
+        many-body expectation value
+    """
+    overlap = np.array(natorb.shape[0], dtype=natorb.dtype)
+    for i in range(natorb.shape[0]):
+        overlap[i] = ft.simps(
+            natorb[i].conj() * op_action(natorb[i], *args), dx=dx
+        )
+    return (occ * overlap).real.sum()
