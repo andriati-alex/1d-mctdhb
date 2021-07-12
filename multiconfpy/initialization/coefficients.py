@@ -1,7 +1,7 @@
 """Module to generate vector of coefficients of many-body state expansion
 
 These routines implemented here are meant to help the initialization of a
-many-body state to set input for multiconfigurational time evolution
+many-body state to set input for time evolution
 
 ``coefficients_thermal(Npar -> int, Norb -> int, beta -> float)``
 
@@ -34,17 +34,17 @@ def thermal(Npar, Norb, beta=2.0):
     Return
     ------
     ``numpy.array(dtype=numpy.complex128)``
-        Coefficients of an arbitrary many-body state expansion
+        Coefficients of many-body state expansion
     """
     nc = cs.number_configurations(Npar, Norb)
     C = np.empty(nc, dtype=np.complex128)
     v = np.empty(Norb, dtype=np.int32)
     phase = np.exp(2 * pi * 1.0j * (np.random.random(nc) - 0.5))
     noise = np.random.random(nc) / 10
-    for l in trange(nc, desc="Coefficients"):
-        cs.index_to_fock(l, Npar, Norb, v)
+    for i in trange(nc, desc="Coefficients"):
+        cs.index_to_fock(i, Npar, Norb, v)
         conf_energy = (np.arange(Norb) * v).sum() / Npar
-        C[l] = (phase[l] + noise[l]) * np.exp(-beta * conf_energy)
+        C[i] = (phase[i] + noise[i]) * np.exp(-beta * conf_energy)
     return C / sqrt((abs(C) ** 2).sum())
 
 

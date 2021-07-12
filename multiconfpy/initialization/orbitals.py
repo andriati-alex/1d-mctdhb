@@ -4,7 +4,7 @@ The orbitals must satisfy either open, boxed or periodic boundaries
 Open Boundary Condition(OBC) corresponds to systems in smooth traps
 Periodic Boundary Condition(PBC) to system usually trapped in rings
 Boxed corresponds to infinity hard wall potential at the boundaries
-There is one function to generate orbitals suitable for each case.
+There is one function to generate orbitals suitable for each case
 
 ``trapped(
     norb -> int,
@@ -148,7 +148,7 @@ def box(norb, x, nextra=5, amp=None):
     ]
     raw_orb = np.empty([norb, x.size], dtype=np.complex128)
     for i, orb in enumerate(base_list):
-        raw_orb[i] = phases[i] * orb.copy()
+        raw_orb[i] = phases[i] * orb
     i = 0
     while extra_indexes:
         n = extra_indexes.pop()
@@ -195,7 +195,7 @@ def periodic(norb, x, nextra=5, amp=None):
     ]
     raw_orb = np.empty([norb, x.size], dtype=np.complex128)
     for i, orb in enumerate(base_list):
-        raw_orb[i] = phases[i] * orb.copy()
+        raw_orb[i] = phases[i] * orb
     i = 0
     while extra_indexes:
         n = extra_indexes.pop()

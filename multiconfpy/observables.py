@@ -271,13 +271,13 @@ def __set_mutual_probability(Norb, grid_size, rho2, orbitals, mutprob):
         for j in range(grid_size):
             contract = 0
             for k in range(Norb):
-                for l in range(Norb):
+                for m in range(Norb):
                     for q in range(Norb):
                         for s in range(Norb):
-                            rho2_ind = k + l * s1 + q * s2 + s * s3
+                            rho2_ind = k + m * s1 + q * s2 + s * s3
                             r2 = rho2[rho2_ind]
                             o = (
-                                (orbitals[k, j] * orbitals[l, i]).conjugate()
+                                (orbitals[k, j] * orbitals[m, i]).conjugate()
                                 * orbitals[q, j]
                                 * orbitals[s, i]
                             )

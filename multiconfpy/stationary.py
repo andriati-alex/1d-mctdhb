@@ -274,7 +274,7 @@ class GroundState:
         im_min = k.min()
         im_max = k.max()
         self.__data_image_view(
-            abs(obcorr) ** 2, [im_min, im_max, im_min.im_max], self.colormap
+            abs(obcorr) ** 2, [im_min, im_max, im_min, im_max], self.colormap
         )
 
     def imshow_position_onebody_correlation(self):
