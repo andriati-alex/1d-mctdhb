@@ -26,9 +26,7 @@
 #include <mkl.h>
 #include <mkl_dfti.h>
 
-#ifdef _OPENMP
-    #include <omp.h>
-#endif
+#include <omp.h>
 
 // CONSTANTS
 #define PI 3.141592653589793
@@ -115,5 +113,16 @@ struct _CCSmat
 typedef struct _ManyBodyDataPkg * ManyBodyPkg;
 typedef struct _EquationDataPkg * EqDataPkg;
 typedef struct _CCSmat * CCSmat;
+
+
+typedef struct{
+    ManyBodyPkg state_struct;
+    EqDataPkg space_struct;
+    Carray dvr;
+    Cmatrix
+        orb_output,
+        orb_input,
+        rhoinv;
+} _UltimateStruct;
 
 #endif

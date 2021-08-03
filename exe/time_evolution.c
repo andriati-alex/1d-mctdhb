@@ -3,6 +3,7 @@
 #include "coeffIntegration.h"
 #include "linear_potential.h"
 #include "structureSetup.h"
+#include "new_imagint.h"
 
 
 
@@ -215,7 +216,7 @@ void orthoCheck(int Npar, int Norb, int Ngrid, double dx, Cmatrix Omat,
     }
 
     // Check normalization of coeficients
-    if ( abs(carrMod2(NC(Npar,Norb),C) - 1) > 1E-9 )
+    if ( fabs(carrMod2(NC(Npar,Norb),C) - 1) > 1E-9 )
     {
         printf("\n\n!   COEFFICIENTS DO NOT HAVE NORM = 1   !\n\n");
         exit(EXIT_FAILURE);
@@ -488,13 +489,14 @@ int main(int argc, char * argv[])
         }
     }
 
-    if (method < 1 || method > 4)
+    if (method < 1 || method > 5)
     {
         printf("\n\nERROR : Invalid method Id(Orbitals)! Valid ones are:\n");
         printf("\t1 - Exponential DVR (periodic)\n");
         printf("\t2 - Sine DVR (hard wall boundary)\n");
         printf("\t3 - Split Step with Finite Differences\n");
         printf("\t4 - Split Step with FFT\n\n\n");
+        printf("\t5 - New method based on external ODE lib\n\n\n");
         exit(EXIT_FAILURE);
     }
 
@@ -751,6 +753,10 @@ int main(int argc, char * argv[])
         else
             printf("Split Step FFT and RK2. / ");
     }
+    if (method == 5)
+    {
+        printf("New custom method using external ODE lib / ");
+    }
     if (coefInteg < 2)
     {
         printf("RK4 for coeff.");
@@ -857,6 +863,11 @@ int main(int argc, char * argv[])
         case 4:
             start = omp_get_wtime();
             s = imagSSFFT(mc, S, dt, N, coefInteg);
+            time_used = (double) (omp_get_wtime() - start);
+            break;
+        case 5:
+            start = omp_get_wtime();
+            s = new_imagint(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             break;
     }
@@ -1067,6 +1078,11 @@ int main(int argc, char * argv[])
                 s = imagSSFFT(mc, S, dt, N, coefInteg);
                 end = (double) (omp_get_wtime() - start);
                 time_used += end;
+                break;
+            case 5:
+                start = omp_get_wtime();
+                s = new_imagint(mc, S, dt, N, coefInteg);
+                time_used = (double) (omp_get_wtime() - start);
                 break;
         }
 

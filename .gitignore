@@ -7,3 +7,5 @@ __pycache__/
 bin/*
 poetry.lock
 dist/
+.ccls
+.clang-format

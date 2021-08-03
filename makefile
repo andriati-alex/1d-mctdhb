@@ -23,7 +23,8 @@ obj_mctdhb = $(obj_linalg)          \
              linearPartIntegration.o \
              orbTimeDerivativeDVR.o \
              imagtimeIntegrator.o \
-             realtimeIntegrator.o
+             realtimeIntegrator.o \
+			 new_imagint.o
 
 linalg_header = include/dataStructures.h	 \
 				include/memoryHandling.h     \
@@ -60,7 +61,8 @@ mctdhb_header = $(linalg_header) 	    	     \
 MCTDHB : libmctdhb.a exe/time_evolution.c
 	icc -o ./bin/MCTDHB exe/time_evolution.c -L${MKLROOT}/lib/intel64 \
 		-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -qopenmp \
-		-L./lib -I./include -lmctdhb -lm -O3
+		-L${HOME}/.local/lib -L./lib -I./include -I${HOME}/.local/include \
+		-Wl,-rpath,${HOME}/.local/lib -lmctdhb -lodesys -lm -O3
 
 
 
@@ -170,6 +172,13 @@ inout.o : src/inout.c
 
 interpolation.o : src/interpolation.c
 	icc -c -O3 -I./include src/interpolation.c
+
+
+
+new_imagint.o : src/new_imagint.c
+	icc -c -O3 -qopenmp -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core \
+		-I./include -I${HOME}/.local/include -L${HOME}/.local/lib \
+		-Wl,-rpath,${HOME}/.local/lib -lodesys src/new_imagint.c
 
 
 
