@@ -489,7 +489,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    if (method < 1 || method > 5)
+    if (method < 1 || method > 6)
     {
         printf("\n\nERROR : Invalid method Id(Orbitals)! Valid ones are:\n");
         printf("\t1 - Exponential DVR (periodic)\n");
@@ -497,6 +497,7 @@ int main(int argc, char * argv[])
         printf("\t3 - Split Step with Finite Differences\n");
         printf("\t4 - Split Step with FFT\n\n\n");
         printf("\t5 - New method based on external ODE lib\n\n\n");
+        printf("\t6 - New method based on multistep\n\n\n");
         exit(EXIT_FAILURE);
     }
 
@@ -757,6 +758,10 @@ int main(int argc, char * argv[])
     {
         printf("New custom method using external ODE lib / ");
     }
+    if (method == 6)
+    {
+        printf("New custom method using external multistep / ");
+    }
     if (coefInteg < 2)
     {
         printf("RK4 for coeff.");
@@ -868,6 +873,11 @@ int main(int argc, char * argv[])
         case 5:
             start = omp_get_wtime();
             s = new_imagint(mc, S, dt, N, coefInteg);
+            time_used = (double) (omp_get_wtime() - start);
+            break;
+        case 6:
+            start = omp_get_wtime();
+            s = new_multistep_int(mc, S, dt, N, coefInteg);
             time_used = (double) (omp_get_wtime() - start);
             break;
     }
@@ -1082,6 +1092,11 @@ int main(int argc, char * argv[])
             case 5:
                 start = omp_get_wtime();
                 s = new_imagint(mc, S, dt, N, coefInteg);
+                time_used = (double) (omp_get_wtime() - start);
+                break;
+            case 6:
+                start = omp_get_wtime();
+                s = new_multistep_int(mc, S, dt, N, coefInteg);
                 time_used = (double) (omp_get_wtime() - start);
                 break;
         }

@@ -9,3 +9,4 @@ poetry.lock
 dist/
 .ccls
 .clang-format
+*.log
