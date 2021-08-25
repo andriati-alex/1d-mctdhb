@@ -1,6 +1,4 @@
-#include "structureSetup.h"
-
-
+#include "data_structures.h"
 
 EqDataPkg PackEqData(int Npar, int Morb, int Mpos, double xi, double xf,
           double a2, double g, doublec a1, char Vname[], double p[])
