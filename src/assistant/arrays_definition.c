@@ -16,7 +16,7 @@ assert_pointer(void* ptr, char err_msg[])
 }
 
 Iarray
-get_int_array(unsigned int arr_size)
+get_int_array(uint32_t arr_size)
 {
     int* ptr;
     char err_msg[STR_BUFF_SIZE];
@@ -26,19 +26,19 @@ get_int_array(unsigned int arr_size)
     return ptr;
 }
 
-unsigned int*
-get_uint_array(unsigned int arr_size)
+uint32_t*
+get_uint_array(uint32_t arr_size)
 {
-    unsigned int* ptr;
+    uint32_t* ptr;
     char err_msg[STR_BUFF_SIZE];
     sprintf(err_msg, ERR_MSG_FMT, "get_uint_array", arr_size);
-    ptr = (unsigned int*) malloc(arr_size * sizeof(unsigned int));
+    ptr = (uint32_t*) malloc(arr_size * sizeof(uint32_t));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
 }
 
 uint16_t*
-get_uint16_array(unsigned int arr_size)
+get_uint16_array(uint32_t arr_size)
 {
     uint16_t* ptr;
     char err_msg[STR_BUFF_SIZE];
@@ -49,7 +49,7 @@ get_uint16_array(unsigned int arr_size)
 }
 
 uint32_t*
-get_uint32_array(unsigned int arr_size)
+get_uint32_array(uint32_t arr_size)
 {
     uint32_t* ptr;
     char err_msg[STR_BUFF_SIZE];
@@ -60,7 +60,7 @@ get_uint32_array(unsigned int arr_size)
 }
 
 Rarray
-get_double_array(unsigned int arr_size)
+get_double_array(uint32_t arr_size)
 {
     double* ptr;
     char err_msg[STR_BUFF_SIZE];
@@ -71,18 +71,18 @@ get_double_array(unsigned int arr_size)
 }
 
 Carray
-get_dcomplex_array(int arr_size)
+get_dcomplex_array(uint32_t arr_size)
 {
-    doublec* ptr;
+    dcomplex* ptr;
     char err_msg[STR_BUFF_SIZE];
     sprintf(err_msg, ERR_MSG_FMT, "get_dcomplex_array", arr_size);
-    ptr = (doublec*) malloc(arr_size * sizeof(doublec));
+    ptr = (dcomplex*) malloc(arr_size * sizeof(dcomplex));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
 }
 
 MKLCarray
-get_mklcomplex16_array(int arr_size)
+get_mklcomplex16_array(uint32_t arr_size)
 {
     MKL_Complex16* ptr;
     char err_msg[STR_BUFF_SIZE];
@@ -93,9 +93,9 @@ get_mklcomplex16_array(int arr_size)
 }
 
 Rmatrix
-get_double_matrix(unsigned int nrows, unsigned int ncols)
+get_double_matrix(uint32_t nrows, uint32_t ncols)
 {
-    unsigned int i;
+    uint32_t i;
     double** ptr;
     char err_msg[STR_BUFF_SIZE];
     sprintf(err_msg, "%d rows(double*) in get_double_matrix", nrows);
@@ -111,17 +111,17 @@ get_double_matrix(unsigned int nrows, unsigned int ncols)
 }
 
 Cmatrix
-get_dcomplex_matrix(unsigned int nrows, unsigned int ncols)
+get_dcomplex_matrix(uint32_t nrows, uint32_t ncols)
 {
-    unsigned int i;
-    doublec** ptr;
+    uint32_t i;
+    dcomplex** ptr;
     char err_msg[STR_BUFF_SIZE];
     sprintf(err_msg, "%d rows(double complex*) in get_dcomplex_matrix", nrows);
-    ptr = (doublec**) malloc(nrows * sizeof(doublec*));
+    ptr = (dcomplex**) malloc(nrows * sizeof(dcomplex*));
     assert_pointer((void*) ptr, err_msg);
     for (i = 0; i < ncols; i++)
     {
-        ptr[i] = (doublec*) malloc(ncols * sizeof(doublec));
+        ptr[i] = (dcomplex*) malloc(ncols * sizeof(dcomplex));
         sprintf(err_msg, "Row %d of size %d in get_dcomplex_matrix", i, ncols);
         assert_pointer((void*) ptr, err_msg);
     }
@@ -129,15 +129,15 @@ get_dcomplex_matrix(unsigned int nrows, unsigned int ncols)
 }
 
 void
-destroy_double_matrix(unsigned int nrows, Rmatrix mat)
+destroy_double_matrix(uint32_t nrows, Rmatrix mat)
 {
-    for (unsigned int i = 0; i < nrows; i++) free(mat[i]);
+    for (uint32_t i = 0; i < nrows; i++) free(mat[i]);
     free(mat);
 }
 
 void
-destroy_dcomplex_matrix(unsigned int nrows, Cmatrix mat)
+destroy_dcomplex_matrix(uint32_t nrows, Cmatrix mat)
 {
-    for (unsigned int i = 0; i < nrows; i++) free(mat[i]);
+    for (uint32_t i = 0; i < nrows; i++) free(mat[i]);
     free(mat);
 }
