@@ -1,81 +1,93 @@
 #include "integrator/coefficients_integration.h"
-#include "linalg/basic_linalg.h"
-#include "assistant/arrays_definition.h"
+#include "configurational/density_matrices.h"
 #include "configurational/hamiltonian.h"
+#include "linalg/basic_linalg.h"
+#include "linalg/lapack_interface.h"
 #include "linalg/multiconfig_lanczos.h"
-#include <math.h>
 #include <mkl_lapacke.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-void
-realtime_dcdt_odelib(ComplexODEInputParameters inp_params, Carray dcdt)
+static void
+dcdt_interface(ComplexODEInputParameters inp_params, Carray dcdt)
 {
     MCTDHBDataStruct mctdhb = (MCTDHBDataStruct) inp_params->extra_args;
     uint32_t         dim = mctdhb->multiconfig_space->dim;
+    dcomplex         type_fac = mctdhb->integ_type_num;
     apply_hamiltonian(
         mctdhb->multiconfig_space,
         inp_params->y,
         mctdhb->state->hob,
         mctdhb->state->hint,
         dcdt);
-    for (uint32_t i = 0; i < dim; i++) dcdt[i] = -I * dcdt[i];
+    for (uint32_t i = 0; i < dim; i++) dcdt[i] = -I * type_fac * dcdt[i];
 }
 
-void
-imagtime_dcdt_odelib(ComplexODEInputParameters inp_params, Carray dcdt)
+static void
+update_matrices(MCTDHBDataStruct mctdhb)
 {
-    MCTDHBDataStruct mctdhb = (MCTDHBDataStruct) inp_params->extra_args;
-    uint32_t         dim = mctdhb->multiconfig_space->dim;
-    apply_hamiltonian(
+    set_onebody_dm(
         mctdhb->multiconfig_space,
-        inp_params->y,
-        mctdhb->state->hob,
-        mctdhb->state->hint,
-        dcdt);
-    for (uint32_t i = 0; i < dim; i++) dcdt[i] = -dcdt[i];
+        mctdhb->state->coef,
+        mctdhb->state->ob_denmat);
+    set_twobody_dm(
+        mctdhb->multiconfig_space,
+        mctdhb->state->coef,
+        mctdhb->state->tb_denmat);
+    cmat_hermitian_inversion(
+        mctdhb->state->norb,
+        mctdhb->state->ob_denmat,
+        mctdhb->state->inv_ob_denmat);
 }
 
 void
-iterative_lanczos_integrator(MCTDHBDataStruct mctdhb, Carray C)
+propagate_coef_rk(MCTDHBDataStruct mctdhb, Carray cnext)
 {
+    double             dt = mctdhb->orb_eq->tstep;
+    Carray             rk_inp = mctdhb->state->coef;
+    ComplexWorkspaceRK rk_work =
+        (ComplexWorkspaceRK) mctdhb->coef_workspace->extern_work;
+    switch (mctdhb->rk_order)
+    {
+        case RK2:
+            cplx_rungekutta5(
+                dt, 0, &dcdt_interface, mctdhb, rk_work, rk_inp, cnext);
+            break;
+        case RK4:
+            cplx_rungekutta4(
+                dt, 0, &dcdt_interface, mctdhb, rk_work, rk_inp, cnext);
+            break;
+        case RK5:
+            cplx_rungekutta5(
+                dt, 0, &dcdt_interface, mctdhb, rk_work, rk_inp, cnext);
+            break;
+    }
+    carrCopy(mctdhb->multiconfig_space->dim, cnext, mctdhb->state->coef);
+    update_matrices(mctdhb);
+}
 
-    /** MULTICONFIGURATIONAL LINEAR SYSTEM INTEGRATION USING LANCZOS
-        ============================================================
-        Use lanczos to integrate the linear system of equations of the
-        configurational coefficients. For more information about  this
-        integrator check out:
-
-        "Unitary quantum time evolution by iterative Lanczos recution",
-        Tae Jun Park and J.C. Light, J. Chemical Physics 85, 5870, 1986
-        DOI 10.1063/1.451548
-
-        INPUT PARAMETERS
-            C - initial condition
-            Ho - 1-body hamiltonian matrix (coupling to orbitals)
-            Hint - 2-body hamiltonian matrix (coupling to orbitals)
-
-        OUTPUT PARAMETERS
-            C - End advanced in a time step 'dt' **/
-
+void
+propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
+{
     int     i, k, j, nc, lm, Liter;
     double  dt;
     Rarray  d, e, eigvec;
     Carray  aux, diag, offdiag, Clanczos;
     Cmatrix lvec;
 
-    Liter = mctdhb->lanczos_work->iter;
+    WorkspaceLanczos lanczos_work = (WorkspaceLanczos) mctdhb->coef_workspace;
+
+    Liter = lanczos_work->iter;
     dt = mctdhb->orb_eq->tstep;
     nc = mctdhb->multiconfig_space->dim;
-    lvec = mctdhb->lanczos_work->lanczos_vectors;
-    e = mctdhb->lanczos_work->lapack_offd;
-    d = mctdhb->lanczos_work->lapack_diag;
-    eigvec = mctdhb->lanczos_work->lapack_eigvec;
-    diag = mctdhb->lanczos_work->decomp_diag;
-    offdiag = mctdhb->lanczos_work->decomp_offd;
-    aux = mctdhb->lanczos_work->transform;
-
-    Clanczos = get_dcomplex_array(Liter);
+    lvec = lanczos_work->lanczos_vectors;
+    e = lanczos_work->lapack_offd;
+    d = lanczos_work->lapack_diag;
+    eigvec = lanczos_work->lapack_eigvec;
+    diag = lanczos_work->decomp_diag;
+    offdiag = lanczos_work->decomp_offd;
+    aux = lanczos_work->transform;
+    Clanczos = lanczos_work->coef_lspace;
 
     offdiag[Liter - 1] = 0;   // Useless
     carrCopy(nc, C, lvec[0]); // Setup initial lanczos vector
@@ -112,12 +124,13 @@ iterative_lanczos_integrator(MCTDHBDataStruct mctdhb, Carray C)
         exit(EXIT_FAILURE);
     }
 
-    // Solve exactly the equation in Lanczos vector space. The transformation
-    // between the original space and the Lanczos one is given by the Lanczos
-    // vectors organize in columns. When we apply such a matrix to 'Clanczos'
-    // we need to get just the first Lanczos vector, that is, the coefficient
-    // vector in the previous time step we load in Lanczos routine.  In other
-    // words our initial condition is what we has in previous time step.
+    // Solve exactly the equation in Lanczos vector space. The
+    // transformation between the original space and the Lanczos one is
+    // given by the Lanczos vectors organize in columns. When we apply such
+    // a matrix to 'Clanczos' we need to get just the first Lanczos vector,
+    // that is, the coefficient vector in the previous time step we load in
+    // Lanczos routine.  In other words our initial condition is what we has
+    // in previous time step.
     carrFill(lm, 0, Clanczos);
     Clanczos[0] = 1.0;
 
@@ -139,6 +152,6 @@ iterative_lanczos_integrator(MCTDHBDataStruct mctdhb, Carray C)
         C[i] = 0;
         for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
     }
-
-    free(Clanczos);
+    carrCopy(nc, C, mctdhb->state->coef);
+    update_matrices(mctdhb);
 }

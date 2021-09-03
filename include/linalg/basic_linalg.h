@@ -77,8 +77,29 @@ dcomplex carrReduction(uint32_t n, Carray v);
 
 double rarrReduction(uint32_t n, Rarray v);
 
-void carrExp(uint32_t n, dcomplex z, Carray v, Carray ans);
+void
+cplx_matrix_set_from_rowmajor(
+    uint32_t nrows, uint32_t ncols, Carray vec, Cmatrix mat);
 
-void rcarrExp(uint32_t n, dcomplex z, Rarray v, Carray ans);
+void
+cplx_rowmajor_set_from_matrix(
+    uint32_t nrows, uint32_t ncols, Cmatrix mat, Carray vec);
+
+void
+cmat_times_vec(
+    uint32_t rows, uint32_t cols, Cmatrix mat, Carray vec, Carray res);
+
+void
+carr_rowmajor_times_vec(
+    uint32_t rows, uint32_t cols, Carray mat, Carray vec, Carray res);
+
+void
+cmat_times_mat(
+    uint32_t rows_left,
+    uint32_t rows_right,
+    uint32_t cols_right,
+    Cmatrix  mleft,
+    Cmatrix  mright,
+    Cmatrix  res);
 
 #endif

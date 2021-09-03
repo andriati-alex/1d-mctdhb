@@ -1,8 +1,11 @@
 #include "assistant/types_definition.h"
 #include "assistant/arrays_definition.h"
 #include "configurational/space.h"
+#include "odesys.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void
 set_grid_points(uint16_t grid_size, double x0, double dx, Rarray pts)
@@ -10,8 +13,23 @@ set_grid_points(uint16_t grid_size, double x0, double dx, Rarray pts)
     for (uint16_t i = 0; i < grid_size; i++) pts[i] = x0 + i * dx;
 }
 
+static void
+assert_mkl_descriptor(MKL_LONG status)
+{
+    if (status != 0)
+    {
+        printf(
+            "\n\nMKL_DFTI DESCRIPTOR ERROR: Reported message:\n%s\n\n",
+            DftiErrorMessage(status));
+        exit(EXIT_FAILURE);
+    }
+}
+
 OrbitalEquation
 get_orbital_equation(
+    char                     eq_name[],
+    Bool                     trapped,
+    IntegratorType           integ_type,
     double                   xi,
     double                   xf,
     uint16_t                 grid_size,
@@ -30,12 +48,22 @@ get_orbital_equation(
         exit(EXIT_FAILURE);
     }
     OrbitalEquation orbeq = malloc(sizeof(_OrbitalEquation));
+    strcpy(orbeq->eq_name, eq_name);
+    orbeq->t = 0;
+    orbeq->trapped = trapped;
     orbeq->xi = xi;
     orbeq->xf = xf;
     orbeq->grid_size = grid_size;
     orbeq->dx = (xf - xi) / (grid_size - 1);
     orbeq->tstep = tstep;
     orbeq->tend = tend;
+    if (integ_type == IMAGTIME)
+    {
+        orbeq->prop_dt = -I * tstep;
+    } else
+    {
+        orbeq->prop_dt = tstep;
+    }
     orbeq->grid_pts = get_double_array(grid_size);
     set_grid_points(grid_size, xi, orbeq->dx, orbeq->grid_pts);
     orbeq->pot_grid = get_double_array(grid_size);
@@ -120,11 +148,55 @@ get_lanczos_workspace(uint16_t iter, uint32_t space_dim)
     return lan_work;
 }
 
+void
+set_coef_workspace(
+    WorkspaceLanczos lan_work, void* extern_work, CoefWorkspace coef_work)
+{
+    coef_work->extern_work = extern_work;
+    coef_work->lan_work = lan_work;
+}
+
+OrbitalWorkspace
+get_orbital_workspace(uint16_t norb, uint16_t grid_size, OrbDerivative subtype)
+{
+    double   fft_scaling;
+    MKL_LONG desc_status;
+    fft_scaling = 1.0 / sqrt((double) grid_size - 1);
+    OrbitalWorkspace orb_work =
+        (OrbitalWorkspace) malloc(sizeof(_OrbitalWorkspace));
+    orb_work->norb = norb;
+    orb_work->impr_ortho = FALSE;
+    orb_work->orb_subinteg_type = subtype;
+    orb_work->dvr_mat = get_dcomplex_array(grid_size * grid_size);
+    orb_work->cn_upper = get_dcomplex_array(grid_size);
+    orb_work->cn_lower = get_dcomplex_array(grid_size);
+    orb_work->cn_mid = get_dcomplex_array(grid_size);
+    orb_work->orb_work1 = get_dcomplex_matrix(norb, grid_size);
+    orb_work->orb_work2 = get_dcomplex_matrix(norb, grid_size);
+    desc_status = DftiCreateDescriptor(
+        &orb_work->fft_desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, grid_size - 1);
+    assert_mkl_descriptor(desc_status);
+    desc_status =
+        DftiSetValue(orb_work->fft_desc, DFTI_FORWARD_SCALE, fft_scaling);
+    desc_status =
+        DftiSetValue(orb_work->fft_desc, DFTI_BACKWARD_SCALE, fft_scaling);
+    desc_status = DftiCommitDescriptor(orb_work->fft_desc);
+    orb_work->extern_work = get_cplx_rungekutta_ws(grid_size * norb);
+    return orb_work;
+}
+
 MCTDHBDataStruct
 get_mctdhb_struct(
     IntegratorType           integ_type,
+    BoundaryCondition        bounds_type,
+    CoefIntegrator           coef_integ_type,
+    OrbIntegrator            orb_integ_type,
+    OrbDerivative            orb_der_type,
+    RungeKuttaOrder          rk_order,
     uint16_t                 npar,
     uint16_t                 norb,
+    char                     eq_name[],
+    Bool                     trapped,
     double                   xi,
     double                   xf,
     uint16_t                 grid_size,
@@ -138,17 +210,28 @@ get_mctdhb_struct(
     time_dependent_parameter inter_param,
     uint16_t                 lanczos_iter)
 {
+    uint32_t         dim = space_dimension(npar, norb);
     MCTDHBDataStruct mctdhb =
         (MCTDHBDataStruct) malloc(sizeof(_MCTDHBDataStruct));
     mctdhb->integ_type = integ_type;
+    mctdhb->bounds_type = bounds_type;
+    mctdhb->coef_integ_type = coef_integ_type;
+    mctdhb->orb_integ_type = orb_integ_type;
+    mctdhb->orb_der_type = orb_der_type;
+    mctdhb->rk_order = rk_order;
     if (integ_type == IMAGTIME)
     {
-        mctdhb->integ_type_num = 1.0;
+        mctdhb->integ_type_num = -1.0 * I;
+        mctdhb->prop_dt = -I * tstep;
     } else
     {
-        mctdhb->integ_type_num = 1.0 * I;
+        mctdhb->integ_type_num = 1.0;
+        mctdhb->prop_dt = tstep;
     }
     mctdhb->orb_eq = get_orbital_equation(
+        eq_name,
+        trapped,
+        integ_type,
         xi,
         xf,
         grid_size,
@@ -162,14 +245,26 @@ get_mctdhb_struct(
         inter_param);
     mctdhb->multiconfig_space = get_multiconf_struct(npar, norb);
     mctdhb->state = get_manybody_state(npar, norb, grid_size);
-    if (lanczos_iter > 1)
+    if (coef_integ_type == LANCZOS)
     {
-        uint32_t dim = space_dimension(npar, norb);
-        mctdhb->lanczos_work = get_lanczos_workspace(lanczos_iter, dim);
+        if (lanczos_iter > MAX_LANCZOS_ITER)
+        {
+            printf(
+                "\n\nERROR: Maximum Lanczos iterations are %d "
+                "but %u was requested\n\n",
+                MAX_LANCZOS_ITER,
+                lanczos_iter);
+            exit(EXIT_FAILURE);
+        }
+        WorkspaceLanczos lan_work = get_lanczos_workspace(lanczos_iter, dim);
+        set_coef_workspace(lan_work, NULL, mctdhb->coef_workspace);
     } else
     {
-        mctdhb->lanczos_work = NULL;
+        ComplexWorkspaceRK rk_work = get_cplx_rungekutta_ws(dim);
+        set_coef_workspace(NULL, rk_work, mctdhb->coef_workspace);
     }
+    mctdhb->orb_workspace =
+        get_orbital_workspace(norb, grid_size, orb_der_type);
     return mctdhb;
 }
 
@@ -225,11 +320,34 @@ destroy_lanczos_workspace(WorkspaceLanczos lan_work)
 }
 
 void
+destroy_orbital_workspace(OrbitalWorkspace orb_work)
+{
+    free(orb_work->dvr_mat);
+    free(orb_work->cn_upper);
+    free(orb_work->cn_lower);
+    free(orb_work->cn_mid);
+    destroy_dcomplex_matrix(orb_work->norb, orb_work->orb_work1);
+    destroy_dcomplex_matrix(orb_work->norb, orb_work->orb_work2);
+    MKL_LONG free_status = DftiFreeDescriptor(&orb_work->fft_desc);
+    assert_mkl_descriptor(free_status);
+    destroy_cplx_rungekutta_ws((ComplexWorkspaceRK) orb_work->extern_work);
+    free(orb_work);
+}
+
+void
 destroy_mctdhb_struct(MCTDHBDataStruct mctdhb)
 {
     destroy_orbital_equation(mctdhb->orb_eq);
-    destroy_lanczos_workspace(mctdhb->lanczos_work);
     destroy_manybody_sate(mctdhb->state);
+    destroy_orbital_workspace(mctdhb->orb_workspace);
     destroy_multiconf_struct(mctdhb->multiconfig_space);
+    if (mctdhb->coef_integ_type == LANCZOS)
+    {
+        destroy_lanczos_workspace(mctdhb->coef_workspace->lan_work);
+    } else
+    {
+        destroy_cplx_rungekutta_ws(
+            (ComplexWorkspaceRK) mctdhb->coef_workspace->extern_work);
+    }
     free(mctdhb);
 }

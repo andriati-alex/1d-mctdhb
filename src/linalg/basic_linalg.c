@@ -1,6 +1,5 @@
 #include "linalg/basic_linalg.h"
 #include <math.h>
-#include <omp.h>
 
 void
 carrFill(uint32_t n, dcomplex z, Carray v)
@@ -17,7 +16,7 @@ rarrFill(uint32_t n, double x, Rarray v)
 void
 rarrFillInc(uint32_t n, double x0, double dx, Rarray v)
 {
-    for (uint32_t i = 1; i < n; i++) v[i] = x0 + i * dx;
+    for (uint32_t i = 0; i < n; i++) v[i] = x0 + i * dx;
 }
 
 void
@@ -253,17 +252,74 @@ rarrReduction(uint32_t n, Rarray v)
 }
 
 void
-carrExp(uint32_t n, dcomplex z, Carray v, Carray ans)
+cplx_matrix_set_from_rowmajor(
+    uint32_t nrows, uint32_t ncols, Carray vec, Cmatrix mat)
 {
-    uint32_t i;
-#pragma omp parallel for private(i)
-    for (i = 0; i < n; i++) ans[i] = cexp(z * v[i]);
+    for (uint32_t i = 0; i < nrows; i++)
+    {
+        for (uint32_t j = 0; j < ncols; j++) mat[i][j] = vec[i * ncols + j];
+    }
 }
 
 void
-rcarrExp(uint32_t n, dcomplex z, Rarray v, Carray ans)
+cplx_rowmajor_set_from_matrix(
+    uint32_t nrows, uint32_t ncols, Cmatrix mat, Carray vec)
 {
-    uint32_t i;
-#pragma omp parallel for private(i)
-    for (i = 0; i < n; i++) ans[i] = cexp(z * v[i]);
+    for (uint32_t i = 0; i < nrows; i++)
+    {
+        for (uint32_t j = 0; j < ncols; j++) vec[i * ncols + j] = mat[i][j];
+    }
+}
+
+void
+cmat_times_vec(
+    uint32_t rows, uint32_t cols, Cmatrix mat, Carray vec, Carray res)
+{
+
+    uint32_t i, j;
+    dcomplex summ;
+    for (i = 0; i < rows; i++)
+    {
+        summ = 0;
+        for (j = 0; j < cols; j++) summ = summ + mat[i][j] * vec[j];
+        res[i] = summ;
+    }
+}
+
+void
+carr_rowmajor_times_vec(
+    uint32_t rows, uint32_t cols, Carray mat, Carray vec, Carray res)
+{
+    uint32_t i, j, stride;
+    dcomplex summ;
+    for (i = 0; i < rows; i++)
+    {
+        stride = i * cols;
+        summ = 0;
+        for (j = 0; j < cols; j++) summ = summ + mat[stride + j] * vec[j];
+        res[i] = summ;
+    }
+}
+
+void
+cmat_times_mat(
+    uint32_t rows_left,
+    uint32_t rows_right,
+    uint32_t cols_right,
+    Cmatrix  mleft,
+    Cmatrix  mright,
+    Cmatrix  res)
+{
+    uint32_t i, j, k;
+    dcomplex summ;
+    for (i = 0; i < rows_left; i++)
+    {
+        for (j = 0; j < cols_right; j++)
+        {
+            summ = 0;
+            for (k = 0; k < rows_right; k++)
+                summ = summ + mleft[i][k] * mright[k][j];
+            res[i][j] = summ;
+        }
+    }
 }
