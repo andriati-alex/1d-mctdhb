@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** \brief Compute value of linear time dependent paramter */
 static double
 linear_sweep_param(double t, double init, double final, double period)
 {
@@ -13,13 +14,13 @@ linear_sweep_param(double t, double init, double final, double period)
 }
 
 static void
-harmonic(double t, uint16_t M, Rarray x, void* params, Rarray V)
+harmonic(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double omega, omega0, omegaf, sweep_period;
     omega0 = ((double*) params)[0];
     omegaf = ((double*) params)[1];
     sweep_period = ((double*) params)[2];
-    if (omega0 < 0 || omegaf < 0)
+    if (omega0 <= 0 || omegaf <= 0)
     {
         printf(
             "\n\nBUILTIN POTENTIAL ERROR: Invalid initial and final "
@@ -29,11 +30,14 @@ harmonic(double t, uint16_t M, Rarray x, void* params, Rarray V)
         exit(EXIT_FAILURE);
     }
     omega = linear_sweep_param(t, omega0, omegaf, sweep_period);
-    for (uint16_t i = 0; i < M; i++) V[i] = 0.5 * omega * omega * x[i] * x[i];
+    for (uint16_t i = 0; i < npts; i++)
+    {
+        V[i] = 0.5 * omega * omega * x[i] * x[i];
+    }
 }
 
 static void
-doublewell(double t, uint16_t M, Rarray x, void* params, Rarray V)
+doublewell(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double at, a0, af, b, sweep_period, a2, b2, x2;
     b = ((double*) params)[0];
@@ -44,7 +48,7 @@ doublewell(double t, uint16_t M, Rarray x, void* params, Rarray V)
     b2 = b * b;
     a2 = at * at;
 
-    for (uint16_t i = 0; i < M; i++)
+    for (uint16_t i = 0; i < npts; i++)
     {
         x2 = x[i] * x[i];
         V[i] = b2 * (x2 - a2 / b2) * (x2 - a2 / b2);
@@ -52,7 +56,7 @@ doublewell(double t, uint16_t M, Rarray x, void* params, Rarray V)
 }
 
 static void
-harmonicgauss(double t, uint16_t M, Rarray x, void* params, Rarray V)
+harmonicgauss(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double height, x2, omega, h0, hf, w, sweep_period;
     omega = ((double*) params)[0]; // harmonic oscillator frequency
@@ -62,7 +66,14 @@ harmonicgauss(double t, uint16_t M, Rarray x, void* params, Rarray V)
     sweep_period = ((double*) params)[4];
     height = linear_sweep_param(t, h0, hf, sweep_period);
 
-    for (uint16_t i = 0; i < M; i++)
+    if (w < x[1] - x[0])
+    {
+        printf("\n\nERROR: linear potential barrier requires "
+               "a width greater than spatial grid step size\n\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (uint16_t i = 0; i < npts; i++)
     {
         x2 = x[i] * x[i];
         V[i] = omega * omega * x2 / 2 + height * exp(-x2 / (w * w));
@@ -135,6 +146,10 @@ get_builtin_pot(char pot_name[])
     if (strcmp(pot_name, "opticallattice") == 0)
     {
         return &opticallattice;
+    }
+    if (strcmp(pot_name, "custom") == 0)
+    {
+        return NULL;
     }
     printf("\n\nERROR: Potential '%s' not implemented\n\n", pot_name);
     exit(EXIT_FAILURE);

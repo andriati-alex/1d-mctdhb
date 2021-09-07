@@ -122,7 +122,6 @@ cmat_hermitian_eigenvalues(int rows, Cmatrix A, Rarray eigvals)
             Arow[i * rows + j].imag = cimag(A[i][j]);
         }
     }
-
     check = LAPACKE_zheev(LAPACK_ROW_MAJOR, 'N', 'U', rows, Arow, ldz, eigvals);
     free(Arow);
 }

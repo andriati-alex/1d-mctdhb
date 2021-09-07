@@ -13,7 +13,7 @@ dcdt_interface(ComplexODEInputParameters inp_params, Carray dcdt)
 {
     MCTDHBDataStruct mctdhb = (MCTDHBDataStruct) inp_params->extra_args;
     uint32_t         dim = mctdhb->multiconfig_space->dim;
-    dcomplex         type_fac = mctdhb->integ_type_num;
+    dcomplex         type_fac = mctdhb->orb_eq->time_fac;
     apply_hamiltonian(
         mctdhb->multiconfig_space,
         inp_params->y,
@@ -69,16 +69,16 @@ propagate_coef_rk(MCTDHBDataStruct mctdhb, Carray cnext)
 void
 propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
 {
-    int     i, k, j, nc, lm, Liter;
-    double  dt;
-    Rarray  d, e, eigvec;
-    Carray  aux, diag, offdiag, Clanczos;
-    Cmatrix lvec;
+    int      i, k, j, nc, lm, Liter;
+    dcomplex prop_dt;
+    Rarray   d, e, eigvec;
+    Carray   aux, diag, offdiag, Clanczos;
+    Cmatrix  lvec;
 
-    WorkspaceLanczos lanczos_work = (WorkspaceLanczos) mctdhb->coef_workspace;
+    WorkspaceLanczos lanczos_work = mctdhb->coef_workspace->lan_work;
 
     Liter = lanczos_work->iter;
-    dt = mctdhb->orb_eq->tstep;
+    prop_dt = mctdhb->orb_eq->prop_dt;
     nc = mctdhb->multiconfig_space->dim;
     lvec = lanczos_work->lanczos_vectors;
     e = lanczos_work->lapack_offd;
@@ -138,7 +138,7 @@ propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
     { // Solve in diagonal basis and for this apply eigvec trasformation
         aux[k] = 0;
         for (j = 0; j < lm; j++) aux[k] += eigvec[j * lm + k] * Clanczos[j];
-        aux[k] = aux[k] * cexp(-I * d[k] * dt);
+        aux[k] = aux[k] * cexp(-I * d[k] * prop_dt);
     }
 
     for (k = 0; k < lm; k++)

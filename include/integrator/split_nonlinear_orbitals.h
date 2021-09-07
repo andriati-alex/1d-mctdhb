@@ -8,6 +8,9 @@
  * grid point, including or not the nonlinearity coming from projector
  */
 
+#ifndef SPLIT_NONLINEAR_ORBITALS_H
+#define SPLIT_NONLINEAR_ORBITALS_H
+
 #include "mctdhb_types.h"
 
 /** \brief Evaluate nonlinear part strictly from interaction
@@ -43,3 +46,5 @@ orb_interacting_part(int orb_num, int grid_pt, double g, ManyBodyState psi);
  */
 dcomplex
 orb_full_nonlinear(int orb_num, int grid_pt, double g, ManyBodyState psi);
+
+#endif

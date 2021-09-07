@@ -3,16 +3,20 @@
 
 #include "mctdhb_types.h"
 
+/** \brief Numerical integration using Simpson's rule */
 dcomplex
 Csimps(uint32_t grid_size, double dx, Carray f);
 
+/** \brief Numerical integration using Simpson's rule */
 double
 Rsimps(uint32_t grid_size, double dx, Rarray f);
 
+/** \brief Compute integral of initial and final chunk grid points */
 double
 real_border_integral(int grid_size, int chunk, Rarray f, double h);
 
-double
+/** \brief Compute integral of initial and final chunk grid points */
+dcomplex
 cplx_border_integral(int grid_size, int chunk, Carray f, double h);
 
 void
@@ -23,6 +27,9 @@ d2xFFT(uint32_t grid_size, double dx, Carray f, Carray dfdx);
 
 void
 dxFD(uint32_t grid_size, double dx, Carray f, Carray dfdx);
+
+void
+set_fft_freq(int32_t fft_size, double h, Rarray freq);
 
 /** \brief Renormalize a function according to L2 <.,.>
  *
@@ -41,6 +48,10 @@ scalar_product(uint32_t grid_size, double dx, Carray f1, Carray f2);
 /** \brief Return sqrt(<f, f>) with default L2 <.,.> for complex functions */
 double
 cplx_function_norm(uint32_t n, double h, Carray f);
+
+/** \brief Return sqrt(<f, f>) with default L2 <.,.> for real functions */
+double
+real_function_norm(uint32_t n, double h, Rarray f);
 
 /** \brief Orthonormalize a set of functions
  * 

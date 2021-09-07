@@ -5,16 +5,14 @@
 
 void
 set_overlap_matrix(
-    OrbitalEquation eq_desc, uint16_t norb, Cmatrix orb, Cmatrix overlap)
+    uint16_t norb, uint16_t grid_size, double dx, Cmatrix orb, Cmatrix overlap)
 {
     for (uint16_t i = 0; i < norb; i++)
     {
-        overlap[i][i] =
-            scalar_product(eq_desc->grid_size, eq_desc->dx, orb[i], orb[i]);
+        overlap[i][i] = scalar_product(grid_size, dx, orb[i], orb[i]);
         for (uint16_t j = 0; j < norb; j++)
         {
-            overlap[i][j] =
-                scalar_product(eq_desc->grid_size, eq_desc->dx, orb[i], orb[j]);
+            overlap[i][j] = scalar_product(grid_size, dx, orb[i], orb[j]);
             overlap[j][i] = conj(overlap[i][j]);
         }
     }

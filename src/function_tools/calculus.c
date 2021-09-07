@@ -2,7 +2,6 @@
 #include "assistant/arrays_definition.h"
 #include "linalg/basic_linalg.h"
 #include <math.h>
-#include <mkl_dfti.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -94,13 +93,13 @@ real_border_integral(int grid_size, int chunk, Rarray f, double h)
     return Rsimps(chunk, h, f) + Rsimps(chunk, h, &f[grid_size - chunk]);
 }
 
-double
+dcomplex
 cplx_border_integral(int grid_size, int chunk, Carray f, double h)
 {
-    if (chunk < 2)
+    if (chunk < 3)
     {
         printf("\n\nERROR : chunk size must be greater "
-               "than 1 to compute border norm!\n\n");
+               "than 2 to compute border norm!\n\n");
         exit(EXIT_FAILURE);
     }
     if (chunk > grid_size / 2)
@@ -262,6 +261,22 @@ d2xFFT(uint32_t Npts, double dx, Carray f, Carray dfdx)
     s = DftiFreeDescriptor(&desc);
 
     dfdx[N] = dfdx[0]; // boundary point
+}
+
+void
+set_fft_freq(int32_t fft_size, double h, Rarray freq)
+{
+    double length = fft_size * h;
+    for (int32_t i = 0; i < fft_size; i++)
+    {
+        if (i <= (fft_size - 1) / 2)
+        {
+            freq[i] = (2 * PI * i) / length;
+        } else
+        {
+            freq[i] = (2 * PI * (i - fft_size)) / length;
+        }
+    }
 }
 
 void

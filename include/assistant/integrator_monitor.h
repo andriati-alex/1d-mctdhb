@@ -56,7 +56,7 @@ dcomplex
 interacting_energy(ManyBodyState psi);
 
 dcomplex
-virial_residue(OrbitalEquation eq_desc, ManyBodyState psi);
+virial_harmonic_residue(OrbitalEquation eq_desc, ManyBodyState psi);
 
 double
 mean_quadratic_pos(OrbitalEquation eq_desc, ManyBodyState psi);

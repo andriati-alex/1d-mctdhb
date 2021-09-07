@@ -18,7 +18,7 @@
 /** \brief Set overlap matrix <Oi, Oj> */
 void
 set_overlap_matrix(
-    OrbitalEquation eq_desc, uint16_t norb, Cmatrix orb, Cmatrix overlap);
+    uint16_t norb, uint16_t grid_size, double dx, Cmatrix orb, Cmatrix overlap);
 
 /** \brief Set one-body orbital hamiltonian matrix */
 void

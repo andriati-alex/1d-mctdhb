@@ -15,11 +15,12 @@
 OrbitalEquation
 get_orbital_equation(
     char                     eq_name[],
-    Bool                     trapped,
+    uint16_t                 norb,
+    uint16_t                 grid_size,
+    BoundaryCondition        bounds,
     IntegratorType           integ_type,
     double                   xi,
     double                   xf,
-    uint16_t                 grid_size,
     double                   tstep,
     double                   tend,
     double                   d2coef,
@@ -41,15 +42,14 @@ get_lanczos_workspace(uint16_t iter, uint32_t space_dim);
 MCTDHBDataStruct
 get_mctdhb_struct(
     IntegratorType           integ_type,
-    BoundaryCondition        bounds_type,
-    CoefIntegrator           coef_integ_type,
-    OrbIntegrator            orb_integ_type,
-    OrbDerivative            orb_der_type,
+    CoefIntegrator           coef_integ_method,
+    OrbIntegrator            orb_integ_method,
+    OrbDerivative            orb_der_method,
     RungeKuttaOrder          rk_order,
     uint16_t                 npar,
     uint16_t                 norb,
     char                     eq_name[],
-    Bool                     trapped,
+    BoundaryCondition        bounds,
     double                   xi,
     double                   xf,
     uint16_t                 grid_size,
@@ -74,6 +74,9 @@ destroy_manybody_sate(ManyBodyState state);
 
 void
 destroy_lanczos_workspace(WorkspaceLanczos lan_work);
+
+void
+destroy_coef_workspace(CoefWorkspace coef_work);
 
 void
 destroy_mctdhb_struct(MCTDHBDataStruct mctdhb);

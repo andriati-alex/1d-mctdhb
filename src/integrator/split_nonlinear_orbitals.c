@@ -1,4 +1,4 @@
-#include "integrator/nonlinear_orbitals.h"
+#include "integrator/split_linear_orbitals.h"
 
 dcomplex
 orb_interacting_part(int k, int n, double g, ManyBodyState psi)

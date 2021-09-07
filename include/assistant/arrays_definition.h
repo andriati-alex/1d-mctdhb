@@ -6,9 +6,6 @@
 Iarray
 get_int_array(uint32_t arr_size);
 
-uint32_t*
-get_uint_array(uint32_t arr_size);
-
 uint16_t*
 get_uint16_array(uint32_t arr_size);
 

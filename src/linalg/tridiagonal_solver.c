@@ -193,13 +193,8 @@ solve_cplx_cyclic_tridiag_sm(
     // Adjust last main diagonal element(required by the algorithm)
     mid[n - 1] = mid[n - 1] - upper[n - 1] * lower[n - 1] / factor;
 
-#pragma omp parallel sections
-    {
-#pragma omp section
-        solve_cplx_tridiag(n, upper, lower, mid, RHS, x);
-#pragma omp section
-        solve_cplx_tridiag(n, upper, lower, mid, U, w);
-    }
+    solve_cplx_tridiag(n, upper, lower, mid, RHS, x);
+    solve_cplx_tridiag(n, upper, lower, mid, U, w);
 
     factor = unconj_carrDot(n, V, x) / (1.0 + unconj_carrDot(n, V, w));
 

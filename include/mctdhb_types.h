@@ -25,6 +25,8 @@
 #define MAX_GRID_SIZE 2048
 /** \brief Maximum number of single particle states(orbitals) supported */
 #define MAX_ORBITALS 30
+/** \brief Maximum number of single particle states(orbitals) supported */
+#define MAX_PARTICLES 10000
 /** \brief Maximum number of iterations for Lanczos integrator **/
 #define MAX_LANCZOS_ITER 10
 
@@ -62,8 +64,7 @@ typedef enum
 typedef enum
 {
     FULLSTEP_RUNGEKUTTA,
-    SPLITSTEP_FFT,
-    SPLITSTEP_FD
+    SPLITSTEP,
 } OrbIntegrator;
 
 /** \brief Complementary information if OrbItegrator = FULLSTEP_RUNGEKUTTA */
@@ -116,10 +117,10 @@ typedef double (*time_dependent_parameter)(double t, void* params);
 typedef struct
 {
     char                     eq_name[STR_BUFF_SIZE];
-    uint16_t                 grid_size;
-    Bool                     trapped;
+    uint16_t                 norb, grid_size;
+    BoundaryCondition        bounds;
     double                   t, xi, xf, dx, tstep, tend, g, d2coef;
-    dcomplex                 d1coef, prop_dt;
+    dcomplex                 d1coef, prop_dt, time_fac;
     Rarray                   grid_pts;
     Rarray                   pot_grid;
     void*                    pot_extra_args;
@@ -174,14 +175,16 @@ typedef _WorkspaceLanczos* WorkspaceLanczos;
 
 typedef struct
 {
-    uint16_t               norb;
-    OrbDerivative          orb_subinteg_type;
+    uint16_t               norb, grid_size;
+    OrbDerivative          orb_der_method;
     Bool                   impr_ortho;
     Carray                 dvr_mat;
-    Carray                 cn_upper, cn_lower, cn_mid;
+    Carray                 cn_upper, cn_lower, cn_mid, cn_rhs;
     Cmatrix                orb_work1, orb_work2;
     void*                  extern_work;
     DFTI_DESCRIPTOR_HANDLE fft_desc;
+    Rarray                 fft_freq;
+    Carray                 fft_hder_exp;
 } _OrbitalWorkspace;
 
 typedef _OrbitalWorkspace* OrbitalWorkspace;
@@ -198,12 +201,10 @@ typedef _CoefWorkspace* CoefWorkspace;
 typedef struct
 {
     IntegratorType     integ_type;
-    BoundaryCondition  bounds_type;
-    CoefIntegrator     coef_integ_type;
-    OrbIntegrator      orb_integ_type;
-    OrbDerivative      orb_der_type;
+    CoefIntegrator     coef_integ_method;
+    OrbIntegrator      orb_integ_method;
+    OrbDerivative      orb_der_method;
     RungeKuttaOrder    rk_order;
-    dcomplex           integ_type_num, prop_dt;
     MultiConfiguration multiconfig_space;
     OrbitalEquation    orb_eq;
     CoefWorkspace      coef_workspace;

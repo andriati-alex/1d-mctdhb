@@ -75,6 +75,12 @@ assert_space_parameters(uint16_t npar, uint16_t norb)
             "\n\nERROR: Exceeded max number of orbitals %d\n\n", MAX_ORBITALS);
         exit(EXIT_FAILURE);
     }
+    if (npar > MAX_PARTICLES)
+    {
+        printf(
+            "\n\nERROR: Exceeded max number of particles %d\n\n", MAX_PARTICLES);
+        exit(EXIT_FAILURE);
+    }
 }
 
 uint32_t
