@@ -4,7 +4,9 @@
 #include "linalg/basic_linalg.h"
 #include "linalg/lapack_interface.h"
 #include "linalg/multiconfig_lanczos.h"
+#include "odesys.h"
 #include <mkl_lapacke.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -67,19 +69,19 @@ propagate_coef_rk(MCTDHBDataStruct mctdhb, Carray cnext)
 }
 
 void
-propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
+propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray cnext)
 {
-    int      i, k, j, nc, lm, Liter;
-    dcomplex prop_dt;
+    int      i, k, j, dim, iter_done, sugg_iter;
+    dcomplex prop_dt, mat_mul_sum;
     Rarray   d, e, eigvec;
     Carray   aux, diag, offdiag, Clanczos;
     Cmatrix  lvec;
 
     WorkspaceLanczos lanczos_work = mctdhb->coef_workspace->lan_work;
 
-    Liter = lanczos_work->iter;
+    sugg_iter = lanczos_work->iter;
     prop_dt = mctdhb->orb_eq->prop_dt;
-    nc = mctdhb->multiconfig_space->dim;
+    dim = mctdhb->multiconfig_space->dim;
     lvec = lanczos_work->lanczos_vectors;
     e = lanczos_work->lapack_offd;
     d = lanczos_work->lapack_diag;
@@ -89,34 +91,37 @@ propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
     aux = lanczos_work->transform;
     Clanczos = lanczos_work->coef_lspace;
 
-    offdiag[Liter - 1] = 0;   // Useless
-    carrCopy(nc, C, lvec[0]); // Setup initial lanczos vector
+    offdiag[sugg_iter - 1] = 0;                  // Useless
+    carrCopy(dim, mctdhb->state->coef, lvec[0]); // Initial lanczos vector
 
     // Call Lanczos to perform tridiagonal symmetric reduction
-    lm = lanczos(
+    iter_done = lanczos(
         mctdhb->multiconfig_space,
         mctdhb->state->hob,
         mctdhb->state->hint,
-        Liter,
+        sugg_iter,
         diag,
         offdiag,
         lvec);
-    if (lm < Liter)
+    if (iter_done < sugg_iter)
     {
-        printf("\n\nWARNING : ");
-        printf("lanczos iterations exit before expected - %d", lm);
-        printf("\n\n");
+        printf(
+            "\n\nWARNING : lanczos iterations exit before "
+            "expected - %d of %d iterations\n\n",
+            iter_done,
+            sugg_iter);
     }
 
     // Transfer data to use lapack routine
-    for (k = 0; k < lm; k++)
+    for (k = 0; k < iter_done; k++)
     {
         d[k] = creal(diag[k]);    // Supposed to be real
         e[k] = creal(offdiag[k]); // Supposed to be real
-        for (j = 0; j < lm; j++) eigvec[k * lm + j] = 0;
+        for (j = 0; j < iter_done; j++) eigvec[k * iter_done + j] = 0;
     }
 
-    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', lm, d, e, eigvec, lm);
+    k = LAPACKE_dstev(
+        LAPACK_ROW_MAJOR, 'V', iter_done, d, e, eigvec, iter_done);
     if (k != 0)
     {
         printf("\n\nERROR IN DIAGONALIZATION\n\n");
@@ -131,27 +136,34 @@ propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray C)
     // that is, the coefficient vector in the previous time step we load in
     // Lanczos routine.  In other words our initial condition is what we has
     // in previous time step.
-    carrFill(lm, 0, Clanczos);
+    carrFill(iter_done, 0, Clanczos);
     Clanczos[0] = 1.0;
 
-    for (k = 0; k < lm; k++)
-    { // Solve in diagonal basis and for this apply eigvec trasformation
+    // Solve in diagonal basis and for this apply eigvec trasformation
+    for (k = 0; k < iter_done; k++)
+    {
         aux[k] = 0;
-        for (j = 0; j < lm; j++) aux[k] += eigvec[j * lm + k] * Clanczos[j];
+        for (j = 0; j < iter_done; j++)
+            aux[k] += eigvec[j * iter_done + k] * Clanczos[j];
         aux[k] = aux[k] * cexp(-I * d[k] * prop_dt);
     }
 
-    for (k = 0; k < lm; k++)
-    { // Backward transformation from diagonal representation
+    // Backward transformation from diagonal representation
+    for (k = 0; k < iter_done; k++)
+    {
         Clanczos[k] = 0;
-        for (j = 0; j < lm; j++) Clanczos[k] += eigvec[k * lm + j] * aux[j];
+        for (j = 0; j < iter_done; j++)
+            Clanczos[k] += eigvec[k * iter_done + j] * aux[j];
     }
 
-    for (i = 0; i < nc; i++)
-    { // Return from Lanczos vector space to configurational
-        C[i] = 0;
-        for (j = 0; j < lm; j++) C[i] += lvec[j][i] * Clanczos[j];
+    // Return from Lanczos vector space to configurational
+#pragma omp parallel for private(i, mat_mul_sum) schedule(static)
+    for (i = 0; i < dim; i++)
+    {
+        mat_mul_sum = 0;
+        for (j = 0; j < iter_done; j++) mat_mul_sum += lvec[j][i] * Clanczos[j];
+        cnext[i] = mat_mul_sum;
     }
-    carrCopy(nc, C, mctdhb->state->coef);
+    carrCopy(dim, cnext, mctdhb->state->coef);
     update_matrices(mctdhb);
 }

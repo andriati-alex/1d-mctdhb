@@ -56,6 +56,18 @@ get_orbital_equation(
             "\n\nERROR: Exceeded max number of orbitals %d\n\n", MAX_ORBITALS);
         exit(EXIT_FAILURE);
     }
+    if (pot_func == NULL)
+    {
+        printf("\n\nTYPEERROR: Null pointer given for single particle "
+               "(trap)potential. Require single_particle_pot type\n\n");
+        exit(EXIT_FAILURE);
+    }
+    if (inter_param == NULL)
+    {
+        printf("\n\nTYPEERROR: Null pointer given for interaction parameter. "
+               "Require time_dependent_parameter type\n\n");
+        exit(EXIT_FAILURE);
+    }
     OrbitalEquation orbeq = malloc(sizeof(_OrbitalEquation));
     strcpy(orbeq->eq_name, eq_name);
     orbeq->t = 0;
@@ -227,6 +239,7 @@ get_mctdhb_struct(
     OrbIntegrator            orb_integ_method,
     OrbDerivative            orb_der_method,
     RungeKuttaOrder          rk_order,
+    uint16_t                 lanczos_iter,
     uint16_t                 npar,
     uint16_t                 norb,
     char                     eq_name[],
@@ -241,8 +254,7 @@ get_mctdhb_struct(
     void*                    pot_extra_args,
     void*                    inter_extra_args,
     single_particle_pot      pot_func,
-    time_dependent_parameter inter_param,
-    uint16_t                 lanczos_iter)
+    time_dependent_parameter inter_param)
 {
     uint32_t         dim = space_dimension(npar, norb);
     MCTDHBDataStruct mctdhb =
@@ -268,8 +280,6 @@ get_mctdhb_struct(
         inter_extra_args,
         pot_func,
         inter_param);
-    mctdhb->multiconfig_space = get_multiconf_struct(npar, norb);
-    mctdhb->state = get_manybody_state(npar, norb, grid_size);
     if (coef_integ_method == LANCZOS)
     {
         if (lanczos_iter > MAX_LANCZOS_ITER || lanczos_iter < 2)
@@ -289,9 +299,34 @@ get_mctdhb_struct(
         ComplexWorkspaceRK rk_work = get_cplx_rungekutta_ws(dim);
         set_coef_workspace(NULL, rk_work, mctdhb->coef_workspace);
     }
+    mctdhb->multiconfig_space = get_multiconf_struct(npar, norb);
+    mctdhb->state = get_manybody_state(npar, norb, grid_size);
     mctdhb->orb_workspace =
         get_orbital_workspace(mctdhb->orb_eq, orb_der_method);
     return mctdhb;
+}
+
+void
+set_mctdhb_integrator(
+    IntegratorType    integ_type,
+    CoefIntegrator    coef_integ_method,
+    OrbIntegrator     orb_integ_method,
+    OrbDerivative     orb_der_method,
+    RungeKuttaOrder   rk_order,
+    BoundaryCondition bounds,
+    uint16_t          lanczos_iter,
+    MCTDHBDataStruct  mctdhb)
+{
+    mctdhb->integ_type = integ_type;
+    mctdhb->coef_integ_method = coef_integ_method;
+    mctdhb->orb_integ_method = orb_integ_method;
+    mctdhb->orb_der_method = orb_der_method;
+    mctdhb->rk_order = rk_order;
+    mctdhb->orb_eq->bounds = bounds;
+    if (mctdhb->coef_integ_method == LANCZOS)
+    {
+        mctdhb->coef_workspace->lan_work->iter = lanczos_iter;
+    }
 }
 
 void

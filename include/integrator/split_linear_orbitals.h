@@ -3,6 +3,9 @@
 
 #include "mctdhb_types.h"
 
+/** \brief Default time step fraction to propagate linear part */
+#define LINEAR_TSTEP_FRAC 0.5
+
 /** \brief Evaluate the action of linear part(one-body) orbital hamiltonian
  *
  * Use second order finite differences for derivatives

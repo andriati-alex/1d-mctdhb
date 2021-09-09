@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static double linear_tstep_frac = 0.5;
-
 static void
 assert_mkl_descriptor(MKL_LONG status)
 {
@@ -30,7 +28,7 @@ set_cn_tridiagonal(
     dcomplex a1, dt;
     Rarray   pot;
 
-    dt = linear_tstep_frac * eq_desc->prop_dt;
+    dt = LINEAR_TSTEP_FRAC * eq_desc->prop_dt;
     npts = eq_desc->grid_size;
     a2 = eq_desc->d2coef;
     a1 = eq_desc->d1coef;
@@ -64,7 +62,7 @@ set_hder_fftexp(OrbitalEquation eq_desc, Carray hder_exp)
     double   freq, dx, d2coef;
     dcomplex dt, d1coef;
 
-    dt = linear_tstep_frac * eq_desc->prop_dt;
+    dt = LINEAR_TSTEP_FRAC * eq_desc->prop_dt;
     dx = eq_desc->dx;
     m = eq_desc->grid_size - 1;
     d1coef = eq_desc->d1coef;
@@ -226,26 +224,26 @@ linear_horb_fd(OrbitalEquation eq_desc, Carray f, Carray out)
     dx = eq_desc->dx;
     pot = eq_desc->pot_grid;
 
-    upper = a2 * dx / dx + a1 * dx / 2;
-    lower = a2 * dx / dx - a1 * dx / 2;
+    upper = a2 / dx / dx + a1 / dx / 2;
+    lower = a2 / dx / dx - a1 / dx / 2;
 
-    if (bounds)
+    if (bounds == ZERO_BOUNDS)
     {
         mid = -2 * a2 / dx / dx + pot[0];
         out[0] = mid * f[0] + upper * f[1];
     } else
     {
-        mid = -2 * a2 * dx / dx + pot[0];
+        mid = -2 * a2 / dx / dx + pot[0];
         out[0] = mid * f[0] + upper * f[1] + lower * f[npts - 2];
     }
 
     for (i = 1; i < npts - 1; i++)
     {
-        mid = -2 * a2 * dx / dx + pot[i];
+        mid = -2 * a2 / dx / dx + pot[i];
         out[i] = mid * f[i] + upper * f[i + 1] + lower * f[i - 1];
     }
 
-    if (bounds)
+    if (bounds == ZERO_BOUNDS)
     {
         mid = -2 * a2 / dx / dx + pot[npts - 1];
         out[npts - 1] = mid * f[npts - 1] + lower * f[npts - 2];
@@ -299,7 +297,7 @@ cn_rhs(OrbitalEquation eq_desc, Carray f, Carray out)
     Rarray            pot;
 
     bounds = eq_desc->bounds;
-    dt = linear_tstep_frac * eq_desc->prop_dt;
+    dt = LINEAR_TSTEP_FRAC * eq_desc->prop_dt;
     npts = eq_desc->grid_size;
     a2 = eq_desc->d2coef;
     a1 = eq_desc->d1coef;
@@ -309,7 +307,7 @@ cn_rhs(OrbitalEquation eq_desc, Carray f, Carray out)
     upper = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4;
     lower = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4;
 
-    if (bounds)
+    if (bounds == ZERO_BOUNDS)
     {
         mid = I - a2 * dt / dx / dx + dt * pot[0] / 2;
         out[0] = mid * f[0] + upper * f[1];
@@ -325,7 +323,7 @@ cn_rhs(OrbitalEquation eq_desc, Carray f, Carray out)
         out[i] = mid * f[i] + upper * f[i + 1] + lower * f[i - 1];
     }
 
-    if (bounds)
+    if (bounds == ZERO_BOUNDS)
     {
         mid = I - a2 * dt / dx / dx + dt * pot[npts - 1] / 2;
         out[npts - 1] = mid * f[npts - 1] + lower * f[npts - 2];

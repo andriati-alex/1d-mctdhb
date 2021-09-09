@@ -39,6 +39,13 @@ get_manybody_state(uint16_t npar, uint16_t norb, uint16_t grid_size);
 WorkspaceLanczos
 get_lanczos_workspace(uint16_t iter, uint32_t space_dim);
 
+void
+set_coef_workspace(
+    WorkspaceLanczos lan_work, void* extern_work, CoefWorkspace coef_work);
+
+OrbitalWorkspace
+get_orbital_workspace(OrbitalEquation eq_desc, OrbDerivative der_method);
+
 MCTDHBDataStruct
 get_mctdhb_struct(
     IntegratorType           integ_type,
@@ -46,6 +53,7 @@ get_mctdhb_struct(
     OrbIntegrator            orb_integ_method,
     OrbDerivative            orb_der_method,
     RungeKuttaOrder          rk_order,
+    uint16_t                 lanczos_iter,
     uint16_t                 npar,
     uint16_t                 norb,
     char                     eq_name[],
@@ -60,8 +68,18 @@ get_mctdhb_struct(
     void*                    pot_extra_args,
     void*                    inter_extra_args,
     single_particle_pot      pot_func,
-    time_dependent_parameter inter_param,
-    uint16_t                 lanczos_iter);
+    time_dependent_parameter inter_param);
+
+void
+set_mctdhb_integrator(
+    IntegratorType    integ_type,
+    CoefIntegrator    coef_integ_method,
+    OrbIntegrator     orb_integ_method,
+    OrbDerivative     orb_der_method,
+    RungeKuttaOrder   rk_order,
+    BoundaryCondition bounds,
+    uint16_t          lanczos_iter,
+    MCTDHBDataStruct  mctdhb);
 
 void
 destroy_orbital_equation(OrbitalEquation orbeq);
@@ -74,6 +92,9 @@ destroy_manybody_sate(ManyBodyState state);
 
 void
 destroy_lanczos_workspace(WorkspaceLanczos lan_work);
+
+void
+destroy_orbital_workspace(OrbitalWorkspace orb_work);
 
 void
 destroy_coef_workspace(CoefWorkspace coef_work);

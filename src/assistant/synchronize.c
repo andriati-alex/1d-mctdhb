@@ -1,3 +1,4 @@
+#include "assistant/synchronize.h"
 #include "assistant/arrays_definition.h"
 #include "configurational/density_matrices.h"
 #include "function_tools/orbital_matrices.h"

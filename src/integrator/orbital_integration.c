@@ -28,7 +28,7 @@ update_orbital_matrices(MCTDHBDataStruct mctdhb)
 void
 robust_multiorb_projector(
     OrbitalEquation eq_desc,
-    uint16_t        M,
+    uint16_t        norb,
     Cmatrix         Orb,
     Cmatrix         Haction,
     Cmatrix         project)
@@ -42,18 +42,18 @@ robust_multiorb_projector(
 
     dx = eq_desc->dx;
     Mpos = eq_desc->grid_size;
-    proj_overlap = get_dcomplex_array(M * M);
-    overlap = get_dcomplex_matrix(M, M);
-    overlap_inv = get_dcomplex_matrix(M, M);
+    proj_overlap = get_dcomplex_array(norb * norb);
+    overlap = get_dcomplex_matrix(norb, norb);
+    overlap_inv = get_dcomplex_matrix(norb, norb);
 
-    set_overlap_matrix(M, Mpos, dx, Orb, overlap);
-    s = cmat_hermitian_inversion(M, overlap, overlap_inv);
+    set_overlap_matrix(norb, Mpos, dx, Orb, overlap);
+    s = cmat_hermitian_inversion(norb, overlap, overlap_inv);
     if (s != 0)
     {
         printf("\n\nFailed on Lapack inversion routine ");
         printf("for overlap matrix !\n\n");
         printf("Matrix given was :\n");
-        cmat_print(M, M, overlap);
+        cmat_print(norb, norb, overlap);
         if (s > 0)
         {
             printf("\nSingular decomposition : %d\n\n", s);
@@ -63,75 +63,77 @@ robust_multiorb_projector(
         }
         exit(EXIT_FAILURE);
     }
-    for (k = 0; k < M; k++)
+    for (k = 0; k < norb; k++)
     {
-        for (l = k + 1; l < M; l++)
+        for (l = k + 1; l < norb; l++)
         {
             proj = scalar_product(Mpos, dx, Orb[l], Haction[k]);
-            proj_overlap[l * M + k] = proj;
-            proj_overlap[k * M + l] = conj(proj);
+            proj_overlap[l * norb + k] = proj;
+            proj_overlap[k * norb + l] = conj(proj);
         }
-        proj_overlap[k * M + k] = scalar_product(Mpos, dx, Orb[k], Haction[k]);
+        proj_overlap[k * norb + k] =
+            scalar_product(Mpos, dx, Orb[k], Haction[k]);
     }
 #pragma omp parallel for private(k, i, s, l, proj) schedule(static)
-    for (k = 0; k < M; k++)
+    for (k = 0; k < norb; k++)
     {
         for (i = 0; i < Mpos; i++)
         {
             proj = 0;
-            for (s = 0; s < M; s++)
+            for (s = 0; s < norb; s++)
             {
-                for (l = 0; l < M; l++)
+                for (l = 0; l < norb; l++)
                 {
-                    proj +=
-                        Orb[s][i] * overlap_inv[s][l] * proj_overlap[l * M + k];
+                    proj += Orb[s][i] * overlap_inv[s][l] *
+                            proj_overlap[l * norb + k];
                 }
             }
             project[k][i] = proj;
         }
     }
     free(proj_overlap);
-    destroy_dcomplex_matrix(M, overlap);
-    destroy_dcomplex_matrix(M, overlap_inv);
+    destroy_dcomplex_matrix(norb, overlap);
+    destroy_dcomplex_matrix(norb, overlap_inv);
 }
 
 void
 simple_multiorb_projector(
     OrbitalEquation eq_desc,
-    uint16_t        M,
-    Cmatrix         Orb,
+    uint16_t        norb,
+    Cmatrix         orb,
     Cmatrix         Haction,
     Cmatrix         project)
 {
     int      s;
-    uint16_t i, k, Mpos;
+    uint16_t i, k, npts;
     double   dx;
     dcomplex proj;
     Carray   proj_overlap;
 
     dx = eq_desc->dx;
-    Mpos = eq_desc->grid_size;
-    proj_overlap = get_dcomplex_array(M * M);
+    npts = eq_desc->grid_size;
+    proj_overlap = get_dcomplex_array(norb * norb);
 
-    for (k = 0; k < M; k++)
+    for (k = 0; k < norb; k++)
     {
-        for (s = k + 1; s < M; s++)
+        for (s = k + 1; s < norb; s++)
         {
-            proj = scalar_product(Mpos, dx, Orb[s], Haction[k]);
-            proj_overlap[s * M + k] = proj;
-            proj_overlap[k * M + s] = conj(proj);
+            proj = scalar_product(npts, dx, orb[s], Haction[k]);
+            proj_overlap[s * norb + k] = proj;
+            proj_overlap[k * norb + s] = conj(proj);
         }
-        proj_overlap[k * M + k] = scalar_product(Mpos, dx, Orb[k], Haction[k]);
+        proj_overlap[k * norb + k] =
+            scalar_product(npts, dx, orb[k], Haction[k]);
     }
-#pragma omp parallel for private(k, i, s, l, j, proj) schedule(static)
-    for (k = 0; k < M; k++)
+#pragma omp parallel for private(k, i, s, proj) schedule(static)
+    for (k = 0; k < norb; k++)
     {
-        for (i = 0; i < Mpos; i++)
+        for (i = 0; i < npts; i++)
         {
             proj = 0;
-            for (s = 0; s < M; s++)
+            for (s = 0; s < norb; s++)
             {
-                proj += Orb[s][i] * proj_overlap[s * M + k];
+                proj += orb[s][i] * proj_overlap[s * norb + k];
             }
             project[k][i] = proj;
         }
@@ -182,9 +184,10 @@ orb_fullstep_linear_part(MCTDHBDataStruct mctdhb, Cmatrix orb, Cmatrix horb)
 void
 dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
 {
-    int              k, j, M, Mpos;
+    int              k, j, norb, npts;
     double           g, dx;
-    dcomplex         interPart, time_fac;
+    dcomplex         time_fac;
+    Cmatrix          Haction, project, linhorb;
     MCTDHBDataStruct mctdhb;
     ManyBodyState    psi;
     OrbitalEquation  eq_desc;
@@ -195,50 +198,49 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
     psi = mctdhb->state;
     eq_desc = mctdhb->orb_eq;
 
-    Cmatrix Haction, project, linhorb;
-
     time_fac = mctdhb->orb_eq->time_fac;
-    M = psi->norb;
-    Mpos = psi->grid_size;
+    norb = psi->norb;
+    npts = psi->grid_size;
     g = eq_desc->g;
     dx = eq_desc->dx;
 
-    cplx_matrix_set_from_rowmajor(M, Mpos, odepar->y, psi->orbitals);
+    cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, psi->orbitals);
     Haction = mctdhb->orb_workspace->orb_work1;
     project = mctdhb->orb_workspace->orb_work2;
-    linhorb = get_dcomplex_matrix(M, Mpos);
+    linhorb = get_dcomplex_matrix(norb, npts);
 
     orb_fullstep_linear_part(mctdhb, psi->orbitals, linhorb);
 
-#pragma omp parallel for private(k, j, i, interPart) schedule(static)
-    for (k = 0; k < M; k++)
+#pragma omp parallel for private(k, j) schedule(static)
+    for (k = 0; k < norb; k++)
     {
-        for (j = 0; j < Mpos; j++)
+        for (j = 0; j < npts; j++)
         {
-            interPart = orb_interacting_part(k, j, g, psi);
-            Haction[k][j] = interPart + linhorb[k][j];
+            Haction[k][j] = orb_interacting_part(k, j, g, psi) + linhorb[k][j];
         }
     }
 
     // apply projector on orbital space
     if (orb_work->impr_ortho)
     {
-        robust_multiorb_projector(eq_desc, M, psi->orbitals, Haction, project);
+        robust_multiorb_projector(
+            eq_desc, norb, psi->orbitals, Haction, project);
     } else
     {
-        simple_multiorb_projector(eq_desc, M, psi->orbitals, Haction, project);
+        simple_multiorb_projector(
+            eq_desc, norb, psi->orbitals, Haction, project);
     }
 
     // subtract projection on orbital space - orthogonal projection
-    for (k = 0; k < M; k++)
+    for (k = 0; k < norb; k++)
     {
-        for (j = 0; j < Mpos; j++)
+        for (j = 0; j < npts; j++)
         {
-            orb_der[k * Mpos + j] =
+            orb_der[k * npts + j] =
                 -I * time_fac * (Haction[k][j] - project[k][j]);
         }
     }
-    destroy_dcomplex_matrix(M, linhorb);
+    destroy_dcomplex_matrix(norb, linhorb);
 }
 
 void
@@ -248,7 +250,7 @@ dodt_splitstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
     double           g;
     dcomplex         time_fac;
     Rarray           pot;
-    Cmatrix          Orb;
+    Cmatrix          orb;
     MCTDHBDataStruct mctdhb;
     ManyBodyState    psi;
     OrbitalEquation  eq_desc;
@@ -274,8 +276,8 @@ dodt_splitstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
         rarrCopy(npts, eq_desc->pot_grid, pot);
     }
 
-    Orb = mctdhb->orb_workspace->orb_work1;
-    cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, Orb);
+    orb = mctdhb->orb_workspace->orb_work1;
+    cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, orb);
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, psi->orbitals);
 
 #pragma omp parallel for private(k, j) schedule(static)
@@ -285,7 +287,7 @@ dodt_splitstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
         {
             orb_der[k * npts + j] =
                 -I * time_fac *
-                (orb_full_nonlinear(k, j, g, psi) + pot[j] * Orb[k][j]);
+                (orb_full_nonlinear(k, j, g, psi) + pot[j] * orb[k][j]);
         }
     }
     free(pot);
