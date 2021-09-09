@@ -29,6 +29,20 @@
 #define MAX_PARTICLES 10000
 /** \brief Maximum number of iterations for Lanczos integrator **/
 #define MAX_LANCZOS_ITER 10
+/** \brief Default time integration as imaginary */
+#define DEFAULT_INTEGRATION_TYPE 0
+/** \brief Default integrator for coefficients as SIL */
+#define DEFAULT_COEF_INTEGRATOR 0
+/** \brief Default integrator for orbitals as full-step Runge-Kutta */
+#define DEFAULT_ORB_INTEGRATOR 0
+/** \brief Default way to handle derivatives is using DVR */
+#define DEFAULT_ORB_DERIVATIVE 0
+/** \brief Default Runge-Kutta methods order */
+#define DEFAULT_RUNGEKUTTA_ORDER 5
+/** \brief Default boundary conditions are periodic */
+#define DEFAULT_BOUNDARY_CONDITION 1
+/** \brief Default number of iterations in SIL integrator */
+#define DEFAULT_LANCZOS_ITER 5
 
 typedef double complex dcomplex;
 typedef int*           Iarray;

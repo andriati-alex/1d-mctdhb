@@ -272,11 +272,12 @@ get_mctdhb_struct(
     mctdhb->state = get_manybody_state(npar, norb, grid_size);
     if (coef_integ_method == LANCZOS)
     {
-        if (lanczos_iter > MAX_LANCZOS_ITER)
+        if (lanczos_iter > MAX_LANCZOS_ITER || lanczos_iter < 2)
         {
             printf(
-                "\n\nERROR: Maximum Lanczos iterations are %d "
+                "\n\nERROR: Lanczos iterations must be between %d and %d "
                 "but %u was requested\n\n",
+                2,
                 MAX_LANCZOS_ITER,
                 lanczos_iter);
             exit(EXIT_FAILURE);

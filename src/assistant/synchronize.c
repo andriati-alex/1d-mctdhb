@@ -1,10 +1,13 @@
+#include "assistant/arrays_definition.h"
 #include "configurational/density_matrices.h"
 #include "function_tools/orbital_matrices.h"
 #include "linalg/lapack_interface.h"
-#include "mctdhb_types.h"
+
+char orb_read_fmt[] = " (%lf,%lf) ";
+char coef_read_fmt[] = " (%lf,%lf)";
 
 void
-update_orbital_matrices(MCTDHBDataStruct mctdhb)
+sync_orbital_matrices(MCTDHBDataStruct mctdhb)
 {
     set_orbital_hob(
         mctdhb->orb_eq,
@@ -19,7 +22,7 @@ update_orbital_matrices(MCTDHBDataStruct mctdhb)
 }
 
 void
-update_conf_matrices(MCTDHBDataStruct mctdhb)
+sync_density_matrices(MCTDHBDataStruct mctdhb)
 {
     set_onebody_dm(
         mctdhb->multiconfig_space,
@@ -33,4 +36,16 @@ update_conf_matrices(MCTDHBDataStruct mctdhb)
         mctdhb->state->norb,
         mctdhb->state->ob_denmat,
         mctdhb->state->inv_ob_denmat);
+}
+
+void
+sync_equation_params(double t, OrbitalEquation eq_desc)
+{
+    eq_desc->g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
+    eq_desc->pot_func(
+        t,
+        eq_desc->grid_size,
+        eq_desc->grid_pts,
+        eq_desc->pot_extra_args,
+        eq_desc->pot_grid);
 }

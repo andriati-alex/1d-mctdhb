@@ -1,5 +1,4 @@
 #include "function_tools/builtin_potential.h"
-#include "linalg/basic_linalg.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,8 +12,8 @@ linear_sweep_param(double t, double init, double final, double period)
     return init + (final - init) * t / period;
 }
 
-static void
-harmonic(double t, uint16_t npts, Rarray x, void* params, Rarray V)
+void
+potfunc_harmonic(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double omega, omega0, omegaf, sweep_period;
     omega0 = ((double*) params)[0];
@@ -36,8 +35,8 @@ harmonic(double t, uint16_t npts, Rarray x, void* params, Rarray V)
     }
 }
 
-static void
-doublewell(double t, uint16_t npts, Rarray x, void* params, Rarray V)
+void
+potfunc_doublewell(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double at, a0, af, b, sweep_period, a2, b2, x2;
     b = ((double*) params)[0];
@@ -55,8 +54,8 @@ doublewell(double t, uint16_t npts, Rarray x, void* params, Rarray V)
     }
 }
 
-static void
-harmonicgauss(double t, uint16_t npts, Rarray x, void* params, Rarray V)
+void
+potfunc_harmonicgauss(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 {
     double height, x2, omega, h0, hf, w, sweep_period;
     omega = ((double*) params)[0]; // harmonic oscillator frequency
@@ -81,7 +80,7 @@ harmonicgauss(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 }
 
 void
-barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
+potfunc_barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
 {
     double h0, hf, height, width, sweep_period;
     width = ((double*) params)[0];
@@ -97,9 +96,9 @@ barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
         exit(EXIT_FAILURE);
     }
 
-    rarrFill(M, 0, V);
     for (uint16_t i = 0; i < M; i++)
     {
+        V[i] = 0;
         if (fabs(x[i]) < width / 2)
         {
             V[i] = height * cos(x[i] * PI / width) * cos(x[i] * PI / width);
@@ -108,7 +107,7 @@ barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
 }
 
 void
-opticallattice(double t, uint16_t M, Rarray x, void* params, Rarray V)
+potfunc_opticallattice(double t, uint16_t M, Rarray x, void* params, Rarray V)
 {
     double L, k, height, h0, hf, sweep_period;
     L = x[M - 1] - x[0];        // get length of domain grid
@@ -124,33 +123,74 @@ opticallattice(double t, uint16_t M, Rarray x, void* params, Rarray V)
     }
 }
 
+void
+potfunc_step(double t, uint16_t M, Rarray x, void* params, Rarray V)
+{
+    double xs, v0, vf, sweep_period, vt;
+    xs = ((double*) params)[0];
+    v0 = ((double*) params)[1];
+    vf = ((double*) params)[2];
+    sweep_period = ((double*) params)[3];
+    vt = linear_sweep_param(t, v0, vf, sweep_period);
+    for (uint16_t i = 0; i < M; i++)
+    {
+        V[i] = 0;
+        if (x[i] >= xs) V[i] = vt;
+    }
+}
+
+void
+potfunc_square_well(double t, uint16_t M, Rarray x, void* params, Rarray V)
+{
+    double xi, xf, v_out0, v_outf, sweep_period, vt;
+    xi = ((double *) params)[0];
+    xf = ((double *) params)[1];
+    v_out0 = ((double *) params)[2];
+    v_outf = ((double *) params)[3];
+    sweep_period = ((double *) params)[4];
+    vt = linear_sweep_param(t, v_out0, v_outf, sweep_period);
+    for (uint16_t i = 0; i < M; i++)
+    {
+        V[i] = vt;
+        if (x[i] > xi || x[i] < xf) V[i] = 0;
+    }
+}
+
 single_particle_pot
 get_builtin_pot(char pot_name[])
 {
     if (strcmp(pot_name, "harmonic") == 0)
     {
-        return &harmonic;
+        return &potfunc_harmonic;
     }
     if (strcmp(pot_name, "doublewell") == 0)
     {
-        return &doublewell;
+        return &potfunc_doublewell;
     }
     if (strcmp(pot_name, "harmonicgauss") == 0)
     {
-        return &harmonicgauss;
+        return &potfunc_harmonicgauss;
     }
     if (strcmp(pot_name, "barrier") == 0)
     {
-        return &barrier;
+        return &potfunc_barrier;
     }
     if (strcmp(pot_name, "opticallattice") == 0)
     {
-        return &opticallattice;
+        return &potfunc_opticallattice;
+    }
+    if (strcmp(pot_name, "potfunc_step") == 0)
+    {
+        return &potfunc_step;
+    }
+    if (strcmp(pot_name, "potfunc_square_well") == 0)
+    {
+        return &potfunc_square_well;
     }
     if (strcmp(pot_name, "custom") == 0)
     {
         return NULL;
     }
-    printf("\n\nERROR: Potential '%s' not implemented\n\n", pot_name);
+    printf("\n\nERROR: Potential '%s' not valid\n\n", pot_name);
     exit(EXIT_FAILURE);
 }
