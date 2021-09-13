@@ -39,10 +39,6 @@ get_manybody_state(uint16_t npar, uint16_t norb, uint16_t grid_size);
 WorkspaceLanczos
 get_lanczos_workspace(uint16_t iter, uint32_t space_dim);
 
-void
-set_coef_workspace(
-    WorkspaceLanczos lan_work, void* extern_work, CoefWorkspace coef_work);
-
 OrbitalWorkspace
 get_orbital_workspace(OrbitalEquation eq_desc, OrbDerivative der_method);
 

@@ -25,23 +25,6 @@ dcdt_interface(ComplexODEInputParameters inp_params, Carray dcdt)
     for (uint32_t i = 0; i < dim; i++) dcdt[i] = -I * type_fac * dcdt[i];
 }
 
-static void
-update_matrices(MCTDHBDataStruct mctdhb)
-{
-    set_onebody_dm(
-        mctdhb->multiconfig_space,
-        mctdhb->state->coef,
-        mctdhb->state->ob_denmat);
-    set_twobody_dm(
-        mctdhb->multiconfig_space,
-        mctdhb->state->coef,
-        mctdhb->state->tb_denmat);
-    cmat_hermitian_inversion(
-        mctdhb->state->norb,
-        mctdhb->state->ob_denmat,
-        mctdhb->state->inv_ob_denmat);
-}
-
 void
 propagate_coef_rk(MCTDHBDataStruct mctdhb, Carray cnext)
 {
@@ -65,13 +48,18 @@ propagate_coef_rk(MCTDHBDataStruct mctdhb, Carray cnext)
             break;
     }
     carrCopy(mctdhb->multiconfig_space->dim, cnext, mctdhb->state->coef);
-    update_matrices(mctdhb);
+    if (mctdhb->integ_type == IMAGTIME)
+    {
+        renormalizeVector(
+            mctdhb->multiconfig_space->dim, mctdhb->state->coef, 1.0);
+    }
 }
 
 void
 propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray cnext)
 {
-    int      i, k, j, dim, iter_done, sugg_iter;
+    int      k, j, iter_done, sugg_iter;
+    uint32_t i, dim;
     dcomplex prop_dt, mat_mul_sum;
     Rarray   d, e, eigvec;
     Carray   aux, diag, offdiag, Clanczos;
@@ -165,5 +153,8 @@ propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray cnext)
         cnext[i] = mat_mul_sum;
     }
     carrCopy(dim, cnext, mctdhb->state->coef);
-    update_matrices(mctdhb);
+    if (mctdhb->integ_type == IMAGTIME)
+    {
+        renormalizeVector(dim, mctdhb->state->coef, 1.0);
+    }
 }

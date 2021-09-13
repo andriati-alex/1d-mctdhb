@@ -169,10 +169,11 @@ get_lanczos_workspace(uint16_t iter, uint32_t space_dim)
     lan_work->lapack_eigvec = get_double_array(iter * iter);
     lan_work->transform = get_dcomplex_array(iter);
     lan_work->hc = get_dcomplex_array(space_dim);
+    lan_work->reortho = get_dcomplex_array(iter);
     return lan_work;
 }
 
-void
+static void
 set_coef_workspace(
     WorkspaceLanczos lan_work, void* extern_work, CoefWorkspace coef_work)
 {
@@ -184,16 +185,12 @@ OrbitalWorkspace
 get_orbital_workspace(OrbitalEquation eq_desc, OrbDerivative der_method)
 {
     uint16_t         grid_size, norb;
-    double           fft_scaling, d2coef;
-    dcomplex         d1coef, prop_dt;
-    MKL_LONG         desc_status;
+    double           fft_scaling;
+    MKL_LONG         desc_s;
     OrbitalWorkspace orb_work;
 
     grid_size = eq_desc->grid_size;
     norb = eq_desc->norb;
-    d1coef = eq_desc->d1coef;
-    d2coef = eq_desc->d2coef;
-    prop_dt = eq_desc->prop_dt;
     fft_scaling = 1.0 / sqrt((double) grid_size - 1);
 
     orb_work = (OrbitalWorkspace) malloc(sizeof(_OrbitalWorkspace));
@@ -209,14 +206,12 @@ get_orbital_workspace(OrbitalEquation eq_desc, OrbDerivative der_method)
     orb_work->orb_work2 = get_dcomplex_matrix(norb, grid_size);
 
     // MKL descriptor
-    desc_status = DftiCreateDescriptor(
+    desc_s = DftiCreateDescriptor(
         &orb_work->fft_desc, DFTI_DOUBLE, DFTI_COMPLEX, 1, grid_size - 1);
-    assert_mkl_descriptor(desc_status);
-    desc_status =
-        DftiSetValue(orb_work->fft_desc, DFTI_FORWARD_SCALE, fft_scaling);
-    desc_status =
-        DftiSetValue(orb_work->fft_desc, DFTI_BACKWARD_SCALE, fft_scaling);
-    desc_status = DftiCommitDescriptor(orb_work->fft_desc);
+    assert_mkl_descriptor(desc_s);
+    desc_s = DftiSetValue(orb_work->fft_desc, DFTI_FORWARD_SCALE, fft_scaling);
+    desc_s = DftiSetValue(orb_work->fft_desc, DFTI_BACKWARD_SCALE, fft_scaling);
+    desc_s = DftiCommitDescriptor(orb_work->fft_desc);
 
     // space required to use external odelib
     orb_work->extern_work = get_cplx_rungekutta_ws(grid_size * norb);

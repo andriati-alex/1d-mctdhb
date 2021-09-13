@@ -1,3 +1,4 @@
+#include "integrator/orbital_integration.h"
 #include "assistant/arrays_definition.h"
 #include "cpydataio.h"
 #include "function_tools/calculus.h"
@@ -6,31 +7,14 @@
 #include "integrator/split_nonlinear_orbitals.h"
 #include "linalg/basic_linalg.h"
 #include "linalg/lapack_interface.h"
-#include "mctdhb_types.h"
-#include "odesys.h"
 #include <stdlib.h>
-
-static void
-update_orbital_matrices(MCTDHBDataStruct mctdhb)
-{
-    set_orbital_hob(
-        mctdhb->orb_eq,
-        mctdhb->state->norb,
-        mctdhb->state->orbitals,
-        mctdhb->state->hob);
-    set_orbital_hint(
-        mctdhb->orb_eq,
-        mctdhb->state->norb,
-        mctdhb->state->orbitals,
-        mctdhb->state->hint);
-}
 
 void
 robust_multiorb_projector(
     OrbitalEquation eq_desc,
     uint16_t        norb,
-    Cmatrix         Orb,
-    Cmatrix         Haction,
+    Cmatrix         orb,
+    Cmatrix         hact_orb,
     Cmatrix         project)
 {
     int      s;
@@ -46,7 +30,7 @@ robust_multiorb_projector(
     overlap = get_dcomplex_matrix(norb, norb);
     overlap_inv = get_dcomplex_matrix(norb, norb);
 
-    set_overlap_matrix(norb, Mpos, dx, Orb, overlap);
+    set_overlap_matrix(norb, Mpos, dx, orb, overlap);
     s = cmat_hermitian_inversion(norb, overlap, overlap_inv);
     if (s != 0)
     {
@@ -67,12 +51,12 @@ robust_multiorb_projector(
     {
         for (l = k + 1; l < norb; l++)
         {
-            proj = scalar_product(Mpos, dx, Orb[l], Haction[k]);
+            proj = scalar_product(Mpos, dx, orb[l], hact_orb[k]);
             proj_overlap[l * norb + k] = proj;
             proj_overlap[k * norb + l] = conj(proj);
         }
         proj_overlap[k * norb + k] =
-            scalar_product(Mpos, dx, Orb[k], Haction[k]);
+            scalar_product(Mpos, dx, orb[k], hact_orb[k]);
     }
 #pragma omp parallel for private(k, i, s, l, proj) schedule(static)
     for (k = 0; k < norb; k++)
@@ -84,7 +68,7 @@ robust_multiorb_projector(
             {
                 for (l = 0; l < norb; l++)
                 {
-                    proj += Orb[s][i] * overlap_inv[s][l] *
+                    proj += orb[s][i] * overlap_inv[s][l] *
                             proj_overlap[l * norb + k];
                 }
             }
@@ -101,7 +85,7 @@ simple_multiorb_projector(
     OrbitalEquation eq_desc,
     uint16_t        norb,
     Cmatrix         orb,
-    Cmatrix         Haction,
+    Cmatrix         hact_orb,
     Cmatrix         project)
 {
     int      s;
@@ -118,12 +102,12 @@ simple_multiorb_projector(
     {
         for (s = k + 1; s < norb; s++)
         {
-            proj = scalar_product(npts, dx, orb[s], Haction[k]);
+            proj = scalar_product(npts, dx, orb[s], hact_orb[k]);
             proj_overlap[s * norb + k] = proj;
             proj_overlap[k * norb + s] = conj(proj);
         }
         proj_overlap[k * norb + k] =
-            scalar_product(npts, dx, orb[k], Haction[k]);
+            scalar_product(npts, dx, orb[k], hact_orb[k]);
     }
 #pragma omp parallel for private(k, i, s, proj) schedule(static)
     for (k = 0; k < norb; k++)
@@ -141,7 +125,7 @@ simple_multiorb_projector(
     free(proj_overlap);
 }
 
-void
+static void
 orb_fullstep_linear_part(MCTDHBDataStruct mctdhb, Cmatrix orb, Cmatrix horb)
 {
     uint16_t      i, n, norb;
@@ -244,7 +228,8 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
 }
 
 void
-dodt_splitstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
+dodt_splitstep_nonlinear_interface(
+    ComplexODEInputParameters odepar, Carray orb_der)
 {
     uint16_t         k, j, norb, npts;
     double           g;
@@ -260,6 +245,7 @@ dodt_splitstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
     orb_work = mctdhb->orb_workspace;
     psi = mctdhb->state;
     eq_desc = mctdhb->orb_eq;
+    time_fac = mctdhb->orb_eq->time_fac;
 
     norb = psi->norb;
     npts = psi->grid_size;
@@ -344,7 +330,12 @@ propagate_fullstep_orb_rk(MCTDHBDataStruct mctdhb, Carray orb_next)
     }
     cplx_matrix_set_from_rowmajor(
         norb, grid_size, orb_next, mctdhb->state->orbitals);
-    update_orbital_matrices(mctdhb);
+
+    if (mctdhb->integ_type == IMAGTIME)
+    {
+        orthonormalize(
+            grid_size, mctdhb->orb_eq->dx, norb, mctdhb->state->orbitals);
+    }
     free(rk_inp);
 }
 
@@ -381,7 +372,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
             cplx_rungekutta2(
                 dt,
                 0,
-                &dodt_splitstep_interface,
+                &dodt_splitstep_nonlinear_interface,
                 mctdhb,
                 rk_work,
                 rk_inp,
@@ -391,7 +382,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
             cplx_rungekutta4(
                 dt,
                 0,
-                &dodt_splitstep_interface,
+                &dodt_splitstep_nonlinear_interface,
                 mctdhb,
                 rk_work,
                 rk_inp,
@@ -401,7 +392,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
             cplx_rungekutta5(
                 dt,
                 0,
-                &dodt_splitstep_interface,
+                &dodt_splitstep_nonlinear_interface,
                 mctdhb,
                 rk_work,
                 rk_inp,
@@ -419,6 +410,10 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
         advance_linear_fft(orb_work, psi->orbitals);
     }
 
-    update_orbital_matrices(mctdhb);
+    if (mctdhb->integ_type == IMAGTIME)
+    {
+        orthonormalize(
+            grid_size, mctdhb->orb_eq->dx, norb, psi->orbitals);
+    }
     free(rk_inp);
 }

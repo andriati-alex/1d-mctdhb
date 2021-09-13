@@ -1,12 +1,13 @@
 #include "assistant/dataio.h"
 #include "assistant/arrays_definition.h"
 #include "assistant/integrator_monitor.h"
-#include "assistant/synchronize.h"
 #include "assistant/types_definition.h"
 #include "cpydataio.h"
 #include "function_tools/builtin_potential.h"
 #include "function_tools/builtin_time_parameter.h"
+#include "integrator/synchronize.h"
 #include "linalg/basic_linalg.h"
+#include "linalg/lapack_interface.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -17,14 +18,13 @@ char out_dirname[STR_BUFF_SIZE] = "output/";
 char integrator_desc_fname[STR_BUFF_SIZE] = "mctdhb_integrator.conf";
 
 static void
-report_config_integ_error(char fname[], uint8_t val_read, char extra_info[])
+report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
 {
     printf(
         "\n\nIOERROR: Reading %" SCNu8 " value : %s. Source file name %s\n\n",
         val_read,
         extra_info,
         fname);
-    exit(EXIT_FAILURE);
 }
 
 void
@@ -73,7 +73,6 @@ get_mctdhb_datafile_line(
 
     nlines = number_of_lines(fname, 1);
 
-    if (line == 0) line = 1;
     if (line > nlines)
     {
         printf(
@@ -135,12 +134,18 @@ get_mctdhb_datafile_line(
     if (pot_func == NULL)
     {
         pot_func = custom_pot_fun;
+    }
+    if (custom_pot_params != NULL)
+    {
         pot_params = custom_pot_params;
         free(potpar_read);
     }
     if (g_func == NULL)
     {
         g_func = custom_inter_fun;
+    }
+    if (custom_inter_params != NULL)
+    {
         inter_params = custom_inter_params;
         free(gpar_read);
     }
@@ -168,60 +173,71 @@ get_mctdhb_datafile_line(
         g_func);
 }
 
-void
+Bool
 set_mctdhb_integrator_from_file(char fname[], MCTDHBDataStruct mctdhb)
 {
+    Bool    had_warn;
     uint8_t lanczos_iter;
     FILE*   f;
+
+    had_warn = FALSE;
     if ((f = fopen(fname, "r")) == NULL)
     {
         printf(
             "\n\nWARNING: could not set integrator descriptor, "
             "file %s not found\n\n",
             fname);
-        return;
+        return TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->integ_type) != 1)
     {
-        report_config_integ_error(fname, 1, "time integration type");
+        report_integrator_warning(fname, 1, "time integration type");
+        had_warn = TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->coef_integ_method) != 1)
     {
-        report_config_integ_error(fname, 2, "coef integration method");
+        report_integrator_warning(fname, 2, "coef integration method");
+        had_warn = TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->orb_integ_method) != 1)
     {
-        report_config_integ_error(fname, 3, "orbital integration method");
+        report_integrator_warning(fname, 3, "orbital integration method");
+        had_warn = TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->orb_der_method) != 1)
     {
-        report_config_integ_error(fname, 4, "orbital integration method");
+        report_integrator_warning(fname, 4, "Derivatives method");
+        had_warn = TRUE;
     }
     mctdhb->orb_workspace->orb_der_method = mctdhb->orb_der_method;
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->rk_order) != 1)
     {
-        report_config_integ_error(fname, 5, "orbital integration method");
+        report_integrator_warning(fname, 5, "global runge-kutta order");
+        had_warn = TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%u", &mctdhb->orb_eq->bounds) != 1)
     {
-        report_config_integ_error(fname, 6, "orbital integration method");
+        report_integrator_warning(fname, 6, "Boundary conditions");
+        had_warn = TRUE;
     }
     jump_comment_lines(f, CURSOR_POSITION);
     if (fscanf(f, "%" SCNu8, &lanczos_iter) != 1)
     {
-        report_config_integ_error(fname, 7, "orbital integration method");
+        report_integrator_warning(fname, 7, "Lanczos iterations");
+        had_warn = TRUE;
     }
     if (mctdhb->coef_integ_method == LANCZOS)
     {
         mctdhb->coef_workspace->lan_work->iter = lanczos_iter;
     }
     fclose(f);
+    return had_warn;
 }
 
 MCTDHBDataStruct
@@ -235,7 +251,10 @@ full_setup_mctdhb_current_dir(
     void*                    custom_inter_params)
 {
     MCTDHBDataStruct mctdhb;
-    char             fpath[STR_BUFF_SIZE], job_suffix[20];
+
+    Bool had_warn;
+    char fpath[STR_BUFF_SIZE], job_suffix[20];
+
     strcpy(fpath, inp_dirname);
     strcat(fpath, fprefix);
     strcat(fpath, "_mctdhb_parameters.dat");
@@ -253,21 +272,21 @@ full_setup_mctdhb_current_dir(
     switch (which_inp)
     {
         case COMMON_INP:
-            strcat(fpath, "_orb1.dat");
+            strcat(fpath, "_job1_orb.dat");
             break;
         case MULTIPLE_INP:
-            sprintf(job_suffix, "_orb%" SCNu32 ".dat", job_num);
+            sprintf(job_suffix, "_job%" SCNu32 "_orb.dat", job_num);
             strcat(fpath, job_suffix);
             break;
         case LAST_JOB_OUT:
             if (job_num == 1)
             {
-                sprintf(job_suffix, "_orb1.dat");
+                sprintf(job_suffix, "_job1_orb.dat");
             } else
             {
                 strcpy(fpath, out_dirname);
                 strcat(fpath, fprefix);
-                sprintf(job_suffix, "_orb%" SCNu32 ".dat", job_num - 1);
+                sprintf(job_suffix, "_job%" SCNu32 "_orb.dat", job_num - 1);
             }
             strcat(fpath, job_suffix);
             break;
@@ -280,30 +299,36 @@ full_setup_mctdhb_current_dir(
     switch (which_inp)
     {
         case COMMON_INP:
-            strcat(fpath, "_coef1.dat");
+            strcat(fpath, "_job1_coef.dat");
             break;
         case MULTIPLE_INP:
-            sprintf(job_suffix, "_coef%" SCNu32 ".dat", job_num);
+            sprintf(job_suffix, "_job%" SCNu32 "_coef.dat", job_num);
             strcat(fpath, job_suffix);
             break;
         case LAST_JOB_OUT:
             if (job_num == 1)
             {
-                sprintf(job_suffix, "_coef1.dat");
+                sprintf(job_suffix, "_job1_coef.dat");
             } else
             {
                 strcpy(fpath, out_dirname);
                 strcat(fpath, fprefix);
-                sprintf(job_suffix, "_coef%" SCNu32 ".dat", job_num - 1);
+                sprintf(job_suffix, "_job%" SCNu32 "_coef.dat", job_num - 1);
             }
             strcat(fpath, job_suffix);
             break;
     }
     set_coef_from_file(fpath, mctdhb->multiconfig_space->dim, mctdhb->state);
 
-    set_mctdhb_integrator_from_file(integrator_desc_fname, mctdhb);
-    sync_density_matrices(mctdhb);
-    sync_orbital_matrices(mctdhb);
+    had_warn = set_mctdhb_integrator_from_file(integrator_desc_fname, mctdhb);
+    if (had_warn)
+    {
+        printf(
+            "\n\nUsing defaults for fields not set from %s file\n\n",
+            integrator_desc_fname);
+    }
+    sync_density_matrices(mctdhb->multiconfig_space, mctdhb->state);
+    sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
     return mctdhb;
 }
 
@@ -421,4 +446,192 @@ screen_display_mctdhb_info(
     printf("\n*\tAverage norm    : %.10lf", avg_orb_norm);
     printf("\n*\tCoef vec norm   : %.10lf", cmod);
     sepline('*', 78, 2, 2);
+}
+
+void
+set_output_fname(char prefix[], RecordDataType id, char* fname)
+{
+    char specific_id[STR_BUFF_SIZE];
+    switch (id)
+    {
+        case ORBITALS_REC:
+            strcpy(specific_id, "_orb.dat");
+            break;
+        case COEFFICIENTS_REC:
+            strcpy(specific_id, "_coef.dat");
+            break;
+        case PARAMETERS_REC:
+            strcpy(specific_id, "_params.dat");
+            break;
+        case ONE_BODY_MATRIX_REC:
+            strcpy(specific_id, "_obmat.dat");
+            break;
+        case TWO_BODY_MATRIX_REC:
+            strcpy(specific_id, "_tbmat.dat");
+            break;
+    }
+    strcpy(fname, out_dirname);
+    strcat(fname, prefix);
+    strcat(fname, specific_id);
+}
+
+void
+screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
+{
+    uint16_t      norb, grid_size;
+    uint32_t      space_dim;
+    dcomplex      energy, kine, inte;
+    double        dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue;
+    Rarray        nat_occ;
+    ManyBodyState psi;
+
+    t = mctdhb->orb_eq->t;
+    tend = mctdhb->orb_eq->tend;
+    dx = mctdhb->orb_eq->dx;
+    norb = mctdhb->orb_eq->norb;
+    grid_size = mctdhb->orb_eq->grid_size;
+    space_dim = mctdhb->state->space_dim;
+    nat_occ = get_double_array(norb);
+    psi = mctdhb->state;
+
+    energy = total_energy(psi);
+    cmat_hermitian_eigenvalues(norb, psi->ob_denmat, nat_occ);
+    printf(
+        "\n%9.5lf / %.2lf %12.6E %5.2lf",
+        t,
+        tend,
+        creal(energy),
+        nat_occ[norb - 1]);
+    switch (verb)
+    {
+        case MINIMUM_VERB:
+            break;
+        case MEDIUM_VERB:
+            kine = kinect_energy(mctdhb->orb_eq, psi);
+            inte = interacting_energy(psi);
+            printf(
+                " %.5lf %12.6E %12.6E", nat_occ[0], creal(kine), creal(inte));
+            break;
+        case MAXIMUM_VERB:
+            over_res = overlap_residual(norb, grid_size, dx, psi->orbitals);
+            orb_norm = avg_orbitals_norm(norb, grid_size, dx, psi->orbitals);
+            coef_norm = carrMod(space_dim, psi->coef);
+            conf_eig_residue = eig_residual(
+                mctdhb->multiconfig_space,
+                psi->coef,
+                psi->hob,
+                psi->hint,
+                creal(energy));
+            printf(
+                " %9.2E %.9lf %.9lf %9.6lf",
+                over_res,
+                orb_norm,
+                coef_norm,
+                conf_eig_residue);
+            break;
+    }
+}
+
+void
+record_custom_data_selection(char prefix[], ManyBodyState psi)
+{
+    uint16_t norb, grid_size;
+    uint32_t norb4;
+    char     fname[STR_BUFF_SIZE];
+
+    norb = psi->norb;
+    grid_size = psi->grid_size;
+    norb4 = norb * norb * norb * norb;
+
+    set_output_fname(prefix, TWO_BODY_MATRIX_REC, fname);
+    carr_append_stream(
+        fname,
+        CPLX_SCIFMT_SPACE_BEFORE,
+        CURSOR_POSITION,
+        LINEBREAK,
+        norb4,
+        psi->tb_denmat);
+    set_output_fname(prefix, ONE_BODY_MATRIX_REC, fname);
+    cmat_rowmajor_append_stream(
+        fname,
+        CPLX_SCIFMT_SPACE_BEFORE,
+        CURSOR_POSITION,
+        LINEBREAK,
+        norb,
+        norb,
+        psi->ob_denmat);
+    set_output_fname(prefix, ORBITALS_REC, fname);
+    cmat_rowmajor_append_stream(
+        fname,
+        CPLX_SCIFMT_SPACE_BEFORE,
+        CURSOR_POSITION,
+        LINEBREAK,
+        norb,
+        grid_size,
+        psi->orbitals);
+}
+
+void
+record_raw_data(char prefix[], ManyBodyState psi)
+{
+    uint16_t norb, grid_size;
+    uint32_t norb4, space_dim;
+    char     fname[STR_BUFF_SIZE];
+
+    norb = psi->norb;
+    grid_size = psi->grid_size;
+    norb4 = norb * norb * norb * norb;
+    space_dim = psi->space_dim;
+
+    set_output_fname(prefix, COEFFICIENTS_REC, fname);
+    carr_column_txt(fname, CPLX_SCIFMT_NOSPACE, space_dim, psi->coef);
+    set_output_fname(prefix, ORBITALS_REC, fname);
+    cmat_txt_transpose(
+        fname, CPLX_SCIFMT_SPACE_BEFORE, norb, grid_size, psi->orbitals);
+}
+
+void
+append_timestep_potential(char prefix[], OrbitalEquation eq_desc)
+{
+    char fname[STR_BUFF_SIZE];
+
+    strcpy(fname, out_dirname);
+    strcat(fname, prefix);
+    strcat(fname, "_obpotential.dat");
+
+    rarr_append_stream(
+        fname,
+        REAL_SCIFMT_SPACE_BEFORE,
+        CURSOR_POSITION,
+        LINEBREAK,
+        eq_desc->grid_size,
+        eq_desc->pot_grid);
+}
+
+void
+record_time_interaction(char prefix[], OrbitalEquation eq_desc)
+{
+    uint32_t prop_steps;
+    double t, g;
+    char fname[STR_BUFF_SIZE];
+    FILE* f;
+
+    strcpy(fname, out_dirname);
+    strcat(fname, prefix);
+    strcat(fname, "_interaction.dat");
+
+    f = open_file(fname, "r");
+
+    g = eq_desc->inter_param(0, eq_desc->inter_extra_args);
+    fprintf(f, "%.10lf\n", g);
+
+    prop_steps = 0;
+    while (t < eq_desc->tend)
+    {
+        prop_steps++;
+        t = prop_steps * eq_desc->tstep;
+        g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
+        fprintf(f, "%.10lf\n", g);
+    }
+    fclose(f);
 }
