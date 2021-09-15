@@ -72,9 +72,9 @@ apply_hamiltonian(
                     z += 4 * hint[k + s * norb + k * norb2 + s * norb3] *
                          bose_fac * coef[i];
                     // FACTOR 4 USED IN THE LINE ABOVE COMES FROM
-                    // z += Hint[s + k*M + k*M2 + s*M3] * sqrtOf * C[i];
-                    // z += Hint[s + k*M + s*M2 + k*M3] * sqrtOf * C[i];
-                    // z += Hint[k + s*M + s*M2 + k*M3] * sqrtOf * C[i];
+                    // z += Hint[s + k*M + k*M2 + s*M3] * bose_fac * C[i];
+                    // z += Hint[s + k*M + s*M2 + k*M3] * bose_fac * C[i];
+                    // z += Hint[k + s*M + s*M2 + k*M3] * bose_fac * C[i];
                 }
             }
 
@@ -115,7 +115,7 @@ apply_hamiltonian(
                     z += 2 * hint[k + k * norb + k * norb2 + l * norb3] *
                          coef[j] * bose_fac;
                     // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                    // z += Hint[k + k * M + l * M2 + k * M3] * C[j] * sqrtOf;
+                    // z += Hint[k + k * M + l * M2 + k * M3] * C[j] * bose_fac;
                 }
             }
 
@@ -131,7 +131,7 @@ apply_hamiltonian(
                     z += 2 * hint[k + s * norb + s * norb2 + s * norb3] *
                          coef[j] * bose_fac;
                     // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                    // z += Hint[s + k * M + s * M2 + s * M3] * C[j] * sqrtOf;
+                    // z += Hint[s + k * M + s * M2 + s * M3] * C[j] * bose_fac;
                 }
             }
 
@@ -158,7 +158,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + k * norb + q * norb2 + l * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -186,7 +186,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + k * norb + q * norb2 + l * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -215,7 +215,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + k * norb + q * norb2 + l * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[k + k*M + l*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -253,7 +253,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + s * norb + q * norb2 + q * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -291,7 +291,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + s * norb + q * norb2 + q * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -329,7 +329,7 @@ apply_hamiltonian(
                         z += 2 * hint[k + s * norb + q * norb2 + q * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 2 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * sqrtOf;
+                        // z += Hint[s + k*M + q*M2 + q*M3] * C[j] * bose_fac;
                     }
                 }
             }
@@ -351,9 +351,9 @@ apply_hamiltonian(
                         z += 4 * hint[k + s * norb + s * norb2 + l * norb3] *
                              coef[j] * bose_fac;
                         // FACTOR 4 IN THE LINE ABOVE COMES FROM
-                        // z += Hint[s + k*M + s*M2 + l*M3] * C[j] * sqrtOf;
-                        // z += Hint[s + k*M + l*M2 + s*M3] * C[j] * sqrtOf;
-                        // z += Hint[k + s*M + l*M2 + s*M3] * C[j] * sqrtOf;
+                        // z += Hint[s + k*M + s*M2 + l*M3] * C[j] * bose_fac;
+                        // z += Hint[s + k*M + l*M2 + s*M3] * C[j] * bose_fac;
+                        // z += Hint[k + s*M + l*M2 + s*M3] * C[j] * bose_fac;
                     }
                 }
             }

@@ -2,7 +2,6 @@
 #define DENSITY_MATRICES_H
 
 #include "mctdhb_types.h"
-#include <omp.h>
 
 /** \brief Set one-body density matrices elements */
 void

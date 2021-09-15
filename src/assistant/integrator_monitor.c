@@ -168,12 +168,11 @@ dcomplex
 interacting_energy(ManyBodyState psi)
 {
 
-    uint16_t k, s, q, l, m, grid_size;
+    uint16_t k, s, q, l, m;
     uint32_t mm, mmm, two_body_id;
     dcomplex reduction;
     Carray   hint, rho;
 
-    grid_size = psi->grid_size;
     m = psi->norb;
     mm = m * m;
     mmm = m * m * m;

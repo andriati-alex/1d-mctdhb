@@ -71,7 +71,7 @@ get_mctdhb_datafile_line(
 
     void *pot_params, *inter_params;
 
-    nlines = number_of_lines(fname, 1);
+    nlines = number_of_lines(fname);
 
     if (line > nlines)
     {
@@ -575,12 +575,11 @@ void
 record_raw_data(char prefix[], ManyBodyState psi)
 {
     uint16_t norb, grid_size;
-    uint32_t norb4, space_dim;
+    uint32_t space_dim;
     char     fname[STR_BUFF_SIZE];
 
     norb = psi->norb;
     grid_size = psi->grid_size;
-    norb4 = norb * norb * norb * norb;
     space_dim = psi->space_dim;
 
     set_output_fname(prefix, COEFFICIENTS_REC, fname);
@@ -626,6 +625,7 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
     fprintf(f, "%.10lf\n", g);
 
     prop_steps = 0;
+    t = 0;
     while (t < eq_desc->tend)
     {
         prop_steps++;

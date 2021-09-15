@@ -86,7 +86,7 @@ assert_space_parameters(uint16_t npar, uint16_t norb)
 uint32_t
 space_dimension(uint16_t npar, uint16_t norb)
 {
-    uint32_t i, j, n;
+    int64_t i, j, n;
     n = 1;
     j = 2;
     if (norb > npar)

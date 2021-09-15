@@ -1,6 +1,7 @@
 #include "configurational/density_matrices.h"
 #include "assistant/arrays_definition.h"
 #include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -172,7 +173,7 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
         for (s = k + 1; s < norb; s++)
         {
             rho_sum = 0;
-#pragma omp parallel for private(i, j, occ_k, occ_s, sqrtOf) reduction(+ : rho_sum)
+#pragma omp parallel for private(i, j, occ_k, occ_s, bose_fac) reduction(+ : rho_sum)
             for (i = 0; i < dim; i++)
             {
                 occ_k = ht[i * norb + k];

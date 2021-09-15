@@ -35,7 +35,7 @@ domain_reduction(OrbitalEquation eq_desc, ManyBodyState state)
     double   xi, xf, dx, old_xf, old_xi, old_dx;
     Rarray   real_orb, imag_orb, real_interpol, imag_interpol, old_grid;
 
-    if (!eq_desc->trapped) return;
+    if (eq_desc->bounds == PERIODIC_BOUNDS) return;
 
     // Unpack some relevant struct parameters(possibly to be updated)
     norb = state->norb;

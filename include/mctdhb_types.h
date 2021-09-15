@@ -28,21 +28,9 @@
 /** \brief Maximum number of single particle states(orbitals) supported */
 #define MAX_PARTICLES 10000
 /** \brief Maximum number of iterations for Lanczos integrator **/
-#define MAX_LANCZOS_ITER 10
-/** \brief Default time integration as imaginary */
-#define DEFAULT_INTEGRATION_TYPE 0
-/** \brief Default integrator for coefficients as SIL */
-#define DEFAULT_COEF_INTEGRATOR 0
-/** \brief Default integrator for orbitals as full-step Runge-Kutta */
-#define DEFAULT_ORB_INTEGRATOR 0
-/** \brief Default way to handle derivatives is using DVR */
-#define DEFAULT_ORB_DERIVATIVE 0
-/** \brief Default Runge-Kutta methods order */
-#define DEFAULT_RUNGEKUTTA_ORDER 5
-/** \brief Default boundary conditions are periodic */
-#define DEFAULT_BOUNDARY_CONDITION 1
-/** \brief Default number of iterations in SIL integrator */
-#define DEFAULT_LANCZOS_ITER 5
+#define MAX_LANCZOS_ITER 15
+/** \brief Minimum number of iterations for Lanczos integrator **/
+#define MIN_LANCZOS_ITER 2
 
 typedef double complex dcomplex;
 typedef int*           Iarray;
@@ -56,37 +44,37 @@ typedef MKL_Complex16* MKLCarray;
 /** \brief Custom boolean type with enum */
 typedef enum
 {
-    FALSE,
-    TRUE
+    FALSE=0,
+    TRUE=1
 } Bool;
 
 /** \brief Time integration type for ground state or dynamics calculation */
 typedef enum
 {
-    IMAGTIME,
-    REALTIME
+    IMAGTIME = 10,
+    REALTIME = 11
 } IntegratorType;
 
 /** \brief Coefficients integration type */
 typedef enum
 {
-    LANCZOS,
-    RUNGEKUTTA
+    LANCZOS = 20,
+    RUNGEKUTTA = 21
 } CoefIntegrator;
 
 /** \brief Orbital integration type */
 typedef enum
 {
-    FULLSTEP_RUNGEKUTTA,
-    SPLITSTEP,
+    FULLSTEP_RUNGEKUTTA = 30,
+    SPLITSTEP = 31,
 } OrbIntegrator;
 
 /** \brief Complementary information if OrbItegrator = FULLSTEP_RUNGEKUTTA */
 typedef enum
 {
-    DVR,
-    SPECTRAL,
-    FINITEDIFF
+    DVR = 300,
+    SPECTRAL = 301,
+    FINITEDIFF = 302
 } OrbDerivative;
 
 /** \brief Global Runge-Kutta order for all methods using it */
@@ -100,9 +88,24 @@ typedef enum
 /** \brief Specific for finite differences on how to set boundaries */
 typedef enum
 {
-    ZERO_BOUNDS,
-    PERIODIC_BOUNDS
+    ZERO_BOUNDS = 1000,
+    PERIODIC_BOUNDS = 1001
 } BoundaryCondition;
+
+/** \brief Default time integration as imaginary */
+#define DEFAULT_INTEGRATION_TYPE IMAGTIME
+/** \brief Default integrator for coefficients as SIL */
+#define DEFAULT_COEF_INTEGRATOR LANCZOS
+/** \brief Default integrator for orbitals as full-step Runge-Kutta */
+#define DEFAULT_ORB_INTEGRATOR FULLSTEP_RUNGEKUTTA
+/** \brief Default way to handle derivatives is using DVR */
+#define DEFAULT_ORB_DERIVATIVE DVR
+/** \brief Default Runge-Kutta methods order */
+#define DEFAULT_RUNGEKUTTA_ORDER RK5
+/** \brief Default boundary conditions are periodic */
+#define DEFAULT_BOUNDARY_CONDITION PERIODIC_BOUNDS
+/** \brief Default number of iterations in SIL integrator */
+#define DEFAULT_LANCZOS_ITER 5
 
 /** \brief Single particle potential function signature
  *
