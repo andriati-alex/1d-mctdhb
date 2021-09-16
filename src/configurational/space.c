@@ -170,7 +170,7 @@ hash_index(uint16_t npar, uint16_t norb, uint32_t* subsdim, uint16_t* conf)
         stride = (npar + 1) * m; // stride to access subspaces dimension
         while (n > 0)
         {
-            hash_i = hash_i + subsdim[npar + stride * m];
+            hash_i = hash_i + subsdim[npar + stride];
             npar = npar - 1;
             n = n - 1;
         }

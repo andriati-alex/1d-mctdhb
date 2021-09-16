@@ -31,8 +31,6 @@ void
 set_orbitals_from_file(char fname[], ManyBodyState psi)
 {
     Cmatrix orb_t = get_dcomplex_matrix(psi->grid_size, psi->norb);
-    printf("\nGrid size: %" SCNu16 " norb: %" SCNu16, psi->grid_size, psi->norb);
-    printf("\nOK");
     cmat_txt_read(
         fname, orb_cplx_read_fmt, 1, psi->grid_size, psi->norb, orb_t);
     for (uint16_t i = 0; i < psi->norb; i++)
@@ -361,8 +359,8 @@ screen_display_mctdhb_info(
     MCTDHBDataStruct mctdhb, Bool disp_integ, Bool disp_mem, Bool disp_monitor)
 {
     OrbitalEquation orb_eq = mctdhb->orb_eq;
-    sepline('*', 78, 2, 2);
-    printf("*\tProblem setup parameters:");
+    sepline('*', 78, 2, 1);
+    printf("* Problem setup parameters");
     printf("\n*\tnpar : %" SCNu16, mctdhb->multiconfig_space->npar);
     printf("\n*\tnorb : %" SCNu16, mctdhb->multiconfig_space->norb);
     printf("\n*\tdim  : %" SCNu32, mctdhb->multiconfig_space->dim);
@@ -378,11 +376,11 @@ screen_display_mctdhb_info(
     printf("\n*\tname : %s", orb_eq->eq_name);
     if (!disp_integ)
     {
-        sepline('*', 78, 2, 2);
+        sepline('*', 78, 1, 2);
         return;
     }
     printf("\n*\n");
-    printf("*\tIntegrator setup");
+    printf("* Integrator setup");
     switch (mctdhb->integ_type)
     {
         case IMAGTIME:
@@ -428,7 +426,7 @@ screen_display_mctdhb_info(
     printf("\n*\tRunge-Kutta global order : %u", mctdhb->rk_order);
     if (!disp_mem)
     {
-        sepline('*', 78, 2, 2);
+        sepline('*', 78, 1, 2);
         return;
     }
     MultiConfiguration space = mctdhb->multiconfig_space;
@@ -451,12 +449,12 @@ screen_display_mctdhb_info(
     mem_orb += 3 * orb_eq->grid_size * sizeof(dcomplex);
     mem_orb += orb_eq->grid_size * orb_eq->grid_size * sizeof(dcomplex);
     printf("\n*\n");
-    printf("*\tEstimated (minimum)memory comsumption");
+    printf("* Estimated (minimum)memory comsumption");
     printf("\n*\tcoef : %.1lf(MB)", ((double) mem_conf) / 1E6);
     printf("\n*\torbs : %.1lf(MB)", ((double) mem_orb) / 1E6);
     if (!disp_monitor)
     {
-        sepline('*', 78, 2, 2);
+        sepline('*', 78, 1, 2);
         return;
     }
     double ores = overlap_residual(
@@ -465,11 +463,11 @@ screen_display_mctdhb_info(
         norb, orb_eq->grid_size, orb_eq->dx, mctdhb->state->orbitals);
     double cmod = carrMod(dim, mctdhb->state->coef);
     printf("\n*\n");
-    printf("*\tSafety integrator indicators");
+    printf("* Safety integrator indicators");
     printf("\n*\tOverlap residue : %.2E", ores);
     printf("\n*\tAverage norm    : %.10lf", avg_orb_norm);
     printf("\n*\tCoef vec norm   : %.10lf", cmod);
-    sepline('*', 78, 2, 2);
+    sepline('*', 78, 1, 2);
 }
 
 void
