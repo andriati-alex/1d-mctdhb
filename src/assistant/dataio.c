@@ -31,6 +31,8 @@ void
 set_orbitals_from_file(char fname[], ManyBodyState psi)
 {
     Cmatrix orb_t = get_dcomplex_matrix(psi->grid_size, psi->norb);
+    printf("\nGrid size: %" SCNu16 " norb: %" SCNu16, psi->grid_size, psi->norb);
+    printf("\nOK");
     cmat_txt_read(
         fname, orb_cplx_read_fmt, 1, psi->grid_size, psi->norb, orb_t);
     for (uint16_t i = 0; i < psi->norb; i++)
@@ -50,28 +52,37 @@ set_coef_from_file(char fname[], uint32_t space_dim, ManyBodyState psi)
 }
 
 MCTDHBDataStruct
-get_mctdhb_datafile_line(
-    char                     fname[],
+get_mctdhb_datafiles(
+    char                     par_fname[],
+    char                     integ_fname[],
     uint32_t                 line,
     single_particle_pot      custom_pot_fun,
     time_dependent_parameter custom_inter_fun,
     void*                    custom_pot_params,
     void*                    custom_inter_params)
 {
-    FILE*    f;
-    int      scanf_params;
-    uint32_t nlines;
-    uint16_t npar, norb, grid_size;
-    double   xi, xf, tstep, tend, d2coef, imagpart_d1coef;
-    Rarray   gpar_read, potpar_read;
-    char     g_func_name[STR_BUFF_SIZE], pot_func_name[STR_BUFF_SIZE];
+    FILE*             f;
+    int               scanf_params;
+    uint8_t           lanczos_iter;
+    uint32_t          nlines;
+    uint16_t          npar, norb, grid_size;
+    double            xi, xf, tstep, tend, d2coef, imagpart_d1coef;
+    Bool              had_warn;
+    Rarray            gpar_read, potpar_read;
+    char              g_func_name[STR_BUFF_SIZE], pot_func_name[STR_BUFF_SIZE];
+    IntegratorType    integ_type;
+    CoefIntegrator    coef_integ_method;
+    OrbIntegrator     orb_integ_method;
+    OrbDerivative     orb_der_method;
+    RungeKuttaOrder   rk_order;
+    BoundaryCondition bounds;
 
     single_particle_pot      pot_func;
     time_dependent_parameter g_func;
 
     void *pot_params, *inter_params;
 
-    nlines = number_of_lines(fname);
+    nlines = number_of_lines(par_fname);
 
     if (line > nlines)
     {
@@ -79,7 +90,7 @@ get_mctdhb_datafile_line(
             "\n\nIOERROR : Requested to read parameters from line %" SCNu32
             " but file %s has %" SCNu32 " lines\n\n",
             line,
-            fname,
+            par_fname,
             nlines);
         exit(EXIT_FAILURE);
     }
@@ -87,14 +98,17 @@ get_mctdhb_datafile_line(
     gpar_read = get_double_array(5);
     potpar_read = get_double_array(5);
 
-    f = open_file(fname, "r");
+    f = open_file(par_fname, "r");
+
+    // ignore all comment lines
     jump_comment_lines(f, CURSOR_POSITION);
     for (uint32_t i = line; i > 1; i--) jump_next_line(f);
+
     scanf_params = fscanf(
         f,
         "%" SCNu16 " %" SCNu16 " %" SCNu16 " %lf %lf %lf %lf"
-        " %lf %lf " BUILTIN_TIME_PARAM_INPUT_FMT
-        " " BUILTIN_TIME_PARAM_INPUT_FMT,
+        " %lf %lf " BUILTIN_TIME_FUNCTION_INPUT_FMT
+        " " BUILTIN_TIME_FUNCTION_INPUT_FMT,
         &npar,
         &norb,
         &grid_size,
@@ -116,17 +130,21 @@ get_mctdhb_datafile_line(
         &potpar_read[2],
         &potpar_read[3],
         &potpar_read[4]);
-    if (scanf_params != 21)
+
+    if (scanf_params != MIN_PARAMS_LINE)
     {
+        fclose(f);
         printf(
-            "\n\nIOERROR: Expected to read 21 in line %u of file %s. "
+            "\n\nIOERROR: Expected to read %d in line %u of file %s. "
             "However fscanf returned %u\n\n",
+            MIN_PARAMS_LINE,
             line,
-            fname,
+            par_fname,
             scanf_params);
         exit(EXIT_FAILURE);
     }
     fclose(f);
+
     pot_func = get_builtin_pot(pot_func_name);
     g_func = get_builtin_param_func(g_func_name);
     pot_params = (void*) potpar_read;
@@ -149,17 +167,97 @@ get_mctdhb_datafile_line(
         inter_params = custom_inter_params;
         free(gpar_read);
     }
+
+    had_warn = FALSE;
+    if ((f = fopen(integ_fname, "r")) != NULL)
+    {
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &integ_type) != 1)
+        {
+            report_integrator_warning(integ_fname, 1, "time integration type");
+            had_warn = TRUE;
+            integ_type = DEFAULT_INTEGRATION_TYPE;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &coef_integ_method) != 1)
+        {
+            report_integrator_warning(
+                integ_fname, 2, "coef integration method");
+            had_warn = TRUE;
+            coef_integ_method = DEFAULT_COEF_INTEGRATOR;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &orb_integ_method) != 1)
+        {
+            report_integrator_warning(
+                integ_fname, 3, "orbital integration method");
+            had_warn = TRUE;
+            orb_integ_method = DEFAULT_ORB_INTEGRATOR;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &orb_der_method) != 1)
+        {
+            report_integrator_warning(integ_fname, 4, "Derivatives method");
+            had_warn = TRUE;
+            orb_der_method = DEFAULT_ORB_DERIVATIVE;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &rk_order) != 1)
+        {
+            report_integrator_warning(
+                integ_fname, 5, "global runge-kutta order");
+            had_warn = TRUE;
+            rk_order = DEFAULT_RUNGEKUTTA_ORDER;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%u", &bounds) != 1)
+        {
+            report_integrator_warning(integ_fname, 6, "Boundary conditions");
+            had_warn = TRUE;
+            bounds = DEFAULT_BOUNDARY_CONDITION;
+        }
+        jump_comment_lines(f, CURSOR_POSITION);
+        if (fscanf(f, "%" SCNu8, &lanczos_iter) != 1)
+        {
+            report_integrator_warning(integ_fname, 7, "Lanczos iterations");
+            had_warn = TRUE;
+            lanczos_iter = DEFAULT_LANCZOS_ITER;
+        }
+        fclose(f);
+    } else
+    {
+        printf(
+            "\n\nWARNING: could not set integrator descriptor, "
+            "file %s not found. Using default values.\n\n",
+            integ_fname);
+        integ_type = DEFAULT_INTEGRATION_TYPE;
+        coef_integ_method = DEFAULT_COEF_INTEGRATOR;
+        orb_integ_method = DEFAULT_ORB_INTEGRATOR;
+        orb_der_method = DEFAULT_ORB_DERIVATIVE;
+        rk_order = DEFAULT_RUNGEKUTTA_ORDER;
+        bounds = DEFAULT_BOUNDARY_CONDITION;
+        lanczos_iter = DEFAULT_LANCZOS_ITER;
+    }
+
+    if (had_warn)
+    {
+        printf(
+            "\n\nWARNING: some of the integration config could not be set "
+            "from file %s, which were listed above\n\n",
+            integ_fname);
+    }
+
     return get_mctdhb_struct(
-        DEFAULT_INTEGRATION_TYPE,
-        DEFAULT_COEF_INTEGRATOR,
-        DEFAULT_ORB_INTEGRATOR,
-        DEFAULT_ORB_DERIVATIVE,
-        DEFAULT_RUNGEKUTTA_ORDER,
-        DEFAULT_LANCZOS_ITER,
+        integ_type,
+        coef_integ_method,
+        orb_integ_method,
+        orb_der_method,
+        rk_order,
+        lanczos_iter,
         npar,
         norb,
         pot_func_name,
-        DEFAULT_BOUNDARY_CONDITION,
+        bounds,
         xi,
         xf,
         grid_size,
@@ -171,73 +269,6 @@ get_mctdhb_datafile_line(
         inter_params,
         pot_func,
         g_func);
-}
-
-Bool
-set_mctdhb_integrator_from_file(char fname[], MCTDHBDataStruct mctdhb)
-{
-    Bool    had_warn;
-    uint8_t lanczos_iter;
-    FILE*   f;
-
-    had_warn = FALSE;
-    if ((f = fopen(fname, "r")) == NULL)
-    {
-        printf(
-            "\n\nWARNING: could not set integrator descriptor, "
-            "file %s not found\n\n",
-            fname);
-        return TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->integ_type) != 1)
-    {
-        report_integrator_warning(fname, 1, "time integration type");
-        had_warn = TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->coef_integ_method) != 1)
-    {
-        report_integrator_warning(fname, 2, "coef integration method");
-        had_warn = TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->orb_integ_method) != 1)
-    {
-        report_integrator_warning(fname, 3, "orbital integration method");
-        had_warn = TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->orb_der_method) != 1)
-    {
-        report_integrator_warning(fname, 4, "Derivatives method");
-        had_warn = TRUE;
-    }
-    mctdhb->orb_workspace->orb_der_method = mctdhb->orb_der_method;
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->rk_order) != 1)
-    {
-        report_integrator_warning(fname, 5, "global runge-kutta order");
-        had_warn = TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%u", &mctdhb->orb_eq->bounds) != 1)
-    {
-        report_integrator_warning(fname, 6, "Boundary conditions");
-        had_warn = TRUE;
-    }
-    jump_comment_lines(f, CURSOR_POSITION);
-    if (fscanf(f, "%" SCNu8, &lanczos_iter) != 1)
-    {
-        report_integrator_warning(fname, 7, "Lanczos iterations");
-        had_warn = TRUE;
-    }
-    if (mctdhb->coef_integ_method == LANCZOS)
-    {
-        mctdhb->coef_workspace->lan_work->iter = lanczos_iter;
-    }
-    fclose(f);
-    return had_warn;
 }
 
 MCTDHBDataStruct
@@ -252,14 +283,14 @@ full_setup_mctdhb_current_dir(
 {
     MCTDHBDataStruct mctdhb;
 
-    Bool had_warn;
     char fpath[STR_BUFF_SIZE], job_suffix[20];
 
     strcpy(fpath, inp_dirname);
     strcat(fpath, fprefix);
     strcat(fpath, "_mctdhb_parameters.dat");
-    mctdhb = get_mctdhb_datafile_line(
+    mctdhb = get_mctdhb_datafiles(
         fpath,
+        integrator_desc_fname,
         job_num,
         custom_pot_fun,
         custom_inter_fun,
@@ -320,13 +351,6 @@ full_setup_mctdhb_current_dir(
     }
     set_coef_from_file(fpath, mctdhb->multiconfig_space->dim, mctdhb->state);
 
-    had_warn = set_mctdhb_integrator_from_file(integrator_desc_fname, mctdhb);
-    if (had_warn)
-    {
-        printf(
-            "\n\nUsing defaults for fields not set from %s file\n\n",
-            integrator_desc_fname);
-    }
     sync_density_matrices(mctdhb->multiconfig_space, mctdhb->state);
     sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
     return mctdhb;
@@ -611,9 +635,9 @@ void
 record_time_interaction(char prefix[], OrbitalEquation eq_desc)
 {
     uint32_t prop_steps;
-    double t, g;
-    char fname[STR_BUFF_SIZE];
-    FILE* f;
+    double   t, g;
+    char     fname[STR_BUFF_SIZE];
+    FILE*    f;
 
     strcpy(fname, out_dirname);
     strcat(fname, prefix);

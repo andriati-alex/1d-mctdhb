@@ -10,3 +10,4 @@ dist/
 .ccls
 .clang-format
 *.log
+compile_commands.json

@@ -17,11 +17,11 @@ timeparam_linear_ramp(double t, void* params)
 time_dependent_parameter
 get_builtin_param_func(char funcname[])
 {
-    if (strcmp(funcname, "linear_ramp"))
+    if (strcmp(funcname, "linear_ramp") == 0)
     {
         return &timeparam_linear_ramp;
     }
-    if (strcmp(funcname, "custom"))
+    if (strcmp(funcname, "custom") == 0)
     {
         return NULL;
     }

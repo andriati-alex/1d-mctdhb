@@ -173,12 +173,23 @@ get_lanczos_workspace(uint16_t iter, uint32_t space_dim)
     return lan_work;
 }
 
-static void
-set_coef_workspace(
-    WorkspaceLanczos lan_work, void* extern_work, CoefWorkspace coef_work)
+CoefWorkspace
+get_coef_workspace(
+    CoefIntegrator coef_integ_method, uint32_t space_dim, uint16_t lan_it)
 {
-    coef_work->extern_work = extern_work;
-    coef_work->lan_work = lan_work;
+    CoefWorkspace cwork = (CoefWorkspace) malloc(sizeof(_CoefWorkspace));
+    switch (coef_integ_method)
+    {
+        case LANCZOS:
+            cwork->lan_work = get_lanczos_workspace(lan_it, space_dim);
+            cwork->extern_work = NULL;
+            break;
+        case RUNGEKUTTA:
+            cwork->lan_work = NULL;
+            cwork->extern_work = (void*) get_cplx_rungekutta_ws(space_dim);
+            break;
+    }
+    return cwork;
 }
 
 OrbitalWorkspace
@@ -287,13 +298,9 @@ get_mctdhb_struct(
                 lanczos_iter);
             exit(EXIT_FAILURE);
         }
-        WorkspaceLanczos lan_work = get_lanczos_workspace(lanczos_iter, dim);
-        set_coef_workspace(lan_work, NULL, mctdhb->coef_workspace);
-    } else
-    {
-        ComplexWorkspaceRK rk_work = get_cplx_rungekutta_ws(dim);
-        set_coef_workspace(NULL, rk_work, mctdhb->coef_workspace);
     }
+    mctdhb->coef_workspace =
+        get_coef_workspace(coef_integ_method, dim, lanczos_iter);
     mctdhb->multiconfig_space = get_multiconf_struct(npar, norb);
     mctdhb->state = get_manybody_state(npar, norb, grid_size);
     mctdhb->orb_workspace =
@@ -404,6 +411,7 @@ destroy_coef_workspace(CoefWorkspace coef_work)
     {
         destroy_cplx_rungekutta_ws((ComplexWorkspaceRK) coef_work->extern_work);
     }
+    free(coef_work);
 }
 
 void

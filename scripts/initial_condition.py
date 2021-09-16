@@ -174,19 +174,16 @@ if __name__ == "__main__":
     orbitals = orb_generator(args.Norb, x, *tuple(args.orb_extra_args))
     C = coef_generator(args.Npar, args.Norb, *tuple(args.coef_extra_args))
     prefix_path = os.path.join(args.input_dir, args.files_prefix)
-    np.savetxt(prefix_path + "_orb.dat", orbitals.T, fmt="%.14E")
-    np.savetxt(prefix_path + "_coef.dat", C.T, fmt="%.14E")
-    f = open(prefix_path + "_conf.dat", "w")
+    np.savetxt(prefix_path + "_job1_orb.dat", orbitals.T, fmt="%.14E")
+    np.savetxt(prefix_path + "_job1_coef.dat", C.T, fmt="%.14E")
+    f = open(prefix_path + "_mctdhb_parameters.dat", "w")
     # Arbitrary value for time step and number of steps
     f.write(
-        "{} {} {} {:.10f} {:.10f} 0.002 10000".format(
-            args.Npar, args.Norb, args.nx - 1, args.xi, args.xf
+        "{} {} {} {:.10f} {:.10f} 0.002 10000 -0.5 0.0 "
+        "linear_ramp 1.0 1.0 0.0 0.0 0.0 harmonic 1.0 1.0 0.0 0.0 0.0".format(
+            args.Npar, args.Norb, args.nx, args.xi, args.xf
         )
     )
-    f.close()
-    # Arbitrary values for equation parameters
-    f = open(prefix_path + "_eq.dat", "w")
-    f.write("-0.5 0.0 1.0 1.0 0.0 0.0")
     f.close()
     if args.preview:
         import matplotlib.pyplot as plt

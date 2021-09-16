@@ -19,7 +19,7 @@ main(int argc, char* argv[])
 
     strcpy(fname, inp_dirname);
     strcat(fname, argv[1]);
-    strcat(fname, "_mctdhb_parameters");
+    strcat(fname, "_mctdhb_parameters.dat");
     njobs = number_of_lines(fname);
 
     for (uint32_t job_id = 1; job_id <= njobs; job_id++)

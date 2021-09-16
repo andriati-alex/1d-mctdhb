@@ -22,7 +22,9 @@
 #include "mctdhb_types.h"
 
 /** \brief Formatter sequence for function definition with real parameters */
-#define BUILTIN_TIME_PARAM_INPUT_FMT "%s %lf %lf %lf %lf %lf"
+#define BUILTIN_TIME_FUNCTION_INPUT_FMT "%s %lf %lf %lf %lf %lf"
+/** \brief Minimum parameters per line in input params files */
+#define MIN_PARAMS_LINE 21
 /** \brief Default complex number reading formatter for orbitals */
 extern char orb_cplx_read_fmt[STR_BUFF_SIZE];
 /** \brief Default complex number reading formatter for coefficients */
@@ -107,41 +109,14 @@ set_coef_from_file(char fname[], uint32_t space_dim, ManyBodyState psi);
  *         for coefficients.
  */
 MCTDHBDataStruct
-get_mctdhb_datafile_line(
-    char                     fname[],
+get_mctdhb_datafiles(
+    char                     par_fname[],
+    char                     integ_fname[],
     uint32_t                 line,
     single_particle_pot      custom_pot_fun,
     time_dependent_parameter custom_inter_fun,
     void*                    custom_pot_params,
     void*                    custom_inter_params);
-
-/** \brief Set integrator fields using configuration file
- *
- * The configuration file must provide all related `enum` types needed
- * to define the integration method in the following order
- *
- * \code
- * IntegratorType
- * CoefIntegrator
- * OrbIntegrator
- * OrbDerivative
- * RungeKuttaOrder
- * BoundaryCondition
- * lanczos_iterations(positive int)
- * \endcode
- *
- * They must be provided one per line and between them comments can be
- * inserted with lines starting with '#' character. They all have upper
- * and lower bounds as positive integers and available values are in
- * `mctdhb_types.h` header file.
- *
- * \param[in] fname  full file path to integrator descriptor file
- * \param[in] mctdhb MCTDHB struct to set the values in
- *
- * \return Boolean info if had any problem reading the file
- */
-Bool
-set_mctdhb_integrator_from_file(char fname[], MCTDHBDataStruct mctdhb);
 
 /** \brief Complete definition of MCTDHB problem using execution directory
  *

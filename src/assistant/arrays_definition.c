@@ -89,7 +89,7 @@ get_double_matrix(uint32_t nrows, uint32_t ncols)
     sprintf(err_msg, "%d rows(double*) in get_double_matrix", nrows);
     ptr = (double**) malloc(nrows * sizeof(double*));
     assert_pointer((void*) ptr, err_msg);
-    for (i = 0; i < ncols; i++)
+    for (i = 0; i < nrows; i++)
     {
         ptr[i] = (double*) malloc(ncols * sizeof(double));
         sprintf(err_msg, "Row %d with %d cols in get_double_matrix", i, ncols);
@@ -107,7 +107,7 @@ get_dcomplex_matrix(uint32_t nrows, uint32_t ncols)
     sprintf(err_msg, "%d rows(double complex*) in get_dcomplex_matrix", nrows);
     ptr = (dcomplex**) malloc(nrows * sizeof(dcomplex*));
     assert_pointer((void*) ptr, err_msg);
-    for (i = 0; i < ncols; i++)
+    for (i = 0; i < nrows; i++)
     {
         ptr[i] = (dcomplex*) malloc(ncols * sizeof(dcomplex));
         sprintf(
