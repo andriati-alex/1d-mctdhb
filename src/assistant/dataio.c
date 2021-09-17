@@ -520,7 +520,7 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
     energy = total_energy(psi);
     cmat_hermitian_eigenvalues(norb, psi->ob_denmat, nat_occ);
     printf(
-        "\n%9.5lf/%.2lf %13.6E %5.2lf",
+        "\n%9.5lf/%.2lf %20.14E %5.2lf",
         t,
         tend,
         creal(energy) / npar,

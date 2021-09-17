@@ -92,11 +92,13 @@ integration_driver(
             append_timestep_potential(prefix, mctdhb->orb_eq);
         }
 
-        if (prop_steps % monitor_rate)
+        if (prop_steps % monitor_rate == 0)
         {
             screen_integration_monitor(mctdhb, verb);
         }
     }
+
+    printf("\n\nSteps evolved %" PRIu32 "\n\n", prop_steps);
 
     if (mctdhb->integ_type == IMAGTIME)
     {

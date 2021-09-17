@@ -11,3 +11,4 @@ dist/
 .clang-format
 *.log
 compile_commands.json
+*.dat
