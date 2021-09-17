@@ -160,9 +160,10 @@ set_config(uint32_t hash_i, uint16_t npar, uint16_t norb, uint16_t* conf)
 uint32_t
 hash_index(uint16_t npar, uint16_t norb, uint32_t* subsdim, uint16_t* conf)
 {
-    uint16_t m, n;
+    uint16_t m, n, npar_basket;
     uint32_t stride, hash_i;
 
+    npar_basket = npar;
     hash_i = 0;
     for (m = norb - 1; m > 0; m--)
     {
@@ -170,8 +171,8 @@ hash_index(uint16_t npar, uint16_t norb, uint32_t* subsdim, uint16_t* conf)
         stride = (npar + 1) * m; // stride to access subspaces dimension
         while (n > 0)
         {
-            hash_i = hash_i + subsdim[npar + stride];
-            npar = npar - 1;
+            hash_i = hash_i + subsdim[npar_basket + stride];
+            npar_basket = npar_basket - 1;
             n = n - 1;
         }
     }
