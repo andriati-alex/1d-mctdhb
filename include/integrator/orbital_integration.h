@@ -5,6 +5,9 @@
 #include "odesys.h"
 
 void
+set_periodic_bounds(uint16_t norb, uint16_t grid_size, Cmatrix orb);
+
+void
 robust_multiorb_projector(
     OrbitalEquation eq_desc,
     uint16_t        norb,

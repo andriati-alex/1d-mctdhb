@@ -10,6 +10,15 @@
 #include <stdlib.h>
 
 void
+set_periodic_bounds(uint16_t norb, uint16_t grid_size, Cmatrix orb)
+{
+    for (uint16_t i = 0; i < norb; i++)
+    {
+        orb[i][grid_size - 1] = orb[i][0];
+    }
+}
+
+void
 robust_multiorb_projector(
     OrbitalEquation eq_desc,
     uint16_t        norb,
@@ -187,6 +196,7 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
     dx = eq_desc->dx;
 
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, psi->orbitals);
+
     Haction = mctdhb->orb_workspace->orb_work1;
     project = mctdhb->orb_workspace->orb_work2;
     linhorb = get_dcomplex_matrix(norb, npts);
@@ -211,6 +221,12 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
     {
         simple_multiorb_projector(
             eq_desc, norb, psi->orbitals, Haction, project);
+    }
+
+    if (eq_desc->bounds == PERIODIC_BOUNDS)
+    {
+        set_periodic_bounds(norb, npts, Haction);
+        set_periodic_bounds(norb, npts, project);
     }
 
     // subtract projection on orbital space - orthogonal projection
@@ -263,6 +279,12 @@ dodt_splitstep_nonlinear_interface(
     orb = mctdhb->orb_workspace->orb_work1;
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, orb);
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, psi->orbitals);
+
+    if (eq_desc->bounds == PERIODIC_BOUNDS)
+    {
+        set_periodic_bounds(norb, npts, orb);
+        set_periodic_bounds(norb, npts, psi->orbitals);
+    }
 
 #pragma omp parallel for private(k, j) schedule(static)
     for (k = 0; k < norb; k++)

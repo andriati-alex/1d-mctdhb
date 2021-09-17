@@ -25,6 +25,15 @@ mctdhb_propagate_step(
             propagate_fullstep_orb_rk(mctdhb, orb_works);
             break;
     }
+    if (mctdhb->orb_eq->bounds == PERIODIC_BOUNDS)
+    {
+        set_periodic_bounds(
+            mctdhb->state->norb,
+            mctdhb->state->grid_size,
+            mctdhb->state->orbitals);
+    }
+    sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
+
     switch (mctdhb->coef_integ_method)
     {
         case LANCZOS:
