@@ -18,20 +18,21 @@ robust_multiorb_projector(
     Cmatrix         project)
 {
     int      s;
-    uint16_t i, k, l, Mpos;
+    uint16_t i, k, l, npts;
     double   dx;
     dcomplex proj;
     Carray   proj_overlap;
     Cmatrix  overlap, overlap_inv;
 
     dx = eq_desc->dx;
-    Mpos = eq_desc->grid_size;
+    npts = eq_desc->grid_size;
     proj_overlap = get_dcomplex_array(norb * norb);
     overlap = get_dcomplex_matrix(norb, norb);
     overlap_inv = get_dcomplex_matrix(norb, norb);
 
-    set_overlap_matrix(norb, Mpos, dx, orb, overlap);
+    set_overlap_matrix(norb, npts, dx, orb, overlap);
     s = cmat_hermitian_inversion(norb, overlap, overlap_inv);
+
     if (s != 0)
     {
         printf("\n\nFailed on Lapack inversion routine ");
@@ -47,21 +48,20 @@ robust_multiorb_projector(
         }
         exit(EXIT_FAILURE);
     }
+
     for (k = 0; k < norb; k++)
     {
-        for (l = k + 1; l < norb; l++)
+        for (s = 0; s < norb; s++)
         {
-            proj = scalar_product(Mpos, dx, orb[l], hact_orb[k]);
-            proj_overlap[l * norb + k] = proj;
-            proj_overlap[k * norb + l] = conj(proj);
+            proj_overlap[s * norb + k] =
+                scalar_product(npts, dx, orb[s], hact_orb[k]);
         }
-        proj_overlap[k * norb + k] =
-            scalar_product(Mpos, dx, orb[k], hact_orb[k]);
     }
+
 #pragma omp parallel for private(k, i, s, l, proj) schedule(static)
     for (k = 0; k < norb; k++)
     {
-        for (i = 0; i < Mpos; i++)
+        for (i = 0; i < npts; i++)
         {
             proj = 0;
             for (s = 0; s < norb; s++)
@@ -75,6 +75,7 @@ robust_multiorb_projector(
             project[k][i] = proj;
         }
     }
+
     free(proj_overlap);
     destroy_dcomplex_matrix(norb, overlap);
     destroy_dcomplex_matrix(norb, overlap_inv);
@@ -88,8 +89,7 @@ simple_multiorb_projector(
     Cmatrix         hact_orb,
     Cmatrix         project)
 {
-    int      s;
-    uint16_t i, k, npts;
+    uint16_t i, s, k, npts;
     double   dx;
     dcomplex proj;
     Carray   proj_overlap;
@@ -100,15 +100,13 @@ simple_multiorb_projector(
 
     for (k = 0; k < norb; k++)
     {
-        for (s = k + 1; s < norb; s++)
+        for (s = 0; s < norb; s++)
         {
-            proj = scalar_product(npts, dx, orb[s], hact_orb[k]);
-            proj_overlap[s * norb + k] = proj;
-            proj_overlap[k * norb + s] = conj(proj);
+            proj_overlap[s * norb + k] =
+                scalar_product(npts, dx, orb[s], hact_orb[k]);
         }
-        proj_overlap[k * norb + k] =
-            scalar_product(npts, dx, orb[k], hact_orb[k]);
     }
+
 #pragma omp parallel for private(k, i, s, proj) schedule(static)
     for (k = 0; k < norb; k++)
     {
@@ -412,8 +410,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
 
     if (mctdhb->integ_type == IMAGTIME)
     {
-        orthonormalize(
-            grid_size, mctdhb->orb_eq->dx, norb, psi->orbitals);
+        orthonormalize(grid_size, mctdhb->orb_eq->dx, norb, psi->orbitals);
     }
     free(rk_inp);
 }
