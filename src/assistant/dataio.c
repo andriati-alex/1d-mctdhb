@@ -500,7 +500,7 @@ set_output_fname(char prefix[], RecordDataType id, char* fname)
 void
 screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
 {
-    uint16_t      norb, grid_size;
+    uint16_t      npar, norb, grid_size;
     uint32_t      space_dim;
     dcomplex      energy, kine, inte;
     double        dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue;
@@ -510,7 +510,8 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
     t = mctdhb->orb_eq->t;
     tend = mctdhb->orb_eq->tend;
     dx = mctdhb->orb_eq->dx;
-    norb = mctdhb->orb_eq->norb;
+    npar = mctdhb->state->npar;
+    norb = mctdhb->state->norb;
     grid_size = mctdhb->orb_eq->grid_size;
     space_dim = mctdhb->state->space_dim;
     nat_occ = get_double_array(norb);
@@ -519,39 +520,31 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
     energy = total_energy(psi);
     cmat_hermitian_eigenvalues(norb, psi->ob_denmat, nat_occ);
     printf(
-        "\n%9.5lf / %.2lf %12.6E %5.2lf",
+        "\n%9.5lf/%.2lf %13.6E %5.2lf",
         t,
         tend,
-        creal(energy),
-        nat_occ[norb - 1]);
-    switch (verb)
-    {
-        case MINIMUM_VERB:
-            break;
-        case MEDIUM_VERB:
-            kine = kinect_energy(mctdhb->orb_eq, psi);
-            inte = interacting_energy(psi);
-            printf(
-                " %.5lf %12.6E %12.6E", nat_occ[0], creal(kine), creal(inte));
-            break;
-        case MAXIMUM_VERB:
-            over_res = overlap_residual(norb, grid_size, dx, psi->orbitals);
-            orb_norm = avg_orbitals_norm(norb, grid_size, dx, psi->orbitals);
-            coef_norm = carrMod(space_dim, psi->coef);
-            conf_eig_residue = eig_residual(
-                mctdhb->multiconfig_space,
-                psi->coef,
-                psi->hob,
-                psi->hint,
-                creal(energy));
-            printf(
-                " %9.2E %.9lf %.9lf %9.6lf",
-                over_res,
-                orb_norm,
-                coef_norm,
-                conf_eig_residue);
-            break;
-    }
+        creal(energy) / npar,
+        nat_occ[norb - 1] / npar);
+    if (verb == MINIMUM_VERB) return;
+    kine = kinect_energy(mctdhb->orb_eq, psi) / npar;
+    inte = interacting_energy(psi) / npar;
+    printf(" %.5lf %12.6E %12.6E", nat_occ[0] / npar, creal(kine), creal(inte));
+    if (verb == MEDIUM_VERB) return;
+    over_res = overlap_residual(norb, grid_size, dx, psi->orbitals);
+    orb_norm = avg_orbitals_norm(norb, grid_size, dx, psi->orbitals);
+    coef_norm = carrMod(space_dim, psi->coef);
+    conf_eig_residue = eig_residual(
+        mctdhb->multiconfig_space,
+        psi->coef,
+        psi->hob,
+        psi->hint,
+        creal(energy));
+    printf(
+        " %9.2E %.7lf %.7lf %9.6lf",
+        over_res,
+        orb_norm,
+        coef_norm,
+        conf_eig_residue);
 }
 
 void
@@ -605,10 +598,10 @@ record_raw_data(char prefix[], ManyBodyState psi)
     space_dim = psi->space_dim;
 
     set_output_fname(prefix, COEFFICIENTS_REC, fname);
-    carr_column_txt(fname, CPLX_SCIFMT_NOSPACE, space_dim, psi->coef);
+    carr_column_txt(fname, CPLX_SCIFMT_SPACE_BEFORE, space_dim, psi->coef);
     set_output_fname(prefix, ORBITALS_REC, fname);
     cmat_txt_transpose(
-        fname, CPLX_SCIFMT_SPACE_BEFORE, norb, grid_size, psi->orbitals);
+        fname, CPLX_SCIFMT_SPACE_BOTH, norb, grid_size, psi->orbitals);
 }
 
 void
@@ -641,7 +634,7 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
     strcat(fname, prefix);
     strcat(fname, "_interaction.dat");
 
-    f = open_file(fname, "r");
+    f = open_file(fname, "w");
 
     g = eq_desc->inter_param(0, eq_desc->inter_extra_args);
     fprintf(f, "%.10lf\n", g);
@@ -654,6 +647,28 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
         t = prop_steps * eq_desc->tstep;
         g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
         fprintf(f, "%.10lf\n", g);
+    }
+    fclose(f);
+}
+
+void
+record_time_array(char prefix[], double tend, double tstep)
+{
+    uint32_t prop_steps;
+    char     fname[STR_BUFF_SIZE];
+    FILE*    f;
+
+    strcpy(fname, out_dirname);
+    strcat(fname, prefix);
+    strcat(fname, "_timesteps.dat");
+
+    f = open_file(fname, "w");
+    fprintf(f, "%.6lf\n", 0.0);
+    prop_steps = 0;
+    while (prop_steps * tstep < tend)
+    {
+        prop_steps++;
+        fprintf(f, "%.6lf\n", prop_steps * tstep);
     }
     fclose(f);
 }

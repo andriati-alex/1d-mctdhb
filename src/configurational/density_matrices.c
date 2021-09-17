@@ -242,19 +242,16 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
                     occ_k = ht[h + k];
                     occ_q = ht[h + q];
                     occ_l = ht[h + l];
-
                     chunks = 0;
                     for (j = 0; j < k; j++)
                     {
                         if (ht[h + j] > 1) chunks++;
                     }
                     strideOrb = chunks * norb * norb;
-
                     j = mapot[strides_ot[i] + strideOrb + l + q * norb];
                     bose_fac = sqrt(
                         (double) occ_k * (occ_k - 1) * (occ_q + 1) *
                         (occ_l + 1));
-
                     rho_sum += conj(coef[i]) * coef[j] * bose_fac;
                 }
                 rho[k + k * norb + q * norb2 + l * norb3] = rho_sum;
@@ -281,14 +278,12 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
                     occ_k = ht[h + k];
                     occ_q = ht[h + q];
                     occ_l = ht[h + l];
-
                     chunks = 0;
                     for (j = 0; j < k; j++)
                     {
                         if (ht[h + j] > 1) chunks++;
                     }
                     strideOrb = chunks * norb * norb;
-
                     j = mapot[strides_ot[i] + strideOrb + l + q * norb];
                     bose_fac = sqrt(
                         (double) occ_k * (occ_k - 1) * (occ_q + 1) *

@@ -1,5 +1,6 @@
 #include "assistant/arrays_definition.h"
 #include "assistant/dataio.h"
+#include "cpydataio.h"
 #include "integrator/coefficients_integration.h"
 #include "integrator/orbital_integration.h"
 #include "integrator/synchronize.h"
@@ -47,7 +48,7 @@ integration_driver(
 {
     uint32_t      prop_steps;
     double        curr_t;
-    char          custom_prefix[STR_BUFF_SIZE];
+    char          custom_prefix[STR_BUFF_SIZE], fname[STR_BUFF_SIZE];
     Carray        orb_next_work, coef_next_work;
     ManyBodyState psi;
 
@@ -99,12 +100,20 @@ integration_driver(
 
     if (mctdhb->integ_type == IMAGTIME)
     {
+        // record potential once
+        strcpy(fname, out_dirname);
+        strcat(fname, prefix);
+        strcat(fname, "_obpotential.dat");
+        rarr_column_txt(
+            fname, "%.14E", psi->grid_size, mctdhb->orb_eq->pot_grid);
+        // record final (hopefully) converged orbitals and coef
         record_raw_data(prefix, psi);
     }
 
     if (mctdhb->integ_type == REALTIME)
     {
         record_time_interaction(prefix, mctdhb->orb_eq);
+        record_time_array(prefix, tend, mctdhb->orb_eq->tstep);
     }
 
     free(orb_next_work);

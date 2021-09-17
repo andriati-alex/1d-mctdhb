@@ -22,7 +22,9 @@
 /** \brief Maximum length of stack strings */
 #define STR_BUFF_SIZE 128
 /** \brief Maximum grid size supported */
-#define MAX_GRID_SIZE 2048
+#define MAX_GRID_SIZE 2049
+/** \brief Minimum grid size required */
+#define MIN_GRID_SIZE 50
 /** \brief Maximum number of single particle states(orbitals) supported */
 #define MAX_ORBITALS 30
 /** \brief Maximum number of single particle states(orbitals) supported */

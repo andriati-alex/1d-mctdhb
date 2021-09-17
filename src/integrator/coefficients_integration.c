@@ -145,7 +145,7 @@ propagate_coef_sil(MCTDHBDataStruct mctdhb, Carray cnext)
     }
 
     // Return from Lanczos vector space to configurational
-#pragma omp parallel for private(i, mat_mul_sum) schedule(static)
+#pragma omp parallel for private(i, j, mat_mul_sum) schedule(static)
     for (i = 0; i < dim; i++)
     {
         mat_mul_sum = 0;

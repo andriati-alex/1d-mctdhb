@@ -206,4 +206,7 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc);
 void
 append_timestep_potential(char prefix[], OrbitalEquation eq_desc);
 
+void
+record_time_array(char prefix[], double tend, double tstep);
+
 #endif

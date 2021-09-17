@@ -36,7 +36,7 @@ sync_integration_new_step(MCTDHBDataStruct mctdhb, uint32_t current_step)
 {
     double new_t = (current_step + 1) * mctdhb->orb_eq->tstep;
     mctdhb->orb_eq->t = new_t;
-    if (mctdhb->integ_type == IMAGTIME) sync_equation_params(mctdhb->orb_eq);
+    if (mctdhb->integ_type == REALTIME) sync_equation_params(mctdhb->orb_eq);
     sync_density_matrices(mctdhb->multiconfig_space, mctdhb->state);
     sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
 }

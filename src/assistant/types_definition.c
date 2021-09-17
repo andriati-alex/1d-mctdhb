@@ -50,6 +50,11 @@ get_orbital_equation(
         printf("\n\nERROR: Exceeded max grid size %d\n\n", MAX_GRID_SIZE);
         exit(EXIT_FAILURE);
     }
+    if (grid_size < MIN_GRID_SIZE)
+    {
+        printf("\n\nERROR: Below min grid size %d\n\n", MIN_GRID_SIZE);
+        exit(EXIT_FAILURE);
+    }
     if (norb > MAX_ORBITALS)
     {
         printf(
@@ -225,7 +230,7 @@ get_orbital_workspace(OrbitalEquation eq_desc, OrbDerivative der_method)
     desc_s = DftiCommitDescriptor(orb_work->fft_desc);
 
     // space required to use external odelib
-    orb_work->extern_work = get_cplx_rungekutta_ws(grid_size * norb);
+    orb_work->extern_work = (void*) get_cplx_rungekutta_ws(grid_size * norb);
     orb_work->fft_freq = get_double_array(grid_size - 1);
     orb_work->fft_hder_exp = get_dcomplex_array(grid_size - 1);
 

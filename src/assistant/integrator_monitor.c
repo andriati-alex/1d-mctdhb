@@ -24,7 +24,7 @@ eig_residual(
         }
     }
     free(hc);
-    return max_norm;
+    return max_norm / multiconf->npar;
 }
 
 double

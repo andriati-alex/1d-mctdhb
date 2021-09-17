@@ -1,5 +1,5 @@
-#include "assistant/types_definition.h"
 #include "assistant/dataio.h"
+#include "assistant/types_definition.h"
 #include "cpydataio.h"
 #include "integrator/driver.h"
 #include <string.h>
@@ -9,7 +9,7 @@ main(int argc, char* argv[])
 {
     uint32_t         njobs;
     char             fname[STR_BUFF_SIZE];
-    MCTDHBDataStruct problem_set;
+    MCTDHBDataStruct inp_struct;
 
     if (argc != 2)
     {
@@ -24,10 +24,17 @@ main(int argc, char* argv[])
 
     for (uint32_t job_id = 1; job_id <= njobs; job_id++)
     {
-        problem_set = full_setup_mctdhb_current_dir(
+        inp_struct = full_setup_mctdhb_current_dir(
             argv[1], job_id, COMMON_INP, NULL, NULL, NULL, NULL);
-        screen_display_mctdhb_info(problem_set, TRUE, TRUE, TRUE);
-        destroy_mctdhb_struct(problem_set);
+        screen_display_mctdhb_info(inp_struct, TRUE, TRUE, TRUE);
+        integration_driver(
+            inp_struct,
+            10,
+            argv[1],
+            inp_struct->orb_eq->tend,
+            10,
+            MAXIMUM_VERB);
+        destroy_mctdhb_struct(inp_struct);
     }
 
     return 0;
