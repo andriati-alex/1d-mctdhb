@@ -4,18 +4,24 @@
  * \brief Input and output with text files
  *
  * Due to the general approach from the API developed in this package, even
- * a simple problem MCTDHB problem can provide some labor to setup. The API
+ * a simple MCTDHB problem can require a formidable labor to setup. The API
  * provided in this file ease the data input and output with with text files.
  * Moreover, abstract some concepts of multiple jobs run, resulting in very
  * general API capable to handle parameters sweep, possibly within analytic
- * continuation feeding next job input with last job output.
+ * continuation, feeding next job input with last one's output.
  *
  * Generally, to keep the runs organized, two directories to keep input and
  * output files is required. The `inp_dirname` and `out_dirname` global var
  * set the default directory names. Other global vars set complex numbers
- * format in text files (usually python compatible) and some other helper
- * parameters available to the client to customize.
+ * format in text files (usually python compatible) and them can be changed
+ * from a client application if needed.
+ *
+ * The general workflow in recording data is to give a prefix (recommended
+ * to be related to input prefix data) and the output directory is set by
+ * the global variable \c out_dirname and the suffix by the particular
+ * function called
  */
+
 #ifndef MCTDHB_DATAIO_H
 #define MCTDHB_DATAIO_H
 
@@ -24,10 +30,13 @@
 /** \brief Formatter sequence for function definition with real parameters */
 #define BUILTIN_TIME_FUNCTION_INPUT_FMT "%s %lf %lf %lf %lf %lf"
 /** \brief Minimum parameters per line in input params files */
-#define MIN_PARAMS_LINE 21
-/** \brief Default complex number reading formatter for orbitals */
+#define MIN_PARAMS_INLINE 21
+/** \brief Default file suffix to read parameters */
+#define PARAMS_FNAME_SUFFIX "_mctdhb_parameters.dat"
+
+/** \brief Complex number formatter for orbitals (default python) */
 extern char orb_cplx_read_fmt[STR_BUFF_SIZE];
-/** \brief Default complex number reading formatter for coefficients */
+/** \brief Complex number formatter for coefficients (default python) */
 extern char coef_cplx_read_fmt[STR_BUFF_SIZE];
 /** \brief Default input directory name */
 extern char inp_dirname[STR_BUFF_SIZE];
@@ -36,15 +45,32 @@ extern char out_dirname[STR_BUFF_SIZE];
 /** \brief Default integrator descriptor file name */
 extern char integrator_desc_fname[STR_BUFF_SIZE];
 
+/** \brief control how much decimal digits shall be used to display energy */
+extern uint8_t monitor_energy_digits;
+/** \brief Whether to display minimum occupation or not */
+extern Bool monitor_disp_min_occ;
+/** \brief Whether to display kinect energy or not */
+extern Bool monitor_disp_kin_energy;
+/** \brief Whether to display interacting energy or not */
+extern Bool monitor_disp_int_energy;
+/** \brief Whether to display orbitals overlap residue or not */
+extern Bool monitor_disp_overlap_residue;
+/** \brief Whether to display orbitals norm or not */
+extern Bool monitor_disp_orb_norm;
+/** \brief Whether to display coefficients norm or not */
+extern Bool monitor_disp_coef_norm;
+/** \brief Whether to display hamiltonian eigvalue residue or not */
+extern Bool monitor_disp_eig_residue;
+
 /** \brief Multiple jobs input handling */
 typedef enum
 {
-    COMMON_INP,
-    MULTIPLE_INP,
-    LAST_JOB_OUT
+    COMMON_INP,   //! Always use job 1
+    MULTIPLE_INP, //! Use job from input param
+    LAST_JOB_OUT  //! Use from last output (requies same prefix convention)
 } JobsInputHandle;
 
-/** \brief Available datatypes to record as output */
+/** \brief Available datatypes to record as output of the method */
 typedef enum
 {
     ORBITALS_REC,
@@ -54,62 +80,98 @@ typedef enum
     PARAMETERS_REC
 } RecordDataType;
 
-/** \brief Control verbosity in integration drivers */
-typedef enum
-{
-    MINIMUM_VERB,
-    MEDIUM_VERB,
-    MAXIMUM_VERB
-} Verbosity;
-
-/** \brief Read orbitals (grid pts as rows) */
+/** \brief Read orbitals (grid pts as rows and orb number along columns)
+ *
+ * This function is complementary to \c get_mctdhb_from_files to set
+ * orbitals of sub-struct \c ManyBodyState in \c MCTDHBDataStruct
+ *
+ * \warning The \c orbital_matrices are not set automatically.
+ *          Use the functions provided in \c orbital_matrices.h
+ *
+ * \see orbital_matrices.h
+ * \see ManyBodyState
+ *
+ * \param[in] fname file name(full path) with data for orbitals
+ * \param[in] psi   Many-Body state struct reference to record values
+ */
 void
 set_orbitals_from_file(char fname[], ManyBodyState psi);
 
-/** \brief Read coefficients as column vector */
+/** \brief Read coefficients as column vector from file
+ *
+ * This function is complementary to \c get_mctdhb_from_files to set
+ * coefficients of sub-struct \c ManyBodyState in \c MCTDHBDataStruct
+ *
+ * \warning The density matrices are not set automatically.
+ *          Use the functions in \c density_matrices.h
+ *
+ * \see density_matrices.h
+ * \see ManyBodyState
+ *
+ * \param[in] fname file name(full path) with coef as column matrix
+ * \param[in] psi   Many-Body state struct reference to record values
+ */
 void
-set_coef_from_file(char fname[], uint32_t space_dim, ManyBodyState psi);
+set_coef_from_file(char fname[], ManyBodyState psi);
 
-/** \brief Get MCTDHB problem set provided minimal information from file
+/** \brief Get MCTDHB data type provided information from files
  *
  * There are several parameters to tweak to fully set a (numerical) MCTDHB
  * problem, but some of them are required to at least allocate all needed
- * memory and set the configurational space, such as hashing and operators
+ * memory and set the configurational space, such as hashing and operator
  * mappings. This function uses a line of a file to allocate all necessary
- * memory and set basic structs/fields (as multiconf space). Requires the
- * following values in this specific order for a given file line:
+ * memory and set basic structs/fields (as multiconf space). The parameters
+ * must be disposed in a single line in the following order
  *
- * \code
- * npar norb grid_size xi xf tstep tend d2_coef imagpart_d1coef g_func_name
- * sequence_5params pot_func_name sequence_5params
- * \endcode
+ * \li \c npar
+ * \li \c norb
+ * \li \c grid_size
+ * \li \c xi
+ * \li \c xf
+ * \li \c tstep
+ * \li \c tend
+ * \li \c d2_coef
+ * \li \c imagpart_d1coef
+ * \li \c g_func_name
+ * \li sequence of 5 real values
+ * \li \c pot_func_name
+ * \li sequence of 5 real values
  *
- * Most part of the parameters above are self-explained, but there are two
+ * Most part of the parameters above are self-explanatory, but there are two
  * strings `g_func_name` and `pot_func_name` which refers to names of some
- * of the builtin time-dependent functions for the (contact)interaction
- * and single particle potential. Available names are provided in headers
- * `builtin_potential` and `builtin_time_parameter` or "custom" string can
- * be provided to use a client implementation instead. Each builtin case
- * demands up to five real parameters and those must be provided after the
- * name of the function
+ * of the builtin time-dependent functions for the contact interaction and
+ * the single particle potential. Available names are provided in headers
+ * `builtin_potential.h` and `builtin_time_parameter.h` which includes some
+ * known examples. If using the main executable, the client must choose a
+ * builtin case, but if a separate executable is calling this function the
+ * "custom" string can be used to indicate that a custom potential will be
+ * given as pointer to a function (following the specific signature). The
+ * parameters given in the file are ignored if custom parameters are given
  *
- * \param[in] fname               full path to file to read
+ * \warning Only space and integration related internal structs are set.
+ *          Values in \c ManyBodyState sub-struct still must be set
+ *
+ * \param[in] par_fname           full path to file with parameters
+ * \param[in] integ_fname         full path to file with integrator descriptor
  * \param[in] line                line number to read
  * \param[in] custom_pot_fun      client provided (trap) potential to be used
  *                                in case the string read in file is "custom"
+ *                                (ignored if "custom" is not read)
  * \param[in] custom_inter_fun    client provided time dependent function to
  *                                interaction parameter if file is "custom"
+ *                                (ignored if "custom" is not read)
  * \param[in] custom_pot_params   overwrite the file parameters to evaluate
- *                                (trap) potential
+ *                                (trap) potential.
  * \param[in] custom_inter_params overwrite the file paramters to evaluate
- *                                time-dependent interaction parameter
- * 
- * \return MCTDHB struct reference with all memory allocated and default
- *         integration configuration. No data is set for orbitals neither
- *         for coefficients.
+ *                                time-dependent interaction strength
+ *
+ * \return MCTDHB struct reference with all memory allocated, integrator
+ *                descriptor and multi config space set. All the initial
+ *                data for coefficients, orbitals and their matrices are
+ *                NOT set.
  */
 MCTDHBDataStruct
-get_mctdhb_datafiles(
+get_mctdhb_from_files(
     char                     par_fname[],
     char                     integ_fname[],
     uint32_t                 line,
@@ -120,37 +182,34 @@ get_mctdhb_datafiles(
 
 /** \brief Complete definition of MCTDHB problem using execution directory
  *
- * Essentially use the functions `get_mctdhb_datafile_line` to create all
- * memory workspace and `set_mctdhb_integrator_from_file` to define the
- * integration method. Besides set values for orbitals and coefficients
- * using extra input files, selecting a specific job identifier which is
- * also the line number to read in `get_mctdhb_datafile_line`. All files
- * needed must share a commom prefix and be located in specific directories
+ * Essentially, use the functions `get_mctdhb_from_files` to create all
+ * memory workspace and set integration method. Besides set values for
+ * orbitals and coefficients including their related matrices.
  *
  * In directory "./input" must contain:
- * \li \c fprefix_mctdhb_parameters.dat file used in `get_mctdhb_datafile_line`
+ * \li \c fprefix_mctdhb_parameters.dat file used in `get_mctdhb_from_files`
  * \li \c fprefix_job?_orb.dat file with orbitals as matrix (grid pts as rows)
  * \li \c fprefix_job?_coef.dat file with coefficients vector (column matrix)
  *
- * where `fprefix` is the input string parameter and '?' is a number depending
- * on the job identifier `job_num` and job handler `which_inp`.
+ * with \c fprefix as the input (string)param and '?' is a number depending
+ * on the job given by \c job_num and job handler \c which_inp . The way it
+ * reads behave as:
+ * \li \c COMMON_INP is equivalent to set `? == 1` in the files independently
+ *     of \c job_num specified it will use the same input.
+ * \li \c MULTIPLE_INP will set \c ? to the \c job_num given
+ * \li \c LAST_JOB_OUT will try to set using output files directory from last
+ *     job evaluated. This requires a sequential execution of jobs, and the
+ *     same naming convention for output files
  *
- * In current directory "./" must contain:
- * \li \c integrator_desc_fname which by default is "mctdhb_integrator.conf".
- *        The client can change using this global variable and is not realted
- *        with \c fprefix
- * 
- * \note If \c which_inp is \c LAST_JOB_OUT then files must also be provided
- *       in directory \c ./output but this case is reserved for analytical
- *       continuation for multiple jobs, where several jobs are executed
- *       sequentially with the output files sharing the same prefix with
- *       the one used here. In this case, the result of last job is used
- *       as input for the next and so on, which is useful when varying a
- *       parameter of the problem. This shall not work if either number of
- *       orbitals or particles change.
- * 
- * \param[in] fprefix             file names common prefix
- * \param[in] job_num             job number identifier
+ * In current directory \c "./" must contain the integrator descriptor file
+ * with the name in the string global variable \c integrator_desc_fname and
+ * as default is \c "mctdhb_integrator.conf" . A client app can change this
+ * value, but this is used by the main executable
+ *
+ * \see get_mctdhb_from_files
+ *
+ * \param[in] fprefix             file names common prefix in input directory
+ * \param[in] job_num             job number (the line read in parameters)
  * \param[in] which_inp           How to handle input for multiple jobs
  * \param[in] custom_pot_fun      client custom (trap) potential function
  * \param[in] custom_inter_fun    client custom time-dependent interaction
@@ -167,6 +226,22 @@ full_setup_mctdhb_current_dir(
     void*                    custom_pot_params,
     void*                    custom_inter_params);
 
+/** \brief Print on screen a nice banner with project name */
+void
+screen_display_banner();
+
+/** \brief automatically detect number of jobs by lines in params file
+ *
+ * The params file must be in directory \c inp_dirname (default \c "./input")
+ * and forced to have as suffix the string \c "_mctdhb_parameters.dat"
+ *
+ * \param[in] prefix file name part preceeding \c "_mctdhb_parameters.dat"
+ *
+ * \return number of lines in parameters file to be used as number of jobs
+ */
+uint32_t
+auto_number_of_jobs(char prefix[]);
+
 /** \brief Display on screen general info about the problem setup */
 void
 screen_display_mctdhb_info(
@@ -178,7 +253,7 @@ screen_display_mctdhb_info(
  * It is recommended to use the same prefix from input files (if provided) as
  * the identification becomes easier. Moreover, \c prefix should provide info
  * about time integration type and a job number in case the execution handles
- * multiple jobs. The directory (path) name to record data is in `out_dirname`
+ * multiple jobs. The directory (path) name to record data is in \c out_dirname
  * global variable and defaults to \c ./output
  *
  * \param[in] prefix file names prefix to use
@@ -188,24 +263,112 @@ screen_display_mctdhb_info(
 void
 set_output_fname(char prefix[], RecordDataType rec_id, char* fname);
 
+/** \brief Display columns being printed during time integration
+ *
+ * These columns are defined by the set of global variables starting
+ * with \c monitor_disp prefix which are all boolean to select which
+ * information shall be printed
+ */
+void
+screen_integration_monitor_columns();
+
 /** \brief Show on screen key quantities during time propagation */
 void
-screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb);
+screen_integration_monitor(MCTDHBDataStruct mctdhb);
 
-/** \brief Record set of data fields representing the many-body state */
+/** \brief Record custom set of data fields to represent the many-body state
+ *
+ * Instead of using the coefficients record the one- and two-body
+ * density matrices, which are sufficient to compute most part of
+ * physical observables. This pre-processing layer is advantageous
+ * since the density matrices must be computed anyway and make it
+ * easier to analyze data in any other language. All are recorded
+ * appending to files as inline array, so matrices are translated
+ * to rowmajor format. This is suitable for realtime propagations
+ * with each line corresponding to a time step.
+ *
+ * For example, the orbitals are sequentially recorded resulting
+ * in inline array with size `norb * grid_size`
+ *
+ * The full filename is defined using the the `prefix` param with
+ * suffix convention for each file given in \c set_output_fname .
+ * The output dir can be controlled through the global variable
+ * \c out_dirname which default is \c ./output
+ *
+ * \note The files are open in append mode so repeting the same
+ *       prefix will NOT overwrite data, but continue from last line
+ *
+ * \note This shall be prefered for real time calculations to reduce
+ *       post computational cost and eventually storage requirements
+ *
+ * \see set_output_fname
+ * \see record_raw_state
+ *
+ * \param[in] prefix file names prefix (den matrices and orbitals)
+ * \param[in] psi    Many-Body state struct reference
+ */
 void
-record_custom_data_selection(char prefix[], ManyBodyState psi);
+append_processed_state(char prefix[], ManyBodyState psi);
 
-/** \brief Record only Fock-basis expansion coefficients and orbitals */
+/** \brief Record only Fock-basis expansion coefficients and orbitals
+ *
+ * Record minimal information to represent many-body state through
+ * coefficients and orbitals. Differently of \c append_processed_state
+ * the values are not appended and data is overwritten in case the file
+ * already exists. The file names are decided according to \c set_output_fname
+ * to set the suffix with the \c prefix given
+ *
+ * \see set_output_fname
+ * \see append_processed_state
+ *
+ * \li Coefficients of Fock basis expansion recorded as column matrix
+ * \li Orbitals recorded with grid points along rows
+ *
+ * \param[in] prefix Common file names prefix
+ * \param[in] psi    Many-Body state struct reference
+ */
 void
-record_raw_data(char prefix[], ManyBodyState psi);
+record_raw_state(char prefix[], ManyBodyState psi);
 
+/** \brief Record array with values of contact interaction for all time steps
+ *
+ * The array is recorded as column matrix with 10 decimal places.
+ * The file name suffix is fixed to \c "_interaction.dat" in the
+ * directory set from global variable \c out_dirname which default
+ * is \c "./output"
+ *
+ * \note This function must be called once and the values are recorded
+ *       for all time steps
+ *
+ * \param[in] prefix  file name prefix
+ * \param[in] eq_desc equation descriptor struct
+ */
 void
 record_time_interaction(char prefix[], OrbitalEquation eq_desc);
 
+/** \brief Append/Record current one-body potential used
+ *
+ * Use the time in \c OrbitalEquation struct to evaluate and record
+ * potential as inline array. If the file already exists the data is
+ * appended in the last line. The file name suffix is fixed to
+ * \c "_obpotential.dat" recorded in the directory set from global
+ * variable \c out_dirname which default is \c "./output"
+ *
+ * \param[in] prefix  file name prefix
+ * \param[in] eq_desc equation descriptor struct (\c eq_desc->pot_grid is used)
+ */
 void
 append_timestep_potential(char prefix[], OrbitalEquation eq_desc);
 
+/** \brief Record data array with time step values
+ *
+ * The directory is set from global variable \c out_dirname which default
+ * is \c "./output" and the file name suffix is fixed as \c "_timesteps.dat"
+ *
+ * \param[in] prefix file name prefix to use
+ * \param[in] tend   last time step value
+ * \param[in] tstep  time step size
+ */
 void
 record_time_array(char prefix[], double tend, double tstep);
 

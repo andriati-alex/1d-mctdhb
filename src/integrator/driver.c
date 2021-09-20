@@ -1,11 +1,9 @@
+#include "integrator/driver.h"
 #include "assistant/arrays_definition.h"
-#include "assistant/dataio.h"
 #include "cpydataio.h"
 #include "integrator/coefficients_integration.h"
 #include "integrator/orbital_integration.h"
 #include "integrator/synchronize.h"
-#include "linalg/basic_linalg.h"
-#include "linalg/lapack_interface.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -52,8 +50,7 @@ integration_driver(
     uint32_t         rec_nsteps,
     char             prefix[],
     double           tend,
-    uint32_t         monitor_rate,
-    Verbosity        verb)
+    uint32_t         monitor_rate)
 {
     uint32_t      prop_steps;
     double        curr_t;
@@ -70,19 +67,20 @@ integration_driver(
     orb_next_work = get_dcomplex_array(psi->norb * psi->grid_size);
     coef_next_work = get_dcomplex_array(psi->space_dim);
 
-    screen_integration_monitor(mctdhb, verb);
+    screen_integration_monitor_columns();
+    screen_integration_monitor(mctdhb);
 
     // Record initial conditions ********************************************
     switch (mctdhb->integ_type)
     {
         case REALTIME:
-            record_custom_data_selection(prefix, psi);
+            append_processed_state(prefix, psi);
             append_timestep_potential(prefix, mctdhb->orb_eq);
             break;
         case IMAGTIME:
             strcpy(custom_prefix, prefix);
             strcat(custom_prefix, "_init");
-            record_raw_data(custom_prefix, psi);
+            record_raw_state(custom_prefix, psi);
             break;
     }
     // initial condition recorded *******************************************
@@ -97,13 +95,13 @@ integration_driver(
 
         if (mctdhb->integ_type == REALTIME && prop_steps % rec_nsteps == 0)
         {
-            record_custom_data_selection(prefix, psi);
+            append_processed_state(prefix, psi);
             append_timestep_potential(prefix, mctdhb->orb_eq);
         }
 
         if (prop_steps % monitor_rate == 0)
         {
-            screen_integration_monitor(mctdhb, verb);
+            screen_integration_monitor(mctdhb);
         }
     }
 
@@ -118,7 +116,7 @@ integration_driver(
         rarr_column_txt(
             fname, "%.14E", psi->grid_size, mctdhb->orb_eq->pot_grid);
         // record final (hopefully) converged orbitals and coef
-        record_raw_data(prefix, psi);
+        record_raw_state(prefix, psi);
     }
 
     if (mctdhb->integ_type == REALTIME)

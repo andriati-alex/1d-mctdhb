@@ -17,6 +17,15 @@ char inp_dirname[STR_BUFF_SIZE] = "input/";
 char out_dirname[STR_BUFF_SIZE] = "output/";
 char integrator_desc_fname[STR_BUFF_SIZE] = "mctdhb_integrator.conf";
 
+uint8_t monitor_energy_digits = 10;
+Bool    monitor_disp_min_occ = TRUE;
+Bool    monitor_disp_kin_energy = FALSE;
+Bool    monitor_disp_int_energy = FALSE;
+Bool    monitor_disp_overlap_residue = FALSE;
+Bool    monitor_disp_orb_norm = FALSE;
+Bool    monitor_disp_coef_norm = FALSE;
+Bool    monitor_disp_eig_residue = TRUE;
+
 static void
 report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
 {
@@ -44,13 +53,13 @@ set_orbitals_from_file(char fname[], ManyBodyState psi)
 }
 
 void
-set_coef_from_file(char fname[], uint32_t space_dim, ManyBodyState psi)
+set_coef_from_file(char fname[], ManyBodyState psi)
 {
-    carr_txt_read(fname, coef_cplx_read_fmt, 1, space_dim, psi->coef);
+    carr_txt_read(fname, coef_cplx_read_fmt, 1, psi->space_dim, psi->coef);
 }
 
 MCTDHBDataStruct
-get_mctdhb_datafiles(
+get_mctdhb_from_files(
     char                     par_fname[],
     char                     integ_fname[],
     uint32_t                 line,
@@ -98,7 +107,7 @@ get_mctdhb_datafiles(
 
     f = open_file(par_fname, "r");
 
-    // ignore all comment lines
+    // ignore all comment lines in the beginning
     jump_comment_lines(f, CURSOR_POSITION);
     for (uint32_t i = line; i > 1; i--) jump_next_line(f);
 
@@ -129,13 +138,13 @@ get_mctdhb_datafiles(
         &potpar_read[3],
         &potpar_read[4]);
 
-    if (scanf_params != MIN_PARAMS_LINE)
+    if (scanf_params != MIN_PARAMS_INLINE)
     {
         fclose(f);
         printf(
             "\n\nIOERROR: Expected to read %d in line %u of file %s. "
             "However fscanf returned %u\n\n",
-            MIN_PARAMS_LINE,
+            MIN_PARAMS_INLINE,
             line,
             par_fname,
             scanf_params);
@@ -285,8 +294,8 @@ full_setup_mctdhb_current_dir(
 
     strcpy(fpath, inp_dirname);
     strcat(fpath, fprefix);
-    strcat(fpath, "_mctdhb_parameters.dat");
-    mctdhb = get_mctdhb_datafiles(
+    strcat(fpath, PARAMS_FNAME_SUFFIX);
+    mctdhb = get_mctdhb_from_files(
         fpath,
         integrator_desc_fname,
         job_num,
@@ -347,7 +356,7 @@ full_setup_mctdhb_current_dir(
             strcat(fpath, job_suffix);
             break;
     }
-    set_coef_from_file(fpath, mctdhb->multiconfig_space->dim, mctdhb->state);
+    set_coef_from_file(fpath, mctdhb->state);
 
     sync_density_matrices(mctdhb->multiconfig_space, mctdhb->state);
     sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
@@ -355,15 +364,28 @@ full_setup_mctdhb_current_dir(
 }
 
 void
+screen_display_banner()
+{
+    printf("\n\n");
+    printf("'||    ||'   ..|'''.| |''||''|  ||''|.   '||    ||' '||''|.\n"
+           " |||  |||  .|'     ''    ||     ||   ||   ||    ||   ||   ||\n"
+           " |'|.|'||  ||            ||     ||    ||  ||''''||   ||'''|.\n"
+           " | '|' ||  '|.      .    ||     ||    ||  ||    ||   ||    ||\n"
+           ".|     ||.  ''|....'    .||.    ||.../'  .||    ||. .||.../'\n");
+    printf("\n\n");
+}
+
+void
 screen_display_mctdhb_info(
     MCTDHBDataStruct mctdhb, Bool disp_integ, Bool disp_mem, Bool disp_monitor)
 {
     OrbitalEquation orb_eq = mctdhb->orb_eq;
+
     sepline('*', 78, 2, 1);
     printf("* Problem setup parameters");
-    printf("\n*\tnpar : %" SCNu16, mctdhb->multiconfig_space->npar);
-    printf("\n*\tnorb : %" SCNu16, mctdhb->multiconfig_space->norb);
-    printf("\n*\tdim  : %" SCNu32, mctdhb->multiconfig_space->dim);
+    printf("\n*\tnpar : %" PRIu16, mctdhb->multiconfig_space->npar);
+    printf("\n*\tnorb : %" PRIu16, mctdhb->multiconfig_space->norb);
+    printf("\n*\tdim  : %" PRIu32, mctdhb->multiconfig_space->dim);
     printf(
         "\n*\tgrid : [%.2lf,%.2lf] with %" SCNu16 " discrete points",
         orb_eq->xi,
@@ -374,11 +396,13 @@ screen_display_mctdhb_info(
         orb_eq->tend,
         orb_eq->tstep);
     printf("\n*\tname : %s", orb_eq->eq_name);
+
     if (!disp_integ)
     {
         sepline('*', 78, 1, 2);
         return;
     }
+
     printf("\n*\n");
     printf("* Integrator setup");
     switch (mctdhb->integ_type)
@@ -394,12 +418,12 @@ screen_display_mctdhb_info(
     {
         case LANCZOS:
             printf(
-                "\n*\tcoef : Short Iteration Lanczos(SIL) with %" SCNu16
+                "\n*\tcoef : Short Iteration Lanczos(SIL) with %" PRIu16
                 " iterations per step",
                 mctdhb->coef_workspace->lan_work->iter);
             break;
         case RUNGEKUTTA:
-            printf("\n*\tcoef : Runge Kutta");
+            printf("\n*\tcoef : Runge Kutta of order %u", mctdhb->rk_order);
             break;
     }
     switch (mctdhb->orb_integ_method)
@@ -424,16 +448,19 @@ screen_display_mctdhb_info(
             break;
     }
     printf("\n*\tRunge-Kutta global order : %u", mctdhb->rk_order);
+
     if (!disp_mem)
     {
         sepline('*', 78, 1, 2);
         return;
     }
+
     MultiConfiguration space = mctdhb->multiconfig_space;
     uint16_t           norb = space->norb;
     uint32_t           dim = space->dim;
     uint64_t           mem_conf = 0, mem_orb = 0;
-    // configurational part
+
+    // configurational part *************************************************
     mem_conf += dim * sizeof(dcomplex);
     mem_conf += dim * norb * sizeof(uint16_t);
     mem_conf += dim * norb * norb * sizeof(uint32_t);
@@ -442,16 +469,20 @@ screen_display_mctdhb_info(
         (space->op_maps->strideot[dim - 1] + norb * norb) * sizeof(uint32_t);
     mem_conf += norb * norb * sizeof(dcomplex);
     mem_conf += norb * norb * norb * norb * sizeof(dcomplex);
-    // orbital part
-    mem_orb += 3 * norb * orb_eq->grid_size * sizeof(dcomplex);
-    mem_orb += norb * norb * sizeof(dcomplex);
-    mem_orb += norb * norb * norb * norb * sizeof(dcomplex);
+
+    // orbital part *********************************************************
+    mem_orb += 3 * norb * orb_eq->grid_size * sizeof(dcomplex); // workspace
+    mem_orb += norb * norb * sizeof(dcomplex);                  // ho matrix
+    mem_orb += norb * norb * norb * norb * sizeof(dcomplex);    // hint matrix
+    // crank-nicolson arrays
     mem_orb += 3 * orb_eq->grid_size * sizeof(dcomplex);
+    // DVR matrix
     mem_orb += orb_eq->grid_size * orb_eq->grid_size * sizeof(dcomplex);
     printf("\n*\n");
     printf("* Estimated (minimum)memory comsumption");
     printf("\n*\tcoef : %.1lf(MB)", ((double) mem_conf) / 1E6);
     printf("\n*\torbs : %.1lf(MB)", ((double) mem_orb) / 1E6);
+
     if (!disp_monitor)
     {
         sepline('*', 78, 1, 2);
@@ -462,12 +493,23 @@ screen_display_mctdhb_info(
     double avg_orb_norm = avg_orbitals_norm(
         norb, orb_eq->grid_size, orb_eq->dx, mctdhb->state->orbitals);
     double cmod = carrMod(dim, mctdhb->state->coef);
+
     printf("\n*\n");
     printf("* Safety integrator indicators");
     printf("\n*\tOverlap residue : %.2E", ores);
     printf("\n*\tAverage norm    : %.10lf", avg_orb_norm);
     printf("\n*\tCoef vec norm   : %.10lf", cmod);
     sepline('*', 78, 1, 2);
+}
+
+uint32_t
+auto_number_of_jobs(char prefix[])
+{
+    char params_fname[STR_BUFF_SIZE];
+    strcpy(params_fname, inp_dirname);
+    strcat(params_fname, prefix);
+    strcat(params_fname, PARAMS_FNAME_SUFFIX);
+    return number_of_lines(params_fname);
 }
 
 void
@@ -498,12 +540,66 @@ set_output_fname(char prefix[], RecordDataType id, char* fname)
 }
 
 void
-screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
+screen_integration_monitor_columns()
+{
+    uint8_t counter = 4;
+
+    printf("\nColumns to print during time propagatio:\n");
+    printf("1.[time]  2.energy  3.condensation  ");
+
+    if (monitor_disp_min_occ)
+    {
+        printf("%" PRIu8 ".min occ  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_kin_energy)
+    {
+        printf("%" PRIu8 ".kinect  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_int_energy)
+    {
+        printf("%" PRIu8 ".interacting  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_overlap_residue)
+    {
+        printf("%" PRIu8 ".overlap residue  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_orb_norm)
+    {
+        printf("%" PRIu8 ".orb norm  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_coef_norm)
+    {
+        printf("%" PRIu8 ".coef norm  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_eig_residue)
+    {
+        printf("%" PRIu8 ".eigvalue residue  ", counter);
+        counter++;
+    }
+
+    printf("\n");
+}
+
+void
+screen_integration_monitor(MCTDHBDataStruct mctdhb)
 {
     uint16_t      npar, norb, grid_size;
     uint32_t      space_dim;
     dcomplex      energy, kine, inte;
     double        dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue;
+    char          energy_fmt[STR_BUFF_SIZE];
     Rarray        nat_occ;
     ManyBodyState psi;
 
@@ -517,38 +613,68 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb, Verbosity verb)
     nat_occ = get_double_array(norb);
     psi = mctdhb->state;
 
+    sprintf(
+        energy_fmt,
+        " %%%" PRIu8 ".%" PRIu8 "E",
+        monitor_energy_digits + 7,
+        monitor_energy_digits);
+
     energy = total_energy(psi);
     cmat_hermitian_eigenvalues(norb, psi->ob_denmat, nat_occ);
-    printf(
-        "\n%9.5lf/%.2lf %20.14E %5.2lf",
-        t,
-        tend,
-        creal(energy) / npar,
-        nat_occ[norb - 1] / npar);
-    if (verb == MINIMUM_VERB) return;
-    kine = kinect_energy(mctdhb->orb_eq, psi) / npar;
-    inte = interacting_energy(psi) / npar;
-    printf(" %.5lf %12.6E %12.6E", nat_occ[0] / npar, creal(kine), creal(inte));
-    if (verb == MEDIUM_VERB) return;
-    over_res = overlap_residual(norb, grid_size, dx, psi->orbitals);
-    orb_norm = avg_orbitals_norm(norb, grid_size, dx, psi->orbitals);
-    coef_norm = carrMod(space_dim, psi->coef);
-    conf_eig_residue = eig_residual(
-        mctdhb->multiconfig_space,
-        psi->coef,
-        psi->hob,
-        psi->hint,
-        creal(energy));
-    printf(
-        " %9.2E %.7lf %.7lf %9.6lf",
-        over_res,
-        orb_norm,
-        coef_norm,
-        conf_eig_residue);
+
+    printf("\n[%7.3lf / %.1lf]", t, tend);
+    printf(energy_fmt, creal(energy) / npar);
+    printf("%6.2lf", nat_occ[norb - 1] / npar);
+
+    if (monitor_disp_min_occ)
+    {
+        printf("%10.6lf", nat_occ[0] / npar);
+    }
+
+    if (monitor_disp_kin_energy)
+    {
+        kine = kinect_energy(mctdhb->orb_eq, psi) / npar;
+        printf(energy_fmt, creal(kine));
+    }
+
+    if (monitor_disp_int_energy)
+    {
+        inte = interacting_energy(psi) / npar;
+        printf(energy_fmt, creal(inte));
+    }
+
+    if (monitor_disp_overlap_residue)
+    {
+        over_res = overlap_residual(norb, grid_size, dx, psi->orbitals);
+        printf("%10.2E", over_res);
+    }
+
+    if (monitor_disp_orb_norm)
+    {
+        orb_norm = avg_orbitals_norm(norb, grid_size, dx, psi->orbitals);
+        printf("%11.7lf", orb_norm);
+    }
+
+    if (monitor_disp_coef_norm)
+    {
+        coef_norm = carrMod(space_dim, psi->coef);
+        printf("%11.7lf", coef_norm);
+    }
+
+    if (monitor_disp_eig_residue)
+    {
+        conf_eig_residue = eig_residual(
+            mctdhb->multiconfig_space,
+            psi->coef,
+            psi->hob,
+            psi->hint,
+            creal(energy));
+        printf("%11.7lf", conf_eig_residue);
+    }
 }
 
 void
-record_custom_data_selection(char prefix[], ManyBodyState psi)
+append_processed_state(char prefix[], ManyBodyState psi)
 {
     uint16_t norb, grid_size;
     uint32_t norb4;
@@ -587,7 +713,7 @@ record_custom_data_selection(char prefix[], ManyBodyState psi)
 }
 
 void
-record_raw_data(char prefix[], ManyBodyState psi)
+record_raw_state(char prefix[], ManyBodyState psi)
 {
     uint16_t norb, grid_size;
     uint32_t space_dim;
@@ -637,7 +763,7 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
     f = open_file(fname, "w");
 
     g = eq_desc->inter_param(0, eq_desc->inter_extra_args);
-    fprintf(f, "%.10lf\n", g);
+    fprintf(f, "%.10E\n", g);
 
     prop_steps = 0;
     t = 0;
@@ -646,7 +772,7 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
         prop_steps++;
         t = prop_steps * eq_desc->tstep;
         g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
-        fprintf(f, "%.10lf\n", g);
+        fprintf(f, "%.10E\n", g);
     }
     fclose(f);
 }

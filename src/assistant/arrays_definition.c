@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ERR_MSG_FMT "In function %s for %d elements"
+static const char pointer_err_msg_fmt[] = "In function %s for %d elements";
 
 static void
 assert_pointer(void* ptr, char err_msg[])
@@ -19,7 +19,7 @@ get_int_array(uint32_t arr_size)
 {
     int* ptr;
     char err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_int_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_int_array", arr_size);
     ptr = (int*) malloc(arr_size * sizeof(int));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
@@ -30,7 +30,7 @@ get_uint16_array(uint32_t arr_size)
 {
     uint16_t* ptr;
     char      err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_uint16_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_uint16_array", arr_size);
     ptr = (uint16_t*) malloc(arr_size * sizeof(uint16_t));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
@@ -41,7 +41,7 @@ get_uint32_array(uint32_t arr_size)
 {
     uint32_t* ptr;
     char      err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_uint32_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_uint32_array", arr_size);
     ptr = (uint32_t*) malloc(arr_size * sizeof(uint32_t));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
@@ -52,7 +52,7 @@ get_double_array(uint32_t arr_size)
 {
     double* ptr;
     char    err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_double_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_double_array", arr_size);
     ptr = (double*) malloc(arr_size * sizeof(double));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
@@ -63,7 +63,7 @@ get_dcomplex_array(uint32_t arr_size)
 {
     dcomplex* ptr;
     char      err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_dcomplex_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_dcomplex_array", arr_size);
     ptr = (dcomplex*) malloc(arr_size * sizeof(dcomplex));
     assert_pointer((void*) ptr, err_msg);
     return ptr;
@@ -74,7 +74,7 @@ get_mklcomplex16_array(uint32_t arr_size)
 {
     MKL_Complex16* ptr;
     char           err_msg[STR_BUFF_SIZE];
-    sprintf(err_msg, ERR_MSG_FMT, "get_mklcomplex16_array", arr_size);
+    sprintf(err_msg, pointer_err_msg_fmt, "get_mklcomplex16_array", arr_size);
     ptr = (MKL_Complex16*) malloc(arr_size * sizeof(MKL_Complex16));
     assert_pointer((void*) ptr, err_msg);
     return ptr;

@@ -17,7 +17,6 @@ integration_driver(
     uint32_t         rec_nsteps,
     char             prefix[],
     double           tend,
-    uint32_t         monitor_rate,
-    Verbosity        verb);
+    uint32_t         monitor_rate);
 
 #endif
