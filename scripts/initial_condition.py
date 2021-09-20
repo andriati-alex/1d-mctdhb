@@ -179,7 +179,7 @@ if __name__ == "__main__":
     f = open(prefix_path + "_mctdhb_parameters.dat", "w")
     # Arbitrary value for time step and number of steps
     f.write(
-        "{} {} {} {:.10f} {:.10f} 0.002 10000 -0.5 0.0 "
+        "{} {} {} {:.10f} {:.10f} 0.002 30.0 -0.5 0.0 "
         "linear_ramp 1.0 1.0 0.0 0.0 0.0 harmonic 1.0 1.0 0.0 0.0 0.0".format(
             args.Npar, args.Norb, args.nx, args.xi, args.xf
         )
