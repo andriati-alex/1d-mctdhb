@@ -2,7 +2,6 @@
 #define MCTDHB_INTEGRATOR_DRIVER_H
 
 #include "mctdhb_types.h"
-#include "assistant/dataio.h"
 
 void
 mctdhb_propagate_step(

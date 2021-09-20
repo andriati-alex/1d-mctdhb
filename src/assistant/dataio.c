@@ -533,6 +533,9 @@ set_output_fname(char prefix[], RecordDataType id, char* fname)
         case TWO_BODY_MATRIX_REC:
             strcpy(specific_id, "_tbmat.dat");
             break;
+        case ONE_BODY_POTENTIAL_REC:
+            strcpy(specific_id, "_obpotential.dat");
+            break;
     }
     strcpy(fname, out_dirname);
     strcat(fname, prefix);
@@ -735,9 +738,7 @@ append_timestep_potential(char prefix[], OrbitalEquation eq_desc)
 {
     char fname[STR_BUFF_SIZE];
 
-    strcpy(fname, out_dirname);
-    strcat(fname, prefix);
-    strcat(fname, "_obpotential.dat");
+    set_output_fname(prefix, ONE_BODY_POTENTIAL_REC, fname);
 
     rarr_append_stream(
         fname,

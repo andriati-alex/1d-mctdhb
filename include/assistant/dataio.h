@@ -77,7 +77,8 @@ typedef enum
     COEFFICIENTS_REC,
     ONE_BODY_MATRIX_REC,
     TWO_BODY_MATRIX_REC,
-    PARAMETERS_REC
+    PARAMETERS_REC,
+    ONE_BODY_POTENTIAL_REC
 } RecordDataType;
 
 /** \brief Read orbitals (grid pts as rows and orb number along columns)

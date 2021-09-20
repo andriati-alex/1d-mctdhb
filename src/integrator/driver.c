@@ -1,11 +1,30 @@
 #include "integrator/driver.h"
 #include "assistant/arrays_definition.h"
+#include "assistant/dataio.h"
 #include "cpydataio.h"
 #include "integrator/coefficients_integration.h"
 #include "integrator/orbital_integration.h"
 #include "integrator/synchronize.h"
+#include <omp.h>
 #include <stdlib.h>
 #include <string.h>
+
+static void
+print_time_used(double t_sec)
+{
+    int secs = (int) t_sec, hours = 0, mins = 0;
+    if (secs / 3600 > 0)
+    {
+        hours = secs / 3600;
+        secs = secs % 3600;
+    }
+    if (secs / 60 > 0)
+    {
+        mins = secs / 60;
+        secs = secs % 60;
+    }
+    printf("%d hour(s) %d minute(s)", hours, mins);
+}
 
 void
 mctdhb_propagate_step(
@@ -53,7 +72,7 @@ integration_driver(
     uint32_t         monitor_rate)
 {
     uint32_t      prop_steps;
-    double        curr_t;
+    double        curr_t, ompt_start, ompt_used;
     char          custom_prefix[STR_BUFF_SIZE], fname[STR_BUFF_SIZE];
     Carray        orb_next_work, coef_next_work;
     ManyBodyState psi;
@@ -85,6 +104,7 @@ integration_driver(
     }
     // initial condition recorded *******************************************
 
+    ompt_start = omp_get_wtime();
     while (curr_t < tend)
     {
         mctdhb_propagate_step(
@@ -104,18 +124,21 @@ integration_driver(
             screen_integration_monitor(mctdhb);
         }
     }
+    ompt_used = (double) (omp_get_wtime() - ompt_start);
 
-    printf("\n\nSteps evolved %" PRIu32 "\n\n", prop_steps);
+    printf(
+        "\n\n%" PRIu32 " Total steps propagated in %.0lf(s): ",
+        prop_steps,
+        ompt_used);
+    print_time_used(ompt_used);
 
     if (mctdhb->integ_type == IMAGTIME)
     {
-        // record potential once
-        strcpy(fname, out_dirname);
-        strcat(fname, prefix);
-        strcat(fname, "_obpotential.dat");
+        // record potential once (it is not updated in imagtime)
+        set_output_fname(prefix, ONE_BODY_MATRIX_REC, fname);
         rarr_column_txt(
             fname, "%.14E", psi->grid_size, mctdhb->orb_eq->pot_grid);
-        // record final (hopefully) converged orbitals and coef
+        // record final (hopefully) converged orbitals and coefficients
         record_raw_state(prefix, psi);
     }
 
