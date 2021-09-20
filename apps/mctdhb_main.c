@@ -18,6 +18,8 @@ main(int argc, char* argv[])
 
     omp_set_num_threads(omp_get_max_threads() / 2);
 
+    monitor_energy_digits = 14;
+
     if (argc != 2)
     {
         printf("\n\nRequire exactly 1 command line argument: "

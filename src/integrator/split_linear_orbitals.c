@@ -26,18 +26,16 @@ set_cn_tridiagonal(
     uint16_t i, npts;
     double   a2, dx;
     dcomplex a1, dt;
-    Rarray   pot;
 
     dt = LINEAR_TSTEP_FRAC * eq_desc->prop_dt;
     npts = eq_desc->grid_size;
     a2 = eq_desc->d2coef;
     a1 = eq_desc->d1coef;
     dx = eq_desc->dx;
-    pot = eq_desc->pot_grid;
 
     for (i = 0; i < npts; i++)
     {
-        mid[i] = I + a2 * dt / dx / dx - dt * pot[i] / 2;
+        mid[i] = I + a2 * dt / dx / dx;
     }
     for (i = 0; i < npts - 2; i++)
     {
@@ -294,7 +292,6 @@ cn_rhs(OrbitalEquation eq_desc, Carray f, Carray out)
     int               i, npts;
     double            a2, dx;
     dcomplex          a1, mid, upper, lower, dt;
-    Rarray            pot;
 
     bounds = eq_desc->bounds;
     dt = LINEAR_TSTEP_FRAC * eq_desc->prop_dt;
@@ -302,34 +299,33 @@ cn_rhs(OrbitalEquation eq_desc, Carray f, Carray out)
     a2 = eq_desc->d2coef;
     a1 = eq_desc->d1coef;
     dx = eq_desc->dx;
-    pot = eq_desc->pot_grid;
 
     upper = a2 * dt / dx / dx / 2 + a1 * dt / dx / 4;
     lower = a2 * dt / dx / dx / 2 - a1 * dt / dx / 4;
 
     if (bounds == ZERO_BOUNDS)
     {
-        mid = I - a2 * dt / dx / dx + dt * pot[0] / 2;
+        mid = I - a2 * dt / dx / dx;
         out[0] = mid * f[0] + upper * f[1];
     } else
     {
-        mid = I - a2 * dt / dx / dx + dt * pot[0] / 2;
+        mid = I - a2 * dt / dx / dx;
         out[0] = mid * f[0] + upper * f[1] + lower * f[npts - 2];
     }
 
     for (i = 1; i < npts - 1; i++)
     {
-        mid = I - a2 * dt / dx / dx + dt * pot[i] / 2;
+        mid = I - a2 * dt / dx / dx;
         out[i] = mid * f[i] + upper * f[i + 1] + lower * f[i - 1];
     }
 
     if (bounds == ZERO_BOUNDS)
     {
-        mid = I - a2 * dt / dx / dx + dt * pot[npts - 1] / 2;
+        mid = I - a2 * dt / dx / dx;
         out[npts - 1] = mid * f[npts - 1] + lower * f[npts - 2];
     } else
     {
-        mid = I - a2 * dt / dx / dx + dt * pot[npts - 2] / 2;
+        mid = I - a2 * dt / dx / dx;
         out[npts - 2] = mid * f[npts - 2] + upper * f[0] + lower * f[npts - 3];
         out[npts - 1] = out[0];
     }
@@ -367,7 +363,7 @@ advance_linear_crank_nicolson(
             solve_cplx_tridiag(npts, upper, lower, mid, rhs, orb[k]);
         } else
         {
-            solve_cplx_cyclic_tridiag_lu(npts, upper, lower, mid, rhs, orb[k]);
+            solve_cplx_cyclic_tridiag_sm(npts, upper, lower, mid, rhs, orb[k]);
             orb[k][npts] = orb[k][0];
         }
     }

@@ -5,74 +5,23 @@
 
 void
 solve_cplx_tridiag(
-    uint32_t n, Carray upper, Carray lower, Carray mid, Carray RHS, Carray ans)
+    uint32_t n, Carray upper, Carray lower, Carray mid, Carray rhs, Carray ans)
 {
     uint32_t i, k;
-    dcomplex RHS1, RHS2;
     Carray   u, l, z;
     u = get_dcomplex_array(n);
     l = get_dcomplex_array(n - 1);
     z = get_dcomplex_array(n);
 
-    if (cabs(mid[0]) == 0)
-    {
-        // In this case there is a system reduction
-        // where we solve for [x1  x3  x4 ... xn]
-        // what is equivalent to adjust the two first
-        // equations and starts counters from 1
-
-        RHS1 = RHS[1] - mid[1] * RHS[0] / upper[0];
-        RHS2 = RHS[2] - lower[1] * RHS[0] / upper[0];
-
-        // u and z factor initizlization with the changed system
-        u[1] = lower[0];
-        z[1] = RHS1;
-
-        // One iteration need to be performed out because
-        // the change of values in lower and RHS
-
-        l[1] = 0;
-        u[2] = mid[2] - l[1] * upper[1];
-        z[2] = RHS2 - l[1] * z[1];
-
-        for (i = 2; i < n - 1; i++)
-        {
-            k = i + 1;
-            l[i] = lower[i] / u[i];
-            u[k] = mid[k] - l[i] * upper[i];
-            z[k] = RHS[k] - l[i] * z[i];
-        }
-
-        ans[n - 1] = z[n - 1] / u[n - 1];
-
-        for (i = 2; i <= n - 1; i++)
-        {
-            k = n - i;
-            ans[k] = (z[k] - upper[k] * ans[k + 1]) / u[k];
-        }
-
-        // Obtained order ans[0..n] = [nan  x1  x3  x4 .. xn]
-        // Organize ans[0..n] = [x1  x2  x3  .. xn]
-        ans[0] = ans[1];
-        ans[1] = RHS[0] / upper[0];
-
-        // Free local alilocated memory
-        free(u);
-        free(l);
-        free(z);
-
-        return;
-    }
-
     u[0] = mid[0];
-    z[0] = RHS[0];
+    z[0] = rhs[0];
 
     for (i = 0; i < n - 1; i++)
     {
         k = i + 1;
         l[i] = lower[i] / u[i];
         u[k] = mid[k] - l[i] * upper[i];
-        z[k] = RHS[k] - l[i] * z[i];
+        z[k] = rhs[k] - l[i] * z[i];
     }
 
     ans[n - 1] = z[n - 1] / u[n - 1];
@@ -91,7 +40,7 @@ solve_cplx_tridiag(
 
 void
 solve_cplx_cyclic_tridiag_lu(
-    uint32_t n, Carray upper, Carray lower, Carray mid, Carray RHS, Carray ans)
+    uint32_t n, Carray upper, Carray lower, Carray mid, Carray rhs, Carray ans)
 {
     uint32_t i, k;
     Carray   u, l, g, h, z;
@@ -106,7 +55,7 @@ solve_cplx_cyclic_tridiag_lu(
     z = get_dcomplex_array(n);
 
     u[0] = mid[0];
-    z[0] = RHS[0];
+    z[0] = rhs[0];
 
     /****** extras steps ******/
     g[0] = lower[n - 1] / mid[0];
@@ -118,7 +67,7 @@ solve_cplx_cyclic_tridiag_lu(
         k = i + 1;
         l[i] = lower[i] / u[i];
         u[k] = mid[k] - l[i] * upper[i];
-        z[k] = RHS[k] - l[i] * z[i];
+        z[k] = rhs[k] - l[i] * z[i];
 
         /*********** extras steps ***********/
         h[k] = (-1) * l[i] * h[i];
@@ -131,7 +80,7 @@ solve_cplx_cyclic_tridiag_lu(
     g[n - 2] = g[n - 2] + lower[n - 2] / u[n - 2];
 
     // Change from simple tridiagonal by unconjugate product of arrays
-    z[n - 1] = RHS[n - 1] - unconj_carrDot(n - 1, g, z);
+    z[n - 1] = rhs[n - 1] - unconj_carrDot(n - 1, g, z);
     u[n - 1] = mid[n - 1] - unconj_carrDot(n - 1, g, h);
 
     ans[n - 1] = z[n - 1] / u[n - 1];
@@ -158,7 +107,7 @@ solve_cplx_cyclic_tridiag_lu(
 
 void
 solve_cplx_cyclic_tridiag_sm(
-    uint32_t n, Carray upper, Carray lower, Carray mid, Carray RHS, Carray ans)
+    uint32_t n, Carray upper, Carray lower, Carray mid, Carray rhs, Carray ans)
 {
     dcomplex factor, recover1, recoverN;
     Carray   x, w, U, V;
@@ -193,7 +142,7 @@ solve_cplx_cyclic_tridiag_sm(
     // Adjust last main diagonal element(required by the algorithm)
     mid[n - 1] = mid[n - 1] - upper[n - 1] * lower[n - 1] / factor;
 
-    solve_cplx_tridiag(n, upper, lower, mid, RHS, x);
+    solve_cplx_tridiag(n, upper, lower, mid, rhs, x);
     solve_cplx_tridiag(n, upper, lower, mid, U, w);
 
     factor = unconj_carrDot(n, V, x) / (1.0 + unconj_carrDot(n, V, w));

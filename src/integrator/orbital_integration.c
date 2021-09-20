@@ -1,11 +1,11 @@
 #include "integrator/orbital_integration.h"
-#include "integrator/synchronize.h"
 #include "assistant/arrays_definition.h"
 #include "cpydataio.h"
 #include "function_tools/calculus.h"
 #include "function_tools/orbital_matrices.h"
 #include "integrator/split_linear_orbitals.h"
 #include "integrator/split_nonlinear_orbitals.h"
+#include "integrator/synchronize.h"
 #include "linalg/basic_linalg.h"
 #include "linalg/lapack_interface.h"
 #include <stdlib.h>
@@ -260,17 +260,7 @@ dodt_splitstep_nonlinear_interface(
     norb = psi->norb;
     npts = psi->grid_size;
     g = eq_desc->g;
-
-    // The one-body potential is treated inside Crank-Nicolson
-    // but must be included here if using spectral methods
-    pot = get_double_array(npts);
-    if (mctdhb->orb_der_method == FINITEDIFF)
-    {
-        rarrFill(npts, 0, pot);
-    } else
-    {
-        rarrCopy(npts, eq_desc->pot_grid, pot);
-    }
+    pot = eq_desc->pot_grid;
 
     orb = mctdhb->orb_workspace->orb_work1;
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, orb);
@@ -286,8 +276,6 @@ dodt_splitstep_nonlinear_interface(
                 (orb_full_nonlinear(k, j, g, psi) + pot[j] * orb[k][j]);
         }
     }
-
-    free(pot);
 }
 
 void
@@ -389,6 +377,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
         advance_linear_fft(orb_work, psi->orbitals);
     }
 
+    sync_orbital_matrices(mctdhb->orb_eq, psi);
     cplx_rowmajor_set_from_matrix(norb, grid_size, psi->orbitals, rk_inp);
     switch (mctdhb->rk_order)
     {
