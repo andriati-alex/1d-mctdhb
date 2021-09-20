@@ -1,4 +1,5 @@
 #include "integrator/orbital_integration.h"
+#include "integrator/synchronize.h"
 #include "assistant/arrays_definition.h"
 #include "cpydataio.h"
 #include "function_tools/calculus.h"
@@ -285,6 +286,7 @@ dodt_splitstep_nonlinear_interface(
         set_periodic_bounds(norb, npts, orb);
         set_periodic_bounds(norb, npts, psi->orbitals);
     }
+    sync_orbital_matrices(eq_desc, psi);
 
 #pragma omp parallel for private(k, j) schedule(static)
     for (k = 0; k < norb; k++)
@@ -296,6 +298,7 @@ dodt_splitstep_nonlinear_interface(
                 (orb_full_nonlinear(k, j, g, psi) + pot[j] * orb[k][j]);
         }
     }
+
     free(pot);
 }
 
@@ -376,7 +379,6 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
     grid_size = orb_work->grid_size;
     rk_work = (ComplexWorkspaceRK) orb_work->extern_work;
     rk_inp = get_dcomplex_array(norb * grid_size);
-    cplx_rowmajor_set_from_matrix(norb, grid_size, psi->orbitals, rk_inp);
 
     if (mctdhb->orb_der_method == FINITEDIFF)
     {
@@ -386,6 +388,7 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
         advance_linear_fft(orb_work, psi->orbitals);
     }
 
+    cplx_rowmajor_set_from_matrix(norb, grid_size, psi->orbitals, rk_inp);
     switch (mctdhb->rk_order)
     {
         case RK2:

@@ -62,7 +62,7 @@ orb_interacting_part(int k, int n, double g, ManyBodyState psi)
 dcomplex
 orb_full_nonlinear(int k, int n, double g, ManyBodyState psi)
 {
-    int      a, m, j, s, q, l, mm, mmm, ind;
+    uint32_t a, m, j, s, q, l, mm, mmm, ind;
     dcomplex rhomult, swap, red;
     Carray   hint, rho;
     Cmatrix  orb, rinv, hob;

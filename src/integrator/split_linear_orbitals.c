@@ -367,10 +367,11 @@ advance_linear_crank_nicolson(
             solve_cplx_tridiag(npts, upper, lower, mid, rhs, orb[k]);
         } else
         {
-            solve_cplx_cyclic_tridiag_sm(npts, upper, lower, mid, rhs, orb[k]);
+            solve_cplx_cyclic_tridiag_lu(npts, upper, lower, mid, rhs, orb[k]);
             orb[k][npts] = orb[k][0];
         }
     }
+
     free(rhs);
 }
 
@@ -399,6 +400,7 @@ advance_linear_fft(OrbitalWorkspace work, Cmatrix orb)
         orb[k][fft_size] = orb[k][0];
         assert_mkl_descriptor(s);
     }
+
     free(forward_fft);
     free(back_fft);
 }

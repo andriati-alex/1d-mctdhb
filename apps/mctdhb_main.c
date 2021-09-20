@@ -2,6 +2,7 @@
 #include "assistant/types_definition.h"
 #include "cpydataio.h"
 #include "integrator/driver.h"
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,8 @@ main(int argc, char* argv[])
     char             job_fmt[STR_BUFF_SIZE], out_prefix[STR_BUFF_SIZE];
     IntegratorType   time_type;
     MCTDHBDataStruct main_struct;
+
+    omp_set_num_threads(omp_get_max_threads() / 2);
 
     if (argc != 2)
     {
