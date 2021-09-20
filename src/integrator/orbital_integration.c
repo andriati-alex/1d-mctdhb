@@ -224,12 +224,6 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
             eq_desc, norb, psi->orbitals, Haction, project);
     }
 
-    if (eq_desc->bounds == PERIODIC_BOUNDS)
-    {
-        set_periodic_bounds(norb, npts, Haction);
-        set_periodic_bounds(norb, npts, project);
-    }
-
     // subtract projection on orbital space - orthogonal projection
     for (k = 0; k < norb; k++)
     {
@@ -239,6 +233,7 @@ dodt_fullstep_interface(ComplexODEInputParameters odepar, Carray orb_der)
                 -I * time_fac * (Haction[k][j] - project[k][j]);
         }
     }
+
     destroy_dcomplex_matrix(norb, linhorb);
 }
 
@@ -281,13 +276,6 @@ dodt_splitstep_nonlinear_interface(
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, orb);
     cplx_matrix_set_from_rowmajor(norb, npts, odepar->y, psi->orbitals);
 
-    if (eq_desc->bounds == PERIODIC_BOUNDS)
-    {
-        set_periodic_bounds(norb, npts, orb);
-        set_periodic_bounds(norb, npts, psi->orbitals);
-    }
-    sync_orbital_matrices(eq_desc, psi);
-
 #pragma omp parallel for private(k, j) schedule(static)
     for (k = 0; k < norb; k++)
     {
@@ -315,6 +303,12 @@ propagate_fullstep_orb_rk(MCTDHBDataStruct mctdhb, Carray orb_next)
     norb = mctdhb->state->norb;
     grid_size = mctdhb->state->grid_size;
     rk_inp = get_dcomplex_array(norb * grid_size);
+
+    if (mctdhb->orb_eq->bounds == PERIODIC_BOUNDS)
+    {
+        set_periodic_bounds(norb, grid_size, mctdhb->state->orbitals);
+    }
+
     cplx_rowmajor_set_from_matrix(
         norb, grid_size, mctdhb->state->orbitals, rk_inp);
 
@@ -351,6 +345,7 @@ propagate_fullstep_orb_rk(MCTDHBDataStruct mctdhb, Carray orb_next)
                 orb_next);
             break;
     }
+
     cplx_matrix_set_from_rowmajor(
         norb, grid_size, orb_next, mctdhb->state->orbitals);
 
@@ -359,6 +354,7 @@ propagate_fullstep_orb_rk(MCTDHBDataStruct mctdhb, Carray orb_next)
         orthonormalize(
             grid_size, mctdhb->orb_eq->dx, norb, mctdhb->state->orbitals);
     }
+
     free(rk_inp);
 }
 
@@ -379,6 +375,11 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
     grid_size = orb_work->grid_size;
     rk_work = (ComplexWorkspaceRK) orb_work->extern_work;
     rk_inp = get_dcomplex_array(norb * grid_size);
+
+    if (mctdhb->orb_eq->bounds == PERIODIC_BOUNDS)
+    {
+        set_periodic_bounds(norb, grid_size, psi->orbitals);
+    }
 
     if (mctdhb->orb_der_method == FINITEDIFF)
     {
@@ -437,5 +438,6 @@ propagate_splitstep_orb(MCTDHBDataStruct mctdhb, Carray orb_next)
     {
         orthonormalize(grid_size, mctdhb->orb_eq->dx, norb, psi->orbitals);
     }
+
     free(rk_inp);
 }
