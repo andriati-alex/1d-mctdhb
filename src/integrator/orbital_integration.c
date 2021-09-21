@@ -139,10 +139,12 @@ orb_fullstep_linear_part(MCTDHBDataStruct mctdhb, Cmatrix orb, Cmatrix horb)
     uint16_t      i, n, norb;
     Rarray        pot;
     OrbDerivative der_method;
+
     n = mctdhb->orb_eq->grid_size - 1;
     norb = mctdhb->state->norb;
     pot = mctdhb->orb_eq->pot_grid;
     der_method = mctdhb->orb_der_method;
+
     switch (der_method)
     {
         case FINITEDIFF:
