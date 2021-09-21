@@ -7,6 +7,93 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MONITOR_CONFIG_FNAME "mctdhb_monitor.conf"
+
+static uint8_t  monitor_nsteps = 10;
+static uint16_t record_nsteps = 10;
+
+static void
+report_warn_monitoring_file(uint8_t param_num)
+{
+    printf(
+        "\nWARNING: problem reading param %" PRIu8 " from file %s, "
+        "skipping the rest of file and using defaults\n\n",
+        param_num,
+        MONITOR_CONFIG_FNAME);
+}
+
+static void
+config_monitoring()
+{
+    int     scan_status;
+    FILE*   f;
+    Bool    auto_check;
+    uint8_t e_digits, params_read;
+    double  eig_residue_tol, overlap_threshold;
+
+    if ((f = fopen(MONITOR_CONFIG_FNAME, "r")) == NULL) return;
+
+    params_read = 0;
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%" SCNu8, &monitor_nsteps);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%u", &auto_check);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_autoconvergence_check(auto_check);
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%" SCNu8, &e_digits);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_energy_convergence_digits(e_digits);
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%lf", &eig_residue_tol);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_energy_convergence_eig_residual(eig_residue_tol);
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%" SCNu16, &record_nsteps);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%lf", &overlap_threshold);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_overlap_residue_threshold(overlap_threshold);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -26,7 +113,9 @@ main(int argc, char* argv[])
     }
 
     screen_display_banner();
+    config_monitoring();
 
+    // Adjust fields to print on screen according to time type
     if ((integ_desc_file = fopen(integrator_desc_fname, "r")) != NULL)
     {
         jump_comment_lines(integ_desc_file, CURSOR_POSITION);
@@ -57,7 +146,11 @@ main(int argc, char* argv[])
         screen_display_mctdhb_info(main_struct, TRUE, TRUE, TRUE);
 
         integration_driver(
-            main_struct, 10, out_prefix, main_struct->orb_eq->tend, 10);
+            main_struct,
+            record_nsteps,
+            out_prefix,
+            main_struct->orb_eq->tend,
+            monitor_nsteps);
 
         free(main_struct->orb_eq->pot_extra_args);
         free(main_struct->orb_eq->inter_extra_args);
