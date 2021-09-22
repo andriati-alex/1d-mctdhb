@@ -1,4 +1,4 @@
-"""Module with core implementation to compute observables
+""" Module with core implementation to compute observables
 
 This module provide the basic functions to compute some of the common
 observables requested in MCTDHB analysis. This core implementation is
@@ -95,7 +95,7 @@ def density(occ, natorb, subset_ind=None):
     """
     Total gas density normalized to 1 unless `subset_ind` is specified
     If `subset_ind` is specified return the density restricted to some
-    natural orbitals. Useful to separate excitations and condensate
+    natural orbitals. Useful to separate excitations from condensate
     `subset_ind` : ``list[int] / numpy.array(dtype=int)``
     `0 <= subset_ind[i] < occ.size` without repetitions if given
     """
@@ -258,11 +258,11 @@ def momentum_onebody_correlation(
 
 
 @njit((int32, int32, complex128[:], complex128[:, :], complex128[:, :]))
-def __set_mutual_probability(Norb, grid_size, rho2, orbitals, mutprob):
+def __set_mutual_probability(norb, grid_size, rho2, orbitals, mutprob):
     """Compiled optimized routine to support mutual probability functions"""
-    s1 = Norb
-    s2 = Norb ** 2
-    s3 = Norb ** 3
+    s1 = norb
+    s2 = norb ** 2
+    s3 = norb ** 3
     # Some auxiliar variables to evaluate sum over all indexes
     o = complex(0)
     r2 = complex(0)
@@ -270,10 +270,10 @@ def __set_mutual_probability(Norb, grid_size, rho2, orbitals, mutprob):
     for i in prange(grid_size):
         for j in range(grid_size):
             contract = 0
-            for k in range(Norb):
-                for m in range(Norb):
-                    for q in range(Norb):
-                        for s in range(Norb):
+            for k in range(norb):
+                for m in range(norb):
+                    for q in range(norb):
+                        for s in range(norb):
                             rho2_ind = k + m * s1 + q * s2 + s * s3
                             r2 = rho2[rho2_ind]
                             o = (

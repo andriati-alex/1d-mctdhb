@@ -29,15 +29,14 @@ class GroundState:
     energy - numpy.array(njobs) energy per particle for every job
     njobs - number of jobs found
 
-    A better documentation on routines to compute observables are written
-    in `multiconfpy.observables` that provide the core implementation and
-    is the backend for this class methods.
+    Better documentation on routines to compute observables can be found in
+    `multiconfpy.observables` which provides the core implementation and is
+    the backend for this class methods.
 
     """
 
     def __init__(self, files_prefix, dir_path):
-        """
-        Structure for many-body state loading from main program output files
+        """Struct for many-body state loading from main program output files
 
         Parameters
         ----------
@@ -49,41 +48,45 @@ class GroundState:
         self.__dir_path = dir_path
         self.__files_prefix = files_prefix
         self.path_prefix = os.path.join(dir_path, files_prefix)
-        with open(self.path_prefix + "_conf.dat") as f:
-            info_line = f.readline().strip()
-            self.trap_name = info_line.split(":")[1].replace(" ", "")
-        eq_setup = np.loadtxt(self.path_prefix + "_conf.dat")
+        eq_setup = np.loadtxt(self.path_prefix + "_mctdhb_parameters.dat")
         if eq_setup.ndim == 1:
             eq_setup = eq_setup.reshape(1, eq_setup.size)
         self.eq_setup = eq_setup
-        self.energy = (
-            np.loadtxt(self.path_prefix + "_energy_imagtime.dat")
-            / self.eq_setup[:, 0]
-        )
         self.njobs = eq_setup.shape[0]
         self.colormap = "gnuplot"
         self.lock_job(1)
 
     def lock_job(self, job_id):
         """
-        Lock on specific job with number `job_id` loading its data
-        that is used to call `multiconfpy.observables` routines
+        Lock on specific job, reading files pattern `*_job?*` where the `?`
+        mark is integer number given in argument `job_id`. The coefficients
+        and orbitals read must correspond to stationary state obtained from
+        line `job_id` of parameters file
+        The following object attributes are set:
+            `self.npar`
+            `self.norb`
+            `self.npts`
+            `self.xi`
+            `self.xf`
+            `self.dx`
+            `self.grid`
+            `self.coef`
+            `self.trap`
+            `self.orbitals`
+            `self.occ`
+            `self.natorb`
         """
         if job_id > self.njobs:
             print("job {} not available".format(job_id))
             print("Locked in job {} of {}".format(self.job_id, self.njobs))
             return
         self.job_id = job_id
-        coef_suffix = "_job{}_coef_imagtime.dat".format(job_id)
-        orb_suffix = "_job{}_orb_imagtime.dat".format(job_id)
-        trap_suffix = "_job{}_trap.dat".format(job_id)
-        self.orbitals = np.loadtxt(
-            self.path_prefix + orb_suffix, dtype=np.complex128
-        ).T
-        self.coef = np.loadtxt(
-            self.path_prefix + coef_suffix, dtype=np.complex128
-        )
-        self.trap = np.loadtxt(self.path_prefix + trap_suffix)
+        coef_fname = self.path_prefix + "_job{}_coef.dat".format(job_id)
+        orb_fname = self.path_prefix + "_job{}_orb.dat".format(job_id)
+        pot_fname = self.path_prefix + "_job{}_obpotential.dat".format(job_id)
+        self.orbitals = np.loadtxt(orb_fname, dtype=np.complex128).T
+        self.coef = np.loadtxt(coef_fname, dtype=np.complex128)
+        self.trap = np.loadtxt(pot_fname)
         row = job_id - 1
         self.npar = int(self.eq_setup[row, 0])
         self.norb = int(self.eq_setup[row, 1])
@@ -92,8 +95,8 @@ class GroundState:
         self.xf = self.eq_setup[row, 4]
         self.dx = (self.xf - self.xi) / (self.npts - 1)
         self.grid = np.linspace(self.xi, self.xf, self.npts)
-        self.g = self.eq_setup[row, 7]
-        self.trap_params = self.eq_setup[row, 8:]
+        self.g = self.eq_setup[row, 9]
+        self.energy = self.eq_setup[row, 9]
         self.rho1 = self.onebody_dm()
         self.rho2 = self.twobody_dm()
         self.occ = self.natural_occupations()
@@ -111,11 +114,10 @@ class GroundState:
                 self.job_id, self.njobs
             )
         )
-        print("\tparticles : {}".format(self.npar))
-        print("\torbitals  : {}".format(self.norb))
-        print("\ttrap      : {}".format(self.trap_name))
-        print("\ttrap_par  : {}".format(self.trap_params))
-        print("\tg         : {}\n".format(self.g))
+        print("\t(n)particles : {}".format(self.npar))
+        print("\t(m)orbitals  : {}".format(self.norb))
+        print("\tg            : {}\n".format(self.g))
+        print("\tenergy/n     : {}\n".format(self.energy))
 
     def onebody_dm(self):
         return obs.onebody_dm(self.npar, self.norb, self.coef)

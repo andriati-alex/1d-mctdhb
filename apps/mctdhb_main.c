@@ -7,10 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MONITOR_CONFIG_FNAME "mctdhb_monitor.conf"
+#define MONITOR_CONFIG_FNAME "mctdhb_extra.conf"
 
-static uint8_t  monitor_nsteps = 10;
-static uint16_t record_nsteps = 10;
+static uint8_t         monitor_nsteps = 10;
+static uint16_t        record_nsteps = 10;
+static JobsInputHandle mult_job = COMMON_INP;
 
 static void
 report_warn_monitoring_file(uint8_t param_num)
@@ -34,6 +35,15 @@ config_monitoring()
     if ((f = fopen(MONITOR_CONFIG_FNAME, "r")) == NULL) return;
 
     params_read = 0;
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%u", &mult_job);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
 
     jump_comment_lines(f, CURSOR_POSITION);
     scan_status = fscanf(f, "%" SCNu8, &monitor_nsteps);
@@ -97,9 +107,10 @@ config_monitoring()
 int
 main(int argc, char* argv[])
 {
-    uint32_t         njobs;
-    FILE*            integ_desc_file;
-    char             job_fmt[STR_BUFF_SIZE], out_prefix[STR_BUFF_SIZE];
+    uint32_t njobs;
+    FILE*    integ_desc_file;
+    char     job_fmt[STR_BUFF_SIZE], out_prefix[STR_BUFF_SIZE];
+
     IntegratorType   time_type;
     MCTDHBDataStruct main_struct;
 
@@ -141,7 +152,7 @@ main(int argc, char* argv[])
         strcat(out_prefix, job_fmt);
 
         main_struct = full_setup_mctdhb_current_dir(
-            argv[1], job_id, COMMON_INP, NULL, NULL, NULL, NULL);
+            argv[1], job_id, mult_job, NULL, NULL, NULL, NULL);
 
         screen_display_mctdhb_info(main_struct, TRUE, TRUE, TRUE);
 
@@ -151,6 +162,9 @@ main(int argc, char* argv[])
             out_prefix,
             main_struct->orb_eq->tend,
             monitor_nsteps);
+
+        strcpy(out_prefix, argv[1]);
+        record_mctdhb_parameters(out_prefix, main_struct);
 
         free(main_struct->orb_eq->pot_extra_args);
         free(main_struct->orb_eq->inter_extra_args);

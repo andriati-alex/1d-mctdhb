@@ -31,7 +31,7 @@ from scipy.integrate import simps
 
 
 def normalize(f, dx, norm=1):
-    """Return `f` normalized to `norm` within grid spacing `dx`"""
+    """Return `f` normalized to `norm` given grid spacing `dx`"""
     old_norm = sqrt(simps(abs(f) ** 2, dx=dx))
     return f * norm / old_norm
 
@@ -39,7 +39,7 @@ def normalize(f, dx, norm=1):
 def orthonormalize(fun_set, dx):
     """
     Return matrix with orthonormal set of functions using Gram-Schmidt
-    applied to `fun_set` within grid spacing `dx`
+    applied to `fun_set` given grid spacing `dx`
     """
     nfun = fun_set.shape[0]
     ortho_set = np.empty(fun_set.shape, dtype=fun_set.dtype)
@@ -54,8 +54,7 @@ def orthonormalize(fun_set, dx):
 
 
 def overlap_matrix(fun_set, dx):
-    """
-    Compute all pair-wise scalar products for a set of functions
+    """ Return all pair-wise scalar products for a set of functions
 
     Parameters
     ----------
@@ -102,8 +101,8 @@ def dfdx_periodic(f, dx):
 
 
 def dfdx_zero(f, dx):
-    """
-    Return derivative of periodic function `f` within grid spacing `dx`
+    """ Return derivative of function `f` within grid spacing `dx`
+
     Consider hard-wall boundaries, that implies `f[0] == f[n - 1] == 0`
     or `f[0]` and `f[n - 1]` as the last nonzero values. Especially at
     the boundaries, right- and left-sided difference schemes are used,
@@ -145,10 +144,12 @@ def dfdx_periodic_fft(f, dx):
 
 
 def fft_ordered_norm(func, dx, norm=1, bound=0):
-    """
-    Compute normalized ordered FFT and corresponding frequencies
+    """ Compute normalized ordered FFT and corresponding frequencies
+
     Use quantum mechanical convention frequency 2 * pi * numpy.fft.fftfreq
-    Choose the `bound` according to the boundaires of the functions
+    Choose the `bound` according to the boundaires of the functions which
+    defines the type of renormalization. If a set of functions is given
+    they must be represented by the same grid points
 
     Paramters
     ---------
@@ -202,8 +203,8 @@ def extend_grid(func, bound=0, gf=3):
     ext_grid = gf * (npts - bound) + bound
     ext_func = np.zeros([nfun, ext_grid], dtype=func.dtype)
     if bound == 0:
-        l = (gf - 1) // 2
-        ext_func[:, l * npts : (l + 1) * npts] = work_func
+        ind = (gf - 1) // 2
+        ext_func[:, ind * npts : (ind + 1) * npts] = work_func
     else:
         ext_func[:, :-1] = np.concatenate(gf * [work_func[:, : npts - 1]], 1)
         ext_func[:, -1] = work_func[:, npts - 1]

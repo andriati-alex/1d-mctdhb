@@ -30,7 +30,7 @@ static void
 report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
 {
     printf(
-        "\n\nIOERROR: Reading %" SCNu8 " value : %s. Source file name %s\n\n",
+        "\n\nWARNING: Reading %" SCNu8 " value : %s. Source file name %s\n\n",
         val_read,
         extra_info,
         fname);
@@ -152,6 +152,7 @@ get_mctdhb_from_files(
     }
     fclose(f);
 
+    // choose between file or custom input function
     pot_func = get_builtin_pot(pot_func_name);
     g_func = get_builtin_param_func(g_func_name);
     pot_params = (void*) potpar_read;
@@ -798,4 +799,35 @@ record_time_array(char prefix[], double tend, double tstep)
         fprintf(f, "%.6lf\n", prop_steps * tstep);
     }
     fclose(f);
+}
+
+void
+record_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb)
+{
+    double energy;
+    FILE*  f;
+    char   fname[STR_BUFF_SIZE];
+
+    strcpy(fname, out_dirname);
+    strcat(fname, prefix);
+    strcat(fname, PARAMS_FNAME_SUFFIX);
+
+    energy = total_energy(mctdhb->state);
+
+    f = open_file(fname, "a");
+    fprintf(
+        f,
+        "%" PRIu16 " %" PRIu16 " %" PRIu16
+        " %.10lf %.10lf %.10lf %.2lf %.1lf %.10lf %.10E %.10E\n",
+        mctdhb->state->npar,
+        mctdhb->state->norb,
+        mctdhb->state->grid_size,
+        mctdhb->orb_eq->xi,
+        mctdhb->orb_eq->xf,
+        mctdhb->orb_eq->tstep,
+        mctdhb->orb_eq->tend,
+        mctdhb->orb_eq->d2coef,
+        cimag(mctdhb->orb_eq->d1coef),
+        mctdhb->orb_eq->g,
+        energy);
 }

@@ -20,32 +20,32 @@ Useful references
 Module functions prototypes:
 
 ``number_configurations(
-    Npar -> int,
-    Norb ->int
+    npar -> int,
+    norb ->int
 )``
 
 ``configurational_matrix(
-    Npar -> int,
-    Norb -> int
+    npar -> int,
+    norb -> int
 )``
 
 ``index_to_fock(
     conf_ind -> int,
-    Npar -> int,
-    Norb -> int,
+    npar -> int,
+    norb -> int,
     occ_vec -> numpy.array
 )``
 
 ``fock_to_index(
-    Npar -> int,
-    Norb -> int,
+    npar -> int,
+    norb -> int,
     conf_mat -> numpy.ndarray,
     occ_vec -> numpy.array
 )``
 
 ``fock_space_matrix(
-    Npar -> int,
-    Norb -> int
+    npar -> int,
+    norb -> int
 )``
 
 """
@@ -53,9 +53,10 @@ Module functions prototypes:
 import numpy as np
 from numba import njit, prange, int32, int64
 
+
 @njit([int64(int64), int32(int32)])
 def fac(n):
-    """ return n! """
+    """return n!"""
     nfac = 1
     for i in prange(2, n + 1):
         nfac = nfac * i
@@ -63,55 +64,55 @@ def fac(n):
 
 
 @njit([int32(int32, int32), int64(int64, int64)])
-def number_configurations(Npar, Norb):
+def number_configurations(npar, norb):
     """
     Return number of configurations that define the Hilbert space
-    dimension for `Npar` particles in a truncated basis of `Norb`
+    dimension for `npar` particles in a truncated basis of `norb`
     single particle states a.k.a orbitals
     """
     n = 1
     j = 2
-    if Norb > Npar:
-        for i in prange(Npar + Norb - 1, Norb - 1, -1):
+    if norb > npar:
+        for i in prange(npar + norb - 1, norb - 1, -1):
             n = n * i
-            if n % j == 0 and j <= Npar:
+            if n % j == 0 and j <= npar:
                 n = n / j
                 j = j + 1
-        for k in prange(j, Npar + 1):
+        for k in prange(j, npar + 1):
             n = n / k
         return n
-    for i in prange(Npar + Norb - 1, Npar, -1):
+    for i in prange(npar + norb - 1, npar, -1):
         n = n * i
-        if n % j == 0 and j <= Norb - 1:
+        if n % j == 0 and j <= norb - 1:
             n = n / j
             j = j + 1
-    for k in prange(j, Norb):
+    for k in prange(j, norb):
         n = n / k
     return n
 
 
-def configurational_matrix(Npar, Norb):
+def configurational_matrix(npar, norb):
     """
     Return the number of configurations (a.k.a Hilbert space dimension)
     for all cases with the number of particles and orbitals constrained
-    by `Npar` and `Norb` respectively
+    by `npar` and `Norb` respectively
 
     Return
     ------
-    ``numpy.ndarray[Npar + 1, Norb + 1]``
+    ``numpy.ndarray[npar + 1, Norb + 1]``
         Matrix of integers with `mat[n, m] = number_configurations(n, m)`
     """
-    conf_mat = np.empty([Npar + 1, Norb + 1], dtype=np.int32)
-    for i in range(Npar + 1):
+    conf_mat = np.empty([npar + 1, norb + 1], dtype=np.int32)
+    for i in range(npar + 1):
         conf_mat[i][0] = 0  # forbidden : no orbitals at all
         conf_mat[i][1] = 1  # single orbital : condensed
-        for j in range(2, Norb + 1):
+        for j in range(2, norb + 1):
             conf_mat[i][j] = number_configurations(i, j)
     return conf_mat
 
 
 @njit((int32, int32, int32, int32[:]))
-def index_to_fock(conf_ind, Npar, Norb, occ_vec):
+def index_to_fock(conf_ind, npar, Norb, occ_vec):
     """
     Set vector with occupation numbers from configuration index
 
@@ -127,8 +128,8 @@ def index_to_fock(conf_ind, Npar, Norb, occ_vec):
     ----------
     `ind` : ``int``
         index of the configuration from 0  to
-        `number_configurations(Npar, Nobr)-1`
-    `Npar` : ``int``
+        `number_configurations(npar, Nobr)-1`
+    `npar` : ``int``
         Number of particles
     `Norb` : ``int``
         Number of orbitals
@@ -143,13 +144,13 @@ def index_to_fock(conf_ind, Npar, Norb, occ_vec):
     for i in prange(0, Norb):
         occ_vec[i] = 0
     while conf_ind > 0:
-        while conf_ind - number_configurations(Npar, m) < 0:
+        while conf_ind - number_configurations(npar, m) < 0:
             m = m - 1
-        conf_ind = conf_ind - number_configurations(Npar, m)
+        conf_ind = conf_ind - number_configurations(npar, m)
         occ_vec[m] = occ_vec[m] + 1
-        Npar = Npar - 1
-    if Npar > 0:
-        occ_vec[0] = occ_vec[0] + Npar
+        npar = npar - 1
+    if npar > 0:
+        occ_vec[0] = occ_vec[0] + npar
 
 
 @njit(int32(int32, int32, int32[:, :], int32[:]))
@@ -167,11 +168,11 @@ def fock_to_index(Npar, Norb, conf_mat, occ_vec):
 
     Paramters
     ---------
-    `Npar` : ``int32``
+    `npar` : ``int32``
         Number of particles
     `Norb` : ``int32``
         Number of orbitals
-    `conf_mat` : ``numpy.ndarray[ Npar + 1 , Norb + 1 ]``
+    `conf_mat` : ``numpy.ndarray[ npar + 1 , Norb + 1 ]``
         matrix with all configurational results from `configurational_matrix`
     `occ_vec` : ``numpy.array[ Norb ]``
         Array of integers with number of particles in each orbital
@@ -191,26 +192,26 @@ def fock_to_index(Npar, Norb, conf_mat, occ_vec):
     return k
 
 
-def fock_space_matrix(Npar, Norb):
+def fock_space_matrix(npar, norb):
     """
     Set and return a matrix with all occupation vectors along lines
 
     Parameters
     ----------
-    `Npar` : ``int``
+    `npar` : ``int``
         Number of particles
     `Norb` : ``int``
         Number of orbitals
 
     Return
     ------
-    ``numpy.ndarray[ number_configurations(Npar, Norb), Norb ]``
+    ``numpy.ndarray[ number_configurations(npar, Norb), Norb ]``
         Matrix of integers, where each row provide occupation vector
         corresponding to its configurational index as the row number
     """
     fock_mat = np.empty(
-        [number_configurations(Npar, Norb), Norb], dtype=np.int32
+        [number_configurations(npar, norb), norb], dtype=np.int32
     )
-    for k in range(number_configurations(Npar, Norb)):
-        index_to_fock(k, Npar, Norb, fock_mat[k])
+    for k in range(number_configurations(npar, norb)):
+        index_to_fock(k, npar, norb, fock_mat[k])
     return fock_mat

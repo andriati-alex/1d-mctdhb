@@ -53,8 +53,8 @@ typedef enum
 /** \brief Time integration type for ground state or dynamics calculation */
 typedef enum
 {
-    IMAGTIME = 10,
-    REALTIME = 11
+    IMAGTIME = 10, //! For ground-state convergence
+    REALTIME = 11  //! For dynamics from initial condition
 } IntegratorType;
 
 /** \brief Coefficients integration type */
@@ -71,7 +71,7 @@ typedef enum
     SPLITSTEP = 31,
 } OrbIntegrator;
 
-/** \brief Complementary information if OrbItegrator = FULLSTEP_RUNGEKUTTA */
+/** \brief Complementary information to evaluate derivatives */
 typedef enum
 {
     DVR = 300,
@@ -114,10 +114,10 @@ typedef enum
  * This is the general signature to evaluate one-body time-dependent
  * potential in spatial grid at any time instant
  *
- * \param[in] t time instant
- * \param[in] npts number of points in the grid
- * \param[in] pts array with grid points
- * \param[in] params extra parameters defined by the client
+ * \param[in] t         time instant
+ * \param[in] npts      number of points in the grid
+ * \param[in] pts       array with grid points
+ * \param[in] params    extra parameters defined by the client
  * \param[out] grid_pot potential values at grid points
  */
 typedef void (*single_particle_pot)(
@@ -127,7 +127,7 @@ typedef void (*single_particle_pot)(
  *
  * Signature to declare time-dependent parameters. Only for interaction
  *
- * \param[in] t time instant
+ * \param[in] t      time instant
  * \param[in] params extra needed parameters from client
  */
 typedef double (*time_dependent_parameter)(double t, void* params);
@@ -168,6 +168,7 @@ typedef struct
     OperatorMappings op_maps;
 } _MultiConfiguration;
 
+/** \brief Reference to \c _MultiConfiguration */
 typedef _MultiConfiguration* MultiConfiguration;
 
 /** \brief Many-body state in Multiconfigurational problem */
@@ -179,8 +180,10 @@ typedef struct
     Cmatrix  hob, orbitals, ob_denmat, inv_ob_denmat;
 } _ManyBodyState;
 
+/** \brief Reference to \c _ManyBodyState */
 typedef _ManyBodyState* ManyBodyState;
 
+/** \brief Memory struct needed to evaluate Lanczos iteratios */
 typedef struct
 {
     uint16_t iter;
@@ -190,8 +193,10 @@ typedef struct
     Rarray   lapack_diag, lapack_offd, lapack_eigvec;
 } _WorkspaceLanczos;
 
+/** \brief Reference to \c _WorkspaceLanczos */
 typedef _WorkspaceLanczos* WorkspaceLanczos;
 
+/** \brief Memory workspace for orbital integration */
 typedef struct
 {
     uint16_t               norb, grid_size;
@@ -206,14 +211,17 @@ typedef struct
     Carray                 fft_hder_exp;
 } _OrbitalWorkspace;
 
+/** \brief Reference to \c _OrbitalEquation */
 typedef _OrbitalWorkspace* OrbitalWorkspace;
 
+/** \brief Memory workspace for coefficients integration */
 typedef struct
 {
     WorkspaceLanczos lan_work;
     void*            extern_work;
 } _CoefWorkspace;
 
+/** \brief Reference to \c _CoefWorkspace */
 typedef _CoefWorkspace* CoefWorkspace;
 
 /** \brief Master struct with all information for MCTDHB numerical problem */
@@ -231,6 +239,7 @@ typedef struct
     ManyBodyState      state;
 } _MCTDHBDataStruct;
 
+/** \brief Reference to \c _MCTDHBDataStruct */
 typedef _MCTDHBDataStruct* MCTDHBDataStruct;
 
 #endif
