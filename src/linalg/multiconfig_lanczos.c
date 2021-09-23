@@ -96,25 +96,6 @@ lowest_state_lanczos(
     Carray             Hint,
     Carray             C)
 {
-
-    /** GROUND STATE BY APPROXIMATIVE DIAGONALIZATION WITH LANCZOS ITERATIONS
-        =====================================================================
-        Use the routine implemented above for lanczos tridiagonal reduction  and
-        the LAPACK dstev to diagonalize the unerlying tridiagonal system and get
-        approximately the low lying(ground state) eigenvalue and eigenvector
-
-        INPUT PARAMETERS :
-            Niter - Suggested number of lanczos iterations
-            MC - Multiconfigurational data package
-            Orb - Fixed orbitals whose the configurational space is built on
-            C - input for lanczos (first lanczos vector)
-
-        OUTPUT PARAMETERS :
-            C - End up with low lying eigenvector(ground state)
-
-        RETURN :
-            Low lying eigenvalue/ground state energy **/
-
     int i, k, j, nc, predictedIter, Niter;
 
     double sentinel, *d, *e, *eigvec;

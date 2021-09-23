@@ -1,3 +1,10 @@
+/** \file basic_linalg.h
+ *
+ * \author Alex Andriati - andriati@if.usp.br
+ * \date September/2021
+ * \brief Module with basic vector operatios
+ */
+
 #ifndef BASIC_LINALG_H
 #define BASIC_LINALG_H
 

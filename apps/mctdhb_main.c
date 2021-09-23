@@ -30,7 +30,7 @@ config_monitoring()
     FILE*   f;
     Bool    auto_check;
     uint8_t e_digits, params_read;
-    double  eig_residue_tol, overlap_threshold;
+    double  eig_residue_tol, overlap_threshold, reg_factor;
 
     if ((f = fopen(MONITOR_CONFIG_FNAME, "r")) == NULL) return;
 
@@ -102,6 +102,16 @@ config_monitoring()
         return;
     }
     set_overlap_residue_threshold(overlap_threshold);
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%lf", &reg_factor);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_regulatization_factor(reg_factor);
 }
 
 int

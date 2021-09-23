@@ -12,9 +12,9 @@
 #include <string.h>
 
 static Bool    check_auto_convergence = FALSE;
-static uint8_t converged_energy_digits = 8;
-static double  converged_eig_residue = 1E-5;
-static double  threshold_impr_ortho = 1E-6;
+static uint8_t converged_energy_digits = 11;
+static double  converged_eig_residue = 1E-6;
+static double  threshold_impr_ortho = 1E-8;
 
 static void
 print_time_used(double t_sec)

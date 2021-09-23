@@ -23,6 +23,10 @@
 void
 set_autoconvergence_check(Bool must_check);
 
+/** \brief Avoid singular one-body density matrix */
+void
+set_regulatization_factor(double reg_fac);
+
 /** \brief Min energy digits stabilization to stop imag time propagation */
 void
 set_energy_convergence_digits(uint8_t edig);

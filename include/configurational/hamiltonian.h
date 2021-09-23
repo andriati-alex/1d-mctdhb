@@ -3,6 +3,7 @@
 
 #include "mctdhb_types.h"
 
+/** \brief Evaluate action of hamiltonian and set in output array */
 void
 apply_hamiltonian(
     MultiConfiguration multiconf,

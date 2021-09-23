@@ -15,17 +15,17 @@
 
 #include "mctdhb_types.h"
 
-/** \brief Set overlap matrix <Oi, Oj> */
+/** \brief Set overlap matrix with elements <Oi, Oj> */
 void
 set_overlap_matrix(
     uint16_t norb, uint16_t grid_size, double dx, Cmatrix orb, Cmatrix overlap);
 
-/** \brief Set one-body orbital hamiltonian matrix */
+/** \brief Set one-body orbital hamiltonian matrix for orbital basis */
 void
 set_orbital_hob(
     OrbitalEquation eq_desc, uint16_t norb, Cmatrix orb, Cmatrix hob);
 
-/** \brief Set two-body orbital hamiltonian matrix */
+/** \brief Set two-body orbital hamiltonian matrix in orbital basis */
 void
 set_orbital_hint(
     OrbitalEquation eq_desc, uint16_t norb, Cmatrix orb, Carray hint);

@@ -14,6 +14,7 @@ solve_cplx_tridiag(
     l = get_dcomplex_array(n - 1);
     z = get_dcomplex_array(n);
 
+    // Important to check for usage in Sherman-Morrison algorithm
     if (cabs(mid[0]) == 0)
     {
         // In this case there is a system reduction

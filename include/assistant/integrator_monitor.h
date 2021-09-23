@@ -1,3 +1,9 @@
+/** \file integrator_monitor.h
+ * \data September/2021
+ * \author Alex Andriati
+ * \brief Module of helper functions to monitor integration steps
+ */
+
 #ifndef INTEGRATOR_MONITOR_H
 #define INTEGRATOR_MONITOR_H
 

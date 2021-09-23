@@ -10,7 +10,7 @@ set_overlap_matrix(
     for (uint16_t i = 0; i < norb; i++)
     {
         overlap[i][i] = scalar_product(grid_size, dx, orb[i], orb[i]);
-        for (uint16_t j = 0; j < norb; j++)
+        for (uint16_t j = 1 + 1; j < norb; j++)
         {
             overlap[i][j] = scalar_product(grid_size, dx, orb[i], orb[j]);
             overlap[j][i] = conj(overlap[i][j]);

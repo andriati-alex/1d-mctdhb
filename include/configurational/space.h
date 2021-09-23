@@ -1,3 +1,10 @@
+/** \file space.h
+ *
+ * \author Alex Andriati - andriati@if.usp.br
+ * \date September/2021
+ * \brief Module for multiconfigurational space handling
+ */
+
 #ifndef CONFIGURATIONAL_SPACE_H
 #define CONFIGURATIONAL_SPACE_H
 
@@ -49,8 +56,9 @@ set_config(uint32_t hash_i, uint16_t npar, uint16_t norb, uint16_t* conf);
 /** \brief Get the hash index of a configuration
  *
  * The inverse operation of `set_config`. Due to intense use in other
- * routines require `subspaces_dim` for better performance
- * \see hash_index
+ * routines requires `subspaces_dim` for better performance
+ *
+ * \see set_config
  * \see get_subspaces_dim
  *
  * \param[in] npar number of particles

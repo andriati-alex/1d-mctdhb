@@ -1,3 +1,10 @@
+/** \file calculus.h
+ * 
+ * \author Alex Andriati - andriati@if.usp.br
+ * \date September/2021
+ * \brief Basic calculus operatios
+ */
+
 #ifndef CALCULUS_H
 #define CALCULUS_H
 
@@ -11,7 +18,7 @@ Csimps(uint32_t grid_size, double dx, Carray f);
 double
 Rsimps(uint32_t grid_size, double dx, Rarray f);
 
-/** \brief Compute integral of initial and final chunk grid points */
+/** \brief Compute sum of integrals of initial and final \c chunk points */
 double
 real_border_integral(int grid_size, int chunk, Rarray f, double h);
 
@@ -19,15 +26,23 @@ real_border_integral(int grid_size, int chunk, Rarray f, double h);
 dcomplex
 cplx_border_integral(int grid_size, int chunk, Carray f, double h);
 
+/** \brief Derivate function using FFT */
 void
 dxFFT(uint32_t grid_size, double dx, Carray f, Carray dfdx);
 
+/** \brief Derivate function twice using FFT */
 void
 d2xFFT(uint32_t grid_size, double dx, Carray f, Carray dfdx);
 
+/** \brief Derivate function using finite differences with PBC */
 void
 dxFD(uint32_t grid_size, double dx, Carray f, Carray dfdx);
 
+/** \brief Derivate function twice using finite differences with PBC */
+void
+d2xFD(uint32_t n, double dx, Carray f, Carray dfdx);
+
+/** \brief Set vector with fourier frequencies according to MKL convention */
 void
 set_fft_freq(int32_t fft_size, double h, Rarray freq);
 
@@ -36,7 +51,7 @@ set_fft_freq(int32_t fft_size, double h, Rarray freq);
  * \param[in] grid_size number of points to represent functions
  * \param[in] dx        grid step size
  * \param[in] new_norm  new desired norm for the input function
- * \param[in/out] f     input function which is rescaled to have `new_norm`
+ * \param[in/out] f     input function which is rescaled to have \c new_norm
  */
 void
 renormalize(uint32_t grid_size, double dx, double new_norm, Carray f);

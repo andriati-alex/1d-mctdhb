@@ -3,6 +3,17 @@
 
 #include "mctdhb_types.h"
 
+/** \brief Minimum value to use in one-body density matrix regularization */
+#define MIN_REGULARIZATION_FACTOR 1E-14
+/** \brief Max value to use in one-body density matrix regularization */
+#define MAX_REGULARIZATION_FACTOR 1E-6
+
+void
+set_regulatization_factor(double reg_fac);
+
+double
+get_current_regularization_factor();
+
 void
 sync_orbital_matrices(OrbitalEquation eq_desc, ManyBodyState psi);
 

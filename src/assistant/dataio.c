@@ -632,7 +632,7 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb)
 
     if (monitor_disp_min_occ)
     {
-        printf("%10.6lf", nat_occ[0] / npar);
+        printf("%19.15lf", nat_occ[0] / npar);
     }
 
     if (monitor_disp_kin_energy)
@@ -829,5 +829,5 @@ record_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb)
         mctdhb->orb_eq->d2coef,
         cimag(mctdhb->orb_eq->d1coef),
         mctdhb->orb_eq->g,
-        energy);
+        energy / mctdhb->state->npar);
 }

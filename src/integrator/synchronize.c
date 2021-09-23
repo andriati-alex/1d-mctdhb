@@ -3,6 +3,33 @@
 #include "configurational/density_matrices.h"
 #include "function_tools/orbital_matrices.h"
 #include "linalg/lapack_interface.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+static double regular_denmat_factor = 1E-8;
+
+void
+set_regulatization_factor(double reg_fac)
+{
+    if (reg_fac > MAX_REGULARIZATION_FACTOR ||
+        reg_fac < MIN_REGULARIZATION_FACTOR)
+    {
+        printf(
+            "\n\nERROR: Regularization factor must lies between "
+            "%.1E and %.1E but %.1E was given\n\n",
+            MIN_REGULARIZATION_FACTOR,
+            MAX_REGULARIZATION_FACTOR,
+            reg_fac);
+        exit(EXIT_FAILURE);
+    }
+    regular_denmat_factor = reg_fac;
+}
+
+double
+get_current_regularization_factor()
+{
+    return regular_denmat_factor;
+}
 
 void
 sync_orbital_matrices(OrbitalEquation eq_desc, ManyBodyState psi)
@@ -14,9 +41,23 @@ sync_orbital_matrices(OrbitalEquation eq_desc, ManyBodyState psi)
 void
 sync_density_matrices(MultiConfiguration mc_space, ManyBodyState psi)
 {
+    Rarray nat_occ;
+    double scaled_reg_fac;
+
+    nat_occ = get_double_array(psi->norb);
+
     set_onebody_dm(mc_space, psi->coef, psi->ob_denmat);
     set_twobody_dm(mc_space, psi->coef, psi->tb_denmat);
+
+    cmat_hermitian_eigenvalues(psi->norb, psi->ob_denmat, nat_occ);
+    if (nat_occ[0] / nat_occ[psi->norb - 1] < regular_denmat_factor)
+    {
+        scaled_reg_fac = nat_occ[psi->norb - 1] * regular_denmat_factor;
+        cmat_regularization(psi->norb, scaled_reg_fac, psi->ob_denmat);
+    }
     cmat_hermitian_inversion(psi->norb, psi->ob_denmat, psi->inv_ob_denmat);
+
+    free(nat_occ);
 }
 
 void
