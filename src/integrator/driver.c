@@ -153,6 +153,11 @@ mctdhb_propagate_step(
             propagate_fullstep_orb_rk(mctdhb, orb_works);
             break;
     }
+
+    // advante one time step in equation parameters
+    mctdhb->orb_eq->t = (curr_step + 1) * mctdhb->orb_eq->tstep;
+    if (mctdhb->integ_type == REALTIME) sync_equation_params(mctdhb->orb_eq);
+
     if (mctdhb->orb_eq->bounds == PERIODIC_BOUNDS)
     {
         set_periodic_bounds(
@@ -161,6 +166,9 @@ mctdhb_propagate_step(
             mctdhb->state->orbitals);
     }
     sync_orbital_matrices(mctdhb->orb_eq, mctdhb->state);
+
+    // If have only one orbital (GP-case) coefficients are trivial
+    if (mctdhb->state->norb == 1) return;
 
     switch (mctdhb->coef_integ_method)
     {
@@ -171,9 +179,7 @@ mctdhb_propagate_step(
             propagate_coef_rk(mctdhb, coef_works);
             break;
     }
-
-    curr_step++; // Finish in the next step
-    sync_integration_new_step(mctdhb, curr_step);
+    sync_density_matrices(mctdhb->multiconfig_space, mctdhb->state);
 }
 
 void

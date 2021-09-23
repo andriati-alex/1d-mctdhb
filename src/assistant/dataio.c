@@ -632,7 +632,7 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb)
 
     if (monitor_disp_min_occ)
     {
-        printf("%19.15lf", nat_occ[0] / npar);
+        printf("%10.6lf", nat_occ[0] / npar);
     }
 
     if (monitor_disp_kin_energy)
