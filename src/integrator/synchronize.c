@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static double regular_denmat_factor = 1E-8;
+static double regular_denmat_factor = DEFAULT_REGULARIZATION_FACTOR;
 
 void
 set_regulatization_factor(double reg_fac)

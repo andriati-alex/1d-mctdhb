@@ -3,10 +3,10 @@
 
 #include "mctdhb_types.h"
 
-/** \brief Tolerance for overlap residue below which evolution is aborted */
+/** \brief Tolerance for overlap residue above which evolution is aborted */
 #define REALTIME_OVERLAP_RESIDUE_TOL 0.001
 
-/** \brief Set periodic verification for anticipated stop
+/** \brief Set periodic verification for anticipated stop in imag time
  *
  * Each physical problem require specific time scales for convergence in
  * imag time propagation, and auto convergence criterias may be employed
@@ -23,15 +23,11 @@
 void
 set_autoconvergence_check(Bool must_check);
 
-/** \brief Avoid singular one-body density matrix */
-void
-set_regulatization_factor(double reg_fac);
-
 /** \brief Min energy digits stabilization to stop imag time propagation */
 void
 set_energy_convergence_digits(uint8_t edig);
 
-/** \brief Max eigenvalue residue tolerance to stop imag time propagation */
+/** \brief Max tolerated eigenvalue residue to stop imag time propagation */
 void
 set_energy_convergence_eig_residual(double eig_res);
 
@@ -42,7 +38,7 @@ set_energy_convergence_eig_residual(double eig_res);
  * time propagation this property may (probably) be lost in long time
  * evolutions. To mitigate this effect, the inverse of overlap matrix
  * can be used in the projector part. This function set a threshold
- * below which the inverse of overlap matrix is not used based on the
+ * below which the inverse of overlap matrix is NOT used based on the
  * overlap residual definition
  *
  * \see overlap_residual

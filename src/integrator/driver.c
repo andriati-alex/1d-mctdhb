@@ -216,8 +216,10 @@ integration_driver(
     switch (time_type)
     {
         case REALTIME:
+            toggle_new_append_files();
             append_processed_state(prefix, psi);
             append_timestep_potential(prefix, mctdhb->orb_eq);
+            toggle_new_append_files();
             break;
         case IMAGTIME:
             strcpy(custom_prefix, prefix);

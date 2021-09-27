@@ -81,6 +81,19 @@ typedef enum
     ONE_BODY_POTENTIAL_REC
 } RecordDataType;
 
+/** \brief Change current behavior for append routines to remove or not
+ *
+ * Append routines are designed to support mainly real time propagation
+ * when there is some interest in recording properties sequentially. As
+ * for some reason the output file may already exist there may be useful
+ * to first clean up the file by removing it before appending. This routine
+ * change the current behavior (start by default with NO removal before
+ * appending) of whether any append routine shall delete the respective
+ * file before or not
+ */
+void
+toggle_new_append_files();
+
 /** \brief Read and set orbitals(grid along rows and orb number along columns)
  *
  * This function is complementary to \c get_mctdhb_from_files to set

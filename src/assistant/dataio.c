@@ -26,6 +26,8 @@ Bool    monitor_disp_orb_norm = FALSE;
 Bool    monitor_disp_coef_norm = FALSE;
 Bool    monitor_disp_eig_residue = TRUE;
 
+static Bool new_empty_append_files = FALSE;
+
 static void
 report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
 {
@@ -34,6 +36,17 @@ report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
         val_read,
         extra_info,
         fname);
+}
+
+void
+toggle_new_append_files()
+{
+    if (!new_empty_append_files)
+    {
+        new_empty_append_files = TRUE;
+        return;
+    }
+    new_empty_append_files = FALSE;
 }
 
 void
@@ -689,6 +702,7 @@ append_processed_state(char prefix[], ManyBodyState psi)
     norb4 = norb * norb * norb * norb;
 
     set_output_fname(prefix, TWO_BODY_MATRIX_REC, fname);
+    if (new_empty_append_files) remove(fname);
     carr_append_stream(
         fname,
         CPLX_SCIFMT_SPACE_BEFORE,
@@ -697,6 +711,7 @@ append_processed_state(char prefix[], ManyBodyState psi)
         norb4,
         psi->tb_denmat);
     set_output_fname(prefix, ONE_BODY_MATRIX_REC, fname);
+    if (new_empty_append_files) remove(fname);
     cmat_rowmajor_append_stream(
         fname,
         CPLX_SCIFMT_SPACE_BEFORE,
@@ -706,6 +721,7 @@ append_processed_state(char prefix[], ManyBodyState psi)
         norb,
         psi->ob_denmat);
     set_output_fname(prefix, ORBITALS_REC, fname);
+    if (new_empty_append_files) remove(fname);
     cmat_rowmajor_append_stream(
         fname,
         CPLX_SCIFMT_SPACE_BEFORE,
@@ -740,6 +756,7 @@ append_timestep_potential(char prefix[], OrbitalEquation eq_desc)
     char fname[STR_BUFF_SIZE];
 
     set_output_fname(prefix, ONE_BODY_POTENTIAL_REC, fname);
+    if (new_empty_append_files) remove(fname);
 
     rarr_append_stream(
         fname,

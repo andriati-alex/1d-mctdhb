@@ -2,6 +2,7 @@
 #include "assistant/types_definition.h"
 #include "cpydataio.h"
 #include "integrator/driver.h"
+#include "integrator/synchronize.h"
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
