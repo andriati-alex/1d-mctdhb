@@ -19,14 +19,14 @@ char integrator_desc_fname[STR_BUFF_SIZE] = "mctdhb_integrator.conf";
 
 uint8_t monitor_energy_digits = 10;
 Bool    monitor_disp_min_occ = TRUE;
+Bool    monitor_disp_momentum = TRUE;
 Bool    monitor_disp_kin_energy = FALSE;
 Bool    monitor_disp_int_energy = FALSE;
 Bool    monitor_disp_overlap_residue = FALSE;
 Bool    monitor_disp_orb_norm = FALSE;
 Bool    monitor_disp_coef_norm = FALSE;
 Bool    monitor_disp_eig_residue = TRUE;
-
-static Bool new_empty_append_files = FALSE;
+Bool    new_empty_append_files = FALSE;
 
 static void
 report_integrator_warning(char fname[], uint8_t val_read, char extra_info[])
@@ -151,9 +151,10 @@ get_mctdhb_from_files(
         &potpar_read[3],
         &potpar_read[4]);
 
+    fclose(f);
+
     if (scanf_params != MIN_PARAMS_INLINE)
     {
-        fclose(f);
         printf(
             "\n\nIOERROR: Expected to read %d in line %u of file %s. "
             "However fscanf returned %u\n\n",
@@ -163,7 +164,6 @@ get_mctdhb_from_files(
             scanf_params);
         exit(EXIT_FAILURE);
     }
-    fclose(f);
 
     // choose between file or custom input function
     pot_func = get_builtin_pot(pot_func_name);
@@ -539,7 +539,7 @@ set_output_fname(char prefix[], RecordDataType id, char* fname)
             strcpy(specific_id, "_coef.dat");
             break;
         case PARAMETERS_REC:
-            strcpy(specific_id, "_params.dat");
+            strcpy(specific_id, PARAMS_FNAME_SUFFIX);
             break;
         case ONE_BODY_MATRIX_REC:
             strcpy(specific_id, "_obmat.dat");
@@ -567,6 +567,12 @@ screen_integration_monitor_columns()
     if (monitor_disp_min_occ)
     {
         printf("%" PRIu8 ".min occ  ", counter);
+        counter++;
+    }
+
+    if (monitor_disp_momentum)
+    {
+        printf("%" PRIu8 ".momentum  ", counter);
         counter++;
     }
 
@@ -612,12 +618,13 @@ screen_integration_monitor_columns()
 void
 screen_integration_monitor(MCTDHBDataStruct mctdhb)
 {
-    uint16_t      npar, norb, grid_size;
-    uint32_t      space_dim;
-    dcomplex      energy, kine, inte;
-    double        dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue;
-    char          energy_fmt[STR_BUFF_SIZE];
-    Rarray        nat_occ;
+    uint16_t npar, norb, grid_size;
+    uint32_t space_dim;
+    dcomplex energy, kine, inte;
+    double   dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue, mom;
+    char     energy_fmt[STR_BUFF_SIZE];
+    Rarray   nat_occ;
+
     ManyBodyState psi;
 
     t = mctdhb->orb_eq->t;
@@ -646,6 +653,12 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb)
     if (monitor_disp_min_occ)
     {
         printf("%10.6lf", nat_occ[0] / npar);
+    }
+
+    if (monitor_disp_momentum)
+    {
+        mom = creal(momentum_per_particle(mctdhb->orb_eq, psi));
+        printf("%10.6lf", mom);
     }
 
     if (monitor_disp_kin_energy)
@@ -819,15 +832,15 @@ record_time_array(char prefix[], double tend, double tstep)
 }
 
 void
-record_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb)
+append_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb)
 {
     double energy;
     FILE*  f;
     char   fname[STR_BUFF_SIZE];
 
-    strcpy(fname, out_dirname);
-    strcat(fname, prefix);
-    strcat(fname, PARAMS_FNAME_SUFFIX);
+    set_output_fname(prefix, PARAMETERS_REC, fname);
+
+    if (new_empty_append_files) remove(fname);
 
     energy = total_energy(mctdhb->state);
 
@@ -847,4 +860,5 @@ record_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb)
         cimag(mctdhb->orb_eq->d1coef),
         mctdhb->orb_eq->g,
         energy / mctdhb->state->npar);
+    fclose(f);
 }

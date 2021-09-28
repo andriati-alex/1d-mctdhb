@@ -53,6 +53,9 @@ dcomplex
 total_energy(ManyBodyState psi);
 
 dcomplex
+momentum_per_particle(OrbitalEquation eq_desc, ManyBodyState psi);
+
+dcomplex
 kinect_energy(OrbitalEquation eq_desc, ManyBodyState psi);
 
 dcomplex

@@ -152,7 +152,12 @@ main(int argc, char* argv[])
         fclose(integ_desc_file);
     }
 
+    // automatically select number of jobs couting lines in parameters file
     njobs = auto_number_of_jobs(argv[1]);
+
+    // clean up output parameters file if some exists with the same name
+    set_output_fname(argv[1], PARAMETERS_REC, out_prefix);
+    remove(out_prefix);
 
     for (uint32_t job_id = 1; job_id <= njobs; job_id++)
     {
@@ -175,7 +180,7 @@ main(int argc, char* argv[])
             monitor_nsteps);
 
         strcpy(out_prefix, argv[1]);
-        record_mctdhb_parameters(out_prefix, main_struct);
+        append_mctdhb_parameters(out_prefix, main_struct);
 
         free(main_struct->orb_eq->pot_extra_args);
         free(main_struct->orb_eq->inter_extra_args);

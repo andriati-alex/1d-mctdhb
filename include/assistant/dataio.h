@@ -47,6 +47,8 @@ extern char integrator_desc_fname[STR_BUFF_SIZE];
 
 /** \brief Control number of decimal digits to display energy */
 extern uint8_t monitor_energy_digits;
+/** \brief Whether to display average momentum per particle or not */
+extern Bool monitor_disp_momentum;
 /** \brief Whether to display minimum occupation or not */
 extern Bool monitor_disp_min_occ;
 /** \brief Whether to display kinect energy or not */
@@ -61,6 +63,8 @@ extern Bool monitor_disp_orb_norm;
 extern Bool monitor_disp_coef_norm;
 /** \brief Whether to display hamiltonian eigvalue residue or not */
 extern Bool monitor_disp_eig_residue;
+/** \brief Control when to clen files that are being used  for append */
+extern Bool new_empty_append_files;
 
 /** \brief Multiple jobs input handling */
 typedef enum
@@ -431,6 +435,6 @@ record_time_array(char prefix[], double tend, double tstep);
  * \see append_timestep_potential
  */
 void
-record_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb);
+append_mctdhb_parameters(char prefix[], MCTDHBDataStruct mctdhb);
 
 #endif

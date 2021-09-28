@@ -19,15 +19,7 @@ potfunc_harmonic(double t, uint16_t npts, Rarray x, void* params, Rarray V)
     omega0 = ((double*) params)[0];
     omegaf = ((double*) params)[1];
     sweep_period = ((double*) params)[2];
-    if (omega0 <= 0 || omegaf <= 0)
-    {
-        printf(
-            "\n\nBUILTIN POTENTIAL ERROR: Invalid initial and final "
-            "harmonic frequencies %.2lf and %.2lf respectively\n\n",
-            omega0,
-            omegaf);
-        exit(EXIT_FAILURE);
-    }
+
     omega = linear_sweep_param(t, omega0, omegaf, sweep_period);
     for (uint16_t i = 0; i < npts; i++)
     {
@@ -82,11 +74,12 @@ potfunc_harmonicgauss(double t, uint16_t npts, Rarray x, void* params, Rarray V)
 void
 potfunc_barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
 {
-    double h0, hf, height, width, sweep_period;
+    double h0, hf, height, width, sweep_period, background;
     width = ((double*) params)[0];
     h0 = ((double*) params)[1];
     hf = ((double*) params)[2];
     sweep_period = ((double*) params)[3];
+    background = ((double*) params)[4];
     height = linear_sweep_param(t, h0, hf, sweep_period);
 
     if (width < x[1] - x[0])
@@ -98,10 +91,10 @@ potfunc_barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
 
     for (uint16_t i = 0; i < M; i++)
     {
-        V[i] = 0;
+        V[i] = background;
         if (fabs(x[i]) < width / 2)
         {
-            V[i] = height * cos(x[i] * PI / width) * cos(x[i] * PI / width);
+            V[i] += height * cos(x[i] * PI / width) * cos(x[i] * PI / width);
         }
     }
 }

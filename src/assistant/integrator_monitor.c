@@ -88,41 +88,76 @@ total_energy(ManyBodyState psi)
 }
 
 dcomplex
+momentum_per_particle(OrbitalEquation eq_desc, ManyBodyState psi)
+{
+    uint16_t i, j;
+    uint16_t npts, norb;
+    double   dx;
+    dcomplex overlap, reduc;
+    Carray   ddxj;
+    Cmatrix  rho, orb;
+
+    npts = eq_desc->grid_size;
+    dx = eq_desc->dx;
+    norb = psi->norb;
+    orb = psi->orbitals;
+    rho = psi->ob_denmat;
+    ddxj = get_dcomplex_array(npts);
+
+    reduc = 0;
+    for (i = 0; i < norb; i++)
+    {
+        dxFD(npts, dx, orb[i], ddxj);
+        overlap = -I * scalar_product(npts, dx, orb[i], ddxj);
+        reduc += rho[i][i] * overlap;
+        for (j = i + 1; j < norb; j++)
+        {
+            dxFD(npts, dx, orb[j], ddxj);
+            overlap = -I * scalar_product(npts, dx, orb[i], ddxj);
+            reduc += rho[i][j] * overlap + conj(rho[i][j] * overlap);
+        }
+    }
+
+    free(ddxj);
+    return reduc / psi->npar;
+}
+
+dcomplex
 kinect_energy(OrbitalEquation eq_desc, ManyBodyState psi)
 {
     int      i, j, k;
-    uint16_t Mpos, Morb;
+    uint16_t npts, norb;
     double   dx, d2coef;
     dcomplex r;
     Carray   ddxi, ddxj, integ;
-    Cmatrix  rho, Omat;
+    Cmatrix  rho, orb;
 
-    Mpos = eq_desc->grid_size;
+    npts = eq_desc->grid_size;
     dx = eq_desc->dx;
     d2coef = eq_desc->d2coef;
-    Morb = psi->norb;
-    Omat = psi->orbitals;
+    norb = psi->norb;
+    orb = psi->orbitals;
     rho = psi->ob_denmat;
-    ddxi = get_dcomplex_array(Mpos);
-    ddxj = get_dcomplex_array(Mpos);
-    integ = get_dcomplex_array(Mpos);
+    ddxi = get_dcomplex_array(npts);
+    ddxj = get_dcomplex_array(npts);
+    integ = get_dcomplex_array(npts);
 
-    carrFill(Mpos, 0, integ);
+    carrFill(npts, 0, integ);
 
-    for (i = 0; i < Morb; i++)
+    for (i = 0; i < norb; i++)
     {
-        dxFD(Mpos, dx, Omat[i], ddxi);
-        for (j = 0; j < Morb; j++)
+        dxFD(npts, dx, orb[i], ddxi);
+        for (j = 0; j < norb; j++)
         {
             r = rho[i][j];
-            dxFD(Mpos, dx, Omat[j], ddxj);
-            for (k = 0; k < Mpos; k++)
+            dxFD(npts, dx, orb[j], ddxj);
+            for (k = 0; k < npts; k++)
             {
                 integ[k] = integ[k] - d2coef * r * conj(ddxi[k]) * ddxj[k];
             }
         }
     }
-    r = Csimps(Mpos, dx, integ);
+    r = Csimps(npts, dx, integ);
     free(ddxi);
     free(ddxj);
     free(integ);
@@ -133,33 +168,33 @@ dcomplex
 onebody_potential_energy(OrbitalEquation eq_desc, ManyBodyState psi)
 {
     int      i, j, k;
-    uint16_t Morb, Mpos;
+    uint16_t norb, npts;
     double   dx;
     dcomplex r;
     Rarray   V;
     Carray   integ;
-    Cmatrix  rho, Omat;
+    Cmatrix  rho, orb;
 
-    Mpos = eq_desc->grid_size;
-    Morb = psi->norb;
+    npts = eq_desc->grid_size;
+    norb = psi->norb;
     dx = eq_desc->dx;
     V = eq_desc->pot_grid;
-    Omat = psi->orbitals;
+    orb = psi->orbitals;
     rho = psi->ob_denmat;
-    integ = get_dcomplex_array(Mpos);
+    integ = get_dcomplex_array(npts);
 
-    carrFill(Mpos, 0, integ);
+    carrFill(npts, 0, integ);
 
-    for (i = 0; i < Morb; i++)
+    for (i = 0; i < norb; i++)
     {
-        for (j = 0; j < Morb; j++)
+        for (j = 0; j < norb; j++)
         {
             r = rho[i][j];
-            for (k = 0; k < Mpos; k++)
-                integ[k] = integ[k] + r * V[k] * conj(Omat[i][k]) * Omat[j][k];
+            for (k = 0; k < npts; k++)
+                integ[k] = integ[k] + r * V[k] * conj(orb[i][k]) * orb[j][k];
         }
     }
-    r = Csimps(Mpos, dx, integ);
+    r = Csimps(npts, dx, integ);
     free(integ);
     return r;
 }
@@ -167,7 +202,6 @@ onebody_potential_energy(OrbitalEquation eq_desc, ManyBodyState psi)
 dcomplex
 interacting_energy(ManyBodyState psi)
 {
-
     uint16_t k, s, q, l, m;
     uint32_t mm, mmm, two_body_id;
     dcomplex reduction;
