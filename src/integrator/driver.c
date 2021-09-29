@@ -291,8 +291,8 @@ integration_driver(
             record_raw_state(prefix, psi);
             break;
         case REALTIME:
-            record_time_interaction(prefix, mctdhb->orb_eq);
-            record_time_array(prefix, tend, mctdhb->orb_eq->tstep);
+            record_time_interaction(prefix, mctdhb->orb_eq, rec_nsteps);
+            record_time_array(prefix, tend, mctdhb->orb_eq->tstep, rec_nsteps);
             break;
     }
 

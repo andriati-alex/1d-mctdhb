@@ -188,10 +188,11 @@ def periodic(norb, x, nextra=5, amp=None):
     wamp = amp or norb
     extra_indexes, extraw = __random_setup(norb, nextra)
     phases = np.exp(2 * pi * 1.0j * np.random.random(norb))
-    L = x[-1] - x[0]
+    dlen = x[-1] - x[0]
     x0 = 0.5 * (x[-1] + x[0])
     base_list = [
-        sqrt(1 / L) * np.exp(2j * n * pi * (x - x0) / L) for n in range(norb)
+        sqrt(1 / dlen) * np.exp(2j * n * pi * (x - x0) / dlen)
+        for n in range(norb)
     ]
     raw_orb = np.empty([norb, x.size], dtype=np.complex128)
     for i, orb in enumerate(base_list):
@@ -201,7 +202,7 @@ def periodic(norb, x, nextra=5, amp=None):
         n = extra_indexes.pop()
         weight = wamp * extraw[n - norb]
         orb_i = i % norb
-        base = sqrt(1 / L) * np.exp(2j * n * pi * (x - x0) / L) / n
+        base = sqrt(1 / dlen) * np.exp(2j * n * pi * (x - x0) / dlen) / n
         grid_noise = np.random.random(x.size) / 10
         grid_noise[-1] = grid_noise[0]
         raw_orb[orb_i] = raw_orb[orb_i] + weight * base * (1 + grid_noise)

@@ -377,7 +377,7 @@ record_raw_state(char prefix[], ManyBodyState psi);
  * \param[in] eq_desc equation descriptor struct
  */
 void
-record_time_interaction(char prefix[], OrbitalEquation eq_desc);
+record_time_interaction(char prefix[], OrbitalEquation eq_desc, uint16_t recn);
 
 /** \brief Append/Record current one-body potential used
  *
@@ -401,9 +401,10 @@ append_timestep_potential(char prefix[], OrbitalEquation eq_desc);
  * \param[in] prefix file name prefix to use
  * \param[in] tend   last time step value
  * \param[in] tstep  time step size
+ * \param[in] recn   period to record in number of steps
  */
 void
-record_time_array(char prefix[], double tend, double tstep);
+record_time_array(char prefix[], double tend, double tstep, uint16_t recn);
 
 /** \brief Record main parameters to setup the problem
  *

@@ -781,7 +781,7 @@ append_timestep_potential(char prefix[], OrbitalEquation eq_desc)
 }
 
 void
-record_time_interaction(char prefix[], OrbitalEquation eq_desc)
+record_time_interaction(char prefix[], OrbitalEquation eq_desc, uint16_t recn)
 {
     uint32_t prop_steps;
     double   t, g;
@@ -802,15 +802,18 @@ record_time_interaction(char prefix[], OrbitalEquation eq_desc)
     while (t < eq_desc->tend)
     {
         prop_steps++;
-        t = prop_steps * eq_desc->tstep;
-        g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
-        fprintf(f, "%.10E\n", g);
+        if (prop_steps % recn)
+        {
+            t = prop_steps * eq_desc->tstep;
+            g = eq_desc->inter_param(t, eq_desc->inter_extra_args);
+            fprintf(f, "%.10E\n", g);
+        }
     }
     fclose(f);
 }
 
 void
-record_time_array(char prefix[], double tend, double tstep)
+record_time_array(char prefix[], double tend, double tstep, uint16_t recn)
 {
     uint32_t prop_steps;
     char     fname[STR_BUFF_SIZE];
@@ -826,7 +829,7 @@ record_time_array(char prefix[], double tend, double tstep)
     while (prop_steps * tstep < tend)
     {
         prop_steps++;
-        fprintf(f, "%.6lf\n", prop_steps * tstep);
+        if (prop_steps % recn == 0) fprintf(f, "%.6lf\n", prop_steps * tstep);
     }
     fclose(f);
 }
