@@ -7,3 +7,4 @@ from multiconfpy import initialization
 from multiconfpy import observables
 from multiconfpy import operator_action
 from multiconfpy.stationary import GroundState
+from multiconfpy.dynamics import DynamicsProcessing

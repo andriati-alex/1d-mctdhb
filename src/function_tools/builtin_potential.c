@@ -92,7 +92,7 @@ potfunc_barrier(double t, uint16_t M, Rarray x, void* params, Rarray V)
     for (uint16_t i = 0; i < M; i++)
     {
         V[i] = background;
-        if (fabs(x[i]) < width / 2)
+        if (fabs(x[i]) <= width / 2)
         {
             V[i] += height * cos(x[i] * PI / width) * cos(x[i] * PI / width);
         }

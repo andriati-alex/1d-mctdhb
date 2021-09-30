@@ -23,8 +23,11 @@ from multiconfpy import function_tools as ft
 def position(state, x, mult=1.0):
     """
     Apply the position operator to a function
-    Use `mult` to suit to desired unit system
-    `x` : ``numpy.array`` with grid points
+
+    Parameters:
+    -----------
+    `x` : ``numpy.array`` array with spatial grid points
+    `mult` : ``float`` factor to multiply array output (change unit system)
     """
     return mult * x * state
 
@@ -32,9 +35,12 @@ def position(state, x, mult=1.0):
 def momentum(state, dx, bound, mult=1.0):
     """
     Apply the momentum operator to a function
-    Use `mult` to suit to desired unit system
-    `bound` = 0(1) is zero(periodic) boundary
+
+    Parameters:
+    -----------
+    `bound` : ``int`` 0(1) define zero(periodic) boundary
     `dx` : ``float`` grid spacing
+    `mult` : ``float`` factor to multiply array output (change unit system)
     """
     if bound == 0:
         return -mult * 1.0j * ft.dfdx_zero(state, dx)
@@ -45,6 +51,9 @@ def momentum(state, dx, bound, mult=1.0):
 def projection(state, proj_state, dx):
     """
     Return `state` projected over `proj_state`
+
+    Parameters:
+    -----------
     `proj_state` : ``numpy.array`` state to project over
     `dx` : ``float`` grid spacing
     """

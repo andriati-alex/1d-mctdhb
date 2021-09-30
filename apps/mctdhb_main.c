@@ -12,7 +12,7 @@
 
 static uint8_t         monitor_nsteps = 10;
 static uint16_t        record_nsteps = 10;
-static JobsInputHandle mult_job = COMMON_INP;
+static JobsInputHandle mult_job_handle = COMMON_INP;
 
 static void
 report_warn_monitoring_file(uint8_t param_num)
@@ -29,7 +29,7 @@ config_monitoring()
 {
     int     scan_status;
     FILE*   f;
-    Bool    auto_check;
+    Bool    auto_check, diag_if_not_converged;
     uint8_t e_digits, params_read;
     double  eig_residue_tol, overlap_threshold, reg_factor;
 
@@ -38,7 +38,7 @@ config_monitoring()
     params_read = 0;
 
     jump_comment_lines(f, CURSOR_POSITION);
-    scan_status = fscanf(f, "%u", &mult_job);
+    scan_status = fscanf(f, "%u", &mult_job_handle);
     params_read++;
     if (scan_status != 1)
     {
@@ -84,6 +84,16 @@ config_monitoring()
         return;
     }
     set_energy_convergence_eig_residual(eig_residue_tol);
+
+    jump_comment_lines(f, CURSOR_POSITION);
+    scan_status = fscanf(f, "%u", &diag_if_not_converged);
+    params_read++;
+    if (scan_status != 1)
+    {
+        report_warn_monitoring_file(params_read);
+        return;
+    }
+    set_final_diagonalization(diag_if_not_converged);
 
     jump_comment_lines(f, CURSOR_POSITION);
     scan_status = fscanf(f, "%" SCNu16, &record_nsteps);
@@ -168,7 +178,7 @@ main(int argc, char* argv[])
         strcat(out_prefix, job_fmt);
 
         main_struct = full_setup_mctdhb_current_dir(
-            argv[1], job_id, mult_job, NULL, NULL, NULL, NULL);
+            argv[1], job_id, mult_job_handle, NULL, NULL, NULL, NULL);
 
         screen_display_mctdhb_info(main_struct, TRUE, TRUE, TRUE);
 
