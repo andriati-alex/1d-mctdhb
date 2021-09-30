@@ -46,8 +46,8 @@ lanczos(
  *
  * \see lanczos
  *
+ * \param[in] niter number of iterations
  * \param[in] multiconf Multiconfigurational space type
- * \param[in] lanczos_work Workspace for lanczos algorithm
  * \param[in] hob_mat one-body orbital-hamiltonian matrix
  * \param[in] hint_mat two-body orbital-hamiltonian matrix (interaction)
  * \param[in/out] coef Initial guess. End with ground state approximation
@@ -56,8 +56,8 @@ lanczos(
  */
 double
 lowest_state_lanczos(
+    uint16_t           niter,
     MultiConfiguration multiconf,
-    WorkspaceLanczos   lanczos_work,
     Cmatrix            hob_mat,
     Carray             hint_mat,
     Carray             coef);

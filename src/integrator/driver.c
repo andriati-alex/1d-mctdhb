@@ -6,11 +6,13 @@
 #include "integrator/coefficients_integration.h"
 #include "integrator/orbital_integration.h"
 #include "integrator/synchronize.h"
+#include "linalg/multiconfig_lanczos.h"
 #include <math.h>
 #include <omp.h>
 #include <stdlib.h>
 #include <string.h>
 
+static Bool    imagtime_diagonalization = TRUE;
 static Bool    check_auto_convergence = FALSE;
 static uint8_t converged_energy_digits = 11;
 static double  converged_eig_residue = 1E-6;
@@ -31,6 +33,14 @@ print_time_used(double t_sec)
         secs = secs % 60;
     }
     printf("%d hour(s) %d minute(s)", hours, mins);
+}
+
+static uint16_t
+get_appropriate_lanczos_iterations(uint32_t space_dim)
+{
+    if (space_dim / 2 > 50) return 50;
+    if (space_dim < 4) return 0;
+    return space_dim / 2;
 }
 
 static Bool
@@ -60,16 +70,18 @@ static void
 realtime_check_overlap(MCTDHBDataStruct mctdhb)
 {
     double o;
+    Bool impr;
 
+    impr = mctdhb->orb_workspace->impr_ortho;
     o = overlap_residual(
         mctdhb->orb_eq->norb,
         mctdhb->orb_eq->grid_size,
         mctdhb->orb_eq->dx,
         mctdhb->state->orbitals);
 
-    if (o > threshold_impr_ortho)
+    if (o > threshold_impr_ortho && !impr)
     {
-        printf("\n\n== Improving orthogonality ==\n\n");
+        printf("\n\n== Start improving orthogonality ==\n\n");
         mctdhb->orb_workspace->impr_ortho = TRUE;
     }
 
@@ -80,6 +92,12 @@ realtime_check_overlap(MCTDHBDataStruct mctdhb)
             REALTIME_OVERLAP_RESIDUE_TOL);
         exit(EXIT_FAILURE);
     }
+}
+
+void
+set_final_diagonalization(Bool shall_diag)
+{
+    imagtime_diagonalization = shall_diag;
 }
 
 void
@@ -192,6 +210,7 @@ integration_driver(
 {
     IntegratorType time_type;
     Bool           impr_ortho_active;
+    uint16_t       lan_it;
     uint32_t       prop_steps;
     double         curr_t, ompt_start, ompt_used, prev_e;
     char           custom_prefix[STR_BUFF_SIZE], fname[STR_BUFF_SIZE];
@@ -254,7 +273,7 @@ integration_driver(
             {
                 if (imagtime_check_convergence(mctdhb, &prev_e)) break;
             }
-            if (time_type == REALTIME && !impr_ortho_active)
+            if (time_type == REALTIME)
             {
                 realtime_check_overlap(mctdhb);
                 impr_ortho_active = mctdhb->orb_workspace->impr_ortho;
@@ -270,19 +289,32 @@ integration_driver(
         ompt_used);
     print_time_used(ompt_used);
 
-    if (check_auto_convergence && time_type == IMAGTIME && curr_t < tend)
-    {
-        printf(
-            "\nThe result converged before expected with "
-            "t = %.1lf of %.1lf final time",
-            curr_t,
-            tend);
-    }
-
     // Additional stuff to record
     switch (time_type)
     {
         case IMAGTIME:
+            if (check_auto_convergence && curr_t < tend)
+            {
+                printf(
+                    "\nThe result converged before expected with "
+                    "t = %.1lf of %.1lf total propagation time",
+                    curr_t,
+                    tend);
+            }
+            // In case auto-convergence criteria is not fulfilled
+            // finish with exact diagonalization within current orbitals
+            lan_it = get_appropriate_lanczos_iterations(psi->space_dim);
+            if (imagtime_diagonalization && curr_t >= tend && lan_it > 0)
+            {
+                lowest_state_lanczos(
+                    lan_it,
+                    mctdhb->multiconfig_space,
+                    psi->hob,
+                    psi->hint,
+                    psi->coef);
+                printf("\n\n== Additional coefficients diagonalization ==\n");
+                screen_integration_monitor(mctdhb);
+            }
             // record potential once (it is not updated in imagtime)
             set_output_fname(prefix, ONE_BODY_POTENTIAL_REC, fname);
             rarr_column_txt(

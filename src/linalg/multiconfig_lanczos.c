@@ -1,7 +1,8 @@
 #include "linalg/multiconfig_lanczos.h"
-#include "linalg/basic_linalg.h"
 #include "assistant/arrays_definition.h"
+#include "assistant/types_definition.h"
 #include "configurational/hamiltonian.h"
+#include "linalg/basic_linalg.h"
 #include <math.h>
 #include <mkl_lapacke.h>
 #include <stdio.h>
@@ -90,22 +91,22 @@ lanczos(
 
 double
 lowest_state_lanczos(
+    uint16_t           niter,
     MultiConfiguration multiconf,
-    WorkspaceLanczos   lanczos_work,
     Cmatrix            Ho,
     Carray             Hint,
     Carray             C)
 {
-    int i, k, j, nc, predictedIter, Niter;
+    int              i, k, j, dim, predicted_iter;
+    double           sentinel, *d, *e, *eigvec;
+    Carray           diag, offdiag;
+    Cmatrix          lvec;
+    WorkspaceLanczos lanczos_work;
 
-    double sentinel, *d, *e, *eigvec;
+    lanczos_work = get_lanczos_workspace(niter, multiconf->dim);
 
-    Carray diag, offdiag;
-
-    Cmatrix lvec;
-
-    nc = multiconf->dim;
-    Niter = lanczos_work->iter;
+    dim = multiconf->dim;
+    niter = lanczos_work->iter;
     lvec = lanczos_work->lanczos_vectors;
     diag = lanczos_work->decomp_diag;
     offdiag = lanczos_work->decomp_offd;
@@ -113,22 +114,22 @@ lowest_state_lanczos(
     e = lanczos_work->lapack_offd;
     d = lanczos_work->lapack_diag;
 
-    offdiag[Niter - 1] = 0;
-    carrCopy(nc, C, lvec[0]);
+    offdiag[niter - 1] = 0;
+    carrCopy(dim, C, lvec[0]);
 
     // Call Lanczos to setup tridiagonal matrix and lanczos vectors
-    predictedIter = Niter;
-    Niter = lanczos(multiconf, Ho, Hint, Niter, diag, offdiag, lvec);
-    if (Niter < predictedIter)
+    predicted_iter = niter;
+    niter = lanczos(multiconf, Ho, Hint, niter, diag, offdiag, lvec);
+    if (niter < predicted_iter)
     {
         printf(
             "\n\nWARNING : lanczos iterations exit "
             "before expected with %d iterations\n\n",
-            Niter);
+            niter);
     }
 
     // Transfer data to use lapack routine
-    for (k = 0; k < Niter; k++)
+    for (k = 0; k < niter; k++)
     {
         if (fabs(cimag(diag[k])) > 1E-10)
         {
@@ -136,10 +137,10 @@ lowest_state_lanczos(
         }
         d[k] = creal(diag[k]);    // Supposed to be real
         e[k] = creal(offdiag[k]); // Supposed to be real
-        for (j = 0; j < Niter; j++) eigvec[k * Niter + j] = 0;
+        for (j = 0; j < niter; j++) eigvec[k * niter + j] = 0;
     }
 
-    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', Niter, d, e, eigvec, Niter);
+    k = LAPACKE_dstev(LAPACK_ROW_MAJOR, 'V', niter, d, e, eigvec, niter);
     if (k != 0)
     {
         printf("\n\nERROR IN DIAGONALIZATION\n\n");
@@ -149,7 +150,7 @@ lowest_state_lanczos(
 
     sentinel = 1E15;
     // Get Index of smallest eigenvalue
-    for (k = 0; k < Niter; k++)
+    for (k = 0; k < niter; k++)
     {
         if (sentinel > d[k])
         {
@@ -159,11 +160,13 @@ lowest_state_lanczos(
     }
 
     // Update C with the coefficients of ground state
-    for (i = 0; i < nc; i++)
+    for (i = 0; i < dim; i++)
     {
         C[i] = 0;
-        for (k = 0; k < Niter; k++) C[i] += lvec[k][i] * eigvec[k * Niter + j];
+        for (k = 0; k < niter; k++) C[i] += lvec[k][i] * eigvec[k * niter + j];
     }
+
+    destroy_lanczos_workspace(lanczos_work);
 
     return sentinel;
 }

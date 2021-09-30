@@ -23,6 +23,10 @@
 void
 set_autoconvergence_check(Bool must_check);
 
+/** \brief Define whether to use diagonalization if not auto-converged */
+void
+set_final_diagonalization(Bool shall_diag);
+
 /** \brief Min energy digits stabilization to stop imag time propagation */
 void
 set_energy_convergence_digits(uint8_t edig);
