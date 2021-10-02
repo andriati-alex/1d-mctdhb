@@ -54,7 +54,7 @@ def orthonormalize(fun_set, dx):
 
 
 def overlap_matrix(fun_set, dx):
-    """ Return all pair-wise scalar products for a set of functions
+    """Return all pair-wise scalar products for a set of functions
 
     Parameters
     ----------
@@ -72,8 +72,38 @@ def overlap_matrix(fun_set, dx):
     nfun = fun_set.shape[0]
     overlap = np.empty([nfun, nfun], dtype=fun_set.dtype)
     for i in range(nfun):
-        for j in range(nfun):
+        overlap[i, i] = simps(fun_set[i].conj() * fun_set[i], dx=dx)
+        for j in range(i + 1, nfun):
             overlap[i, j] = simps(fun_set[i].conj() * fun_set[j], dx=dx)
+            overlap[j, i] = overlap[i, j].conjugate()
+    return overlap
+
+
+def overlap_meshgrid(fun_arr_left, fun_arr_right, dx):
+    """Return all pair-wise scalar products for two set of functions
+
+    Parameters
+    ----------
+    `fun_arr_left` : ``numpy.ndarray``
+        functions to use in the left in scalar products (the conjugate)
+    `fun_arr_right` : ``numpy.ndarray``
+        functions to use in the right in scalar products
+    `dx` : ``float``
+        grid spacing to evaluate integrals
+
+    Return
+    ------
+    ``numpy.ndarray`` Matrix with values of each pair-wise scalar products
+    """
+    if fun_arr_left.shape != fun_arr_right.shape:
+        raise ValueError("\noverlap_meshgrid requires identical shapes\n")
+    nfun = fun_arr_left.shape[0]
+    overlap = np.empty([nfun, nfun], dtype=fun_arr_left.dtype)
+    for i in range(nfun):
+        fleft = fun_arr_left[i]
+        for j in range(nfun):
+            fright = fun_arr_right[j]
+            overlap[i, j] = simps(fleft.conj() * fright, dx=dx)
     return overlap
 
 
@@ -94,14 +124,15 @@ def dfdx_periodic(f, dx):
     dfdx[0] = (f[n - 3] - f[2] + 8 * (f[1] - f[n - 2])) / (12 * dx)
     dfdx[1] = (f[n - 2] - f[3] + 8 * (f[2] - f[0])) / (12 * dx)
     dfdx[n - 2] = (f[n - 4] - f[1] + 8 * (f[0] - f[n - 3])) / (12 * dx)
+    dfdx[n - 3] = (f[n - 5] - f[0] + 8 * (f[n - 2] - f[n - 4])) / (12 * dx)
     dfdx[n - 1] = dfdx[0]
-    for i in range(2, n - 2):
+    for i in range(2, n - 3):
         dfdx[i] = (f[i - 2] - f[i + 2] + 8 * (f[i + 1] - f[i - 1])) / (12 * dx)
     return dfdx
 
 
 def dfdx_zero(f, dx):
-    """ Return derivative of function `f` within grid spacing `dx`
+    """Return derivative of function `f` within grid spacing `dx`
 
     Consider hard-wall boundaries, that implies `f[0] == f[n - 1] == 0`
     or `f[0]` and `f[n - 1]` as the last nonzero values. Especially at
@@ -144,7 +175,7 @@ def dfdx_periodic_fft(f, dx):
 
 
 def fft_ordered_norm(func, dx, norm=1, bound=0):
-    """ Compute normalized ordered FFT and corresponding frequencies
+    """Compute normalized ordered FFT and corresponding frequencies
 
     Use quantum mechanical convention frequency 2 * pi * numpy.fft.fftfreq
     Choose the `bound` according to the boundaires of the functions which

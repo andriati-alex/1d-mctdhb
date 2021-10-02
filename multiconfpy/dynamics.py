@@ -268,9 +268,7 @@ class DynamicsProcessing:
             *extra_args
         )
 
-    def average_onebody_operator(
-        self, op_action, args=(), subset_ind=None
-    ):
+    def average_onebody_operator(self, op_action, args=(), subset_ind=None):
         """
         Compute average of an arbritrary extensive 1-body operator
 
@@ -299,6 +297,43 @@ class DynamicsProcessing:
                     self.dx,
                     args,
                     subset_ind,
+                )
+                for frame_ind in range(self.nframes)
+            ]
+        )
+
+    def covariance(self, op_left, op_right, args_left=(), args_right=()):
+        """
+        Compute average of an arbritrary extensive 1-body operator
+
+        Parameters
+        ----------
+        `op_action` : ``callable``
+            function which apply the operator to a state
+            see examples ``multiconfpy.operator_action``
+        `args` : ``tuple``
+            arguments needed for specific for each evaluation
+        `subset_ind` : ``list[int] / numpy.array(dtype=int)``
+            restrict evaluation of average to subset of natural orbitals
+            by default no restriction is applied (``None``)
+            `0 <= subset_ind[i] < self.norb` without repetitions if provided
+
+        Return
+        ------
+        ``float``
+        """
+        return np.array(
+            [
+                obs.manybody_operator_covariance(
+                    self.npar,
+                    self.onebody_dm(frame_ind),
+                    self.twobody_dm(frame_ind),
+                    self.raw_orbitals(frame_ind),
+                    self.dx,
+                    op_left,
+                    op_right,
+                    args_left,
+                    args_right,
                 )
                 for frame_ind in range(self.nframes)
             ]

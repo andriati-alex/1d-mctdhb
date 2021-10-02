@@ -217,6 +217,19 @@ class GroundState:
             self.occ, self.natorb, op_action, self.dx, args, subset_ind
         )
 
+    def covariance(self, op_left, op_right, args_left=(), args_right=()):
+        return obs.manybody_operator_covariance(
+            self.npar,
+            self.rho1,
+            self.rho2,
+            self.orbitals,
+            self.dx,
+            op_left,
+            op_right,
+            args_left,
+            args_right,
+        )
+
     def plot_density(self, show_trap=False, show_condensate=False):
         den = self.density()
         plt.plot(self.grid, den, color="black", label="Gas density")

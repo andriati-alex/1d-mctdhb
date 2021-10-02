@@ -434,7 +434,72 @@ def average_onebody_operator(occ, natorb, op_action, dx, args=(), ind=None):
     frac = occ[ind].sum()
     sum_contrib = 0.0
     for i in ind:
-        sum_contrib = sum_contrib + occ[i] * ft.simps(
+        sum_contrib += occ[i] * ft.simps(
             natorb[i].conj() * op_action(natorb[i], *args), dx=dx
         )
     return sum_contrib.real / frac
+
+
+def manybody_operator_covariance(
+    npar,
+    ob_denmat,
+    tb_denmat,
+    raw_orb,
+    dx,
+    opleft,
+    opright,
+    args_opleft=(),
+    args_opright=(),
+):
+    """Compute manybody covariances given single particle operator functions
+
+    Covariances are defined as the average of product of two fluctuation
+    of many-body operators. The fluctuation of an arbitrary operator is
+    `dO = O - <O>` where `<>` denote the many-body average. Therefore, a
+    covariance of operators `O` and `P` is `<dO dP> = <O P> - <O><P>`.
+    For computation purposes the action of the single particle operators
+    counterpart are required and eventually extra arguments. Be careful
+    with the order passed, as in this example `O` stands for ``opleft``
+    and `P` for ``opright``. The covariance is further divided by the
+    number of particles square
+
+    Parameters:
+    -----------
+    `npar` : ``int`` the number for particles to scale the result
+    `ob_denmat` : ``numpy.array`` one-body density matrix
+    `tb_denmat` : ``numpy.array`` two-body density matrix
+    `raw_orb` : ``numpy.array`` working orbitals output as matrix rows
+    `dx` : ``float`` grid spacing to evaluate integrals
+    `opleft` : ``callable`` function to act as single particle operator(`O`)
+    `opright` : ``callable`` function to act as single p operator(`P`)
+    `args_opleft` : ``tuple`` used to call `opleft(numpy.array, *args)`
+    `args_opright` : ``tuple`` used to call `opright(numpy.array, *args)`
+
+    Return:
+    -------
+    ``float``
+    """
+    norb = raw_orb.shape[0]
+    overlap_mat_left = ft.overlap_meshgrid(
+        raw_orb, np.array([opleft(orb, *args_opleft) for orb in raw_orb]), dx
+    )
+    overlap_mat_right = ft.overlap_meshgrid(
+        raw_orb, np.array([opright(orb, *args_opright) for orb in raw_orb]), dx
+    )
+    print(overlap_mat_left)
+    print(overlap_mat_right)
+    tb_denmat_tensor = tb_denmat.reshape((norb, norb, norb, norb), order="F")
+    tb_denmat_contract = np.tensordot(
+        np.tensordot(tb_denmat_tensor, overlap_mat_left, ([0, 2], [0, 1])),
+        overlap_mat_right,
+        ([0, 1], [0, 1]),
+    )
+    comm_contract = np.tensordot(
+        np.tensordot(ob_denmat, overlap_mat_left, (0, 0)),
+        overlap_mat_right,
+        ([0, 1], [1, 0]),
+    )
+    avg_prod = np.tensordot(
+        ob_denmat, overlap_mat_left, ([0, 1], [0, 1])
+    ) * np.tensordot(ob_denmat, overlap_mat_right, ([0, 1], [0, 1]))
+    return (comm_contract + tb_denmat_contract - avg_prod) / npar ** 2
