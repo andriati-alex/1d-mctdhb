@@ -31,7 +31,7 @@ overflow_dimension(uint16_t npar, uint16_t norb)
     printf(
         "\n\nINTEGER SIZE ERROR : overflow occurred "
         "representing the space dimension as 32-bit "
-        "integers for %u particles and %u orbitals\n\n",
+        "integers for %" PRIu16 " particles and %" PRIu16 " orbitals\n\n",
         npar,
         norb);
     exit(EXIT_FAILURE);
@@ -49,7 +49,7 @@ fac(uint8_t n)
         {
             printf(
                 "\n\nINTEGER SIZE ERROR : overflow occurred computing "
-                "factorial of %u as 64-bit integer\n\n",
+                "factorial of %" PRIu8 " as 64-bit integer\n\n",
                 n);
             exit(EXIT_FAILURE);
         }
@@ -71,14 +71,12 @@ assert_space_parameters(uint16_t npar, uint16_t norb)
     }
     if (norb > MAX_ORBITALS)
     {
-        printf(
-            "\n\nERROR: Exceeded max number of orbitals %d\n\n", MAX_ORBITALS);
+        printf("\nERROR: Exceeded max number of orbitals %d\n", MAX_ORBITALS);
         exit(EXIT_FAILURE);
     }
     if (npar > MAX_PARTICLES)
     {
-        printf(
-            "\n\nERROR: Exceeded max number of particles %d\n\n", MAX_PARTICLES);
+        printf("\nERROR: Exceeded max number of particles %d\n", MAX_PARTICLES);
         exit(EXIT_FAILURE);
     }
 }
@@ -266,6 +264,7 @@ alloc_double_diffjump_map(uint32_t dim, uint16_t norb, uint16_t* hash_table)
      * new elements corresponding to the particles destiny, those that   *
      * were removed from states k and s                                  *
      ********************************************************************/
+
     uint32_t  i, possible_removals;
     uint16_t  k, s;
     uint32_t* map;
@@ -367,6 +366,7 @@ alloc_double_equaljump_map(uint32_t dim, uint16_t norb, uint16_t* hash_table)
      * from the same orbital. Scan orbital occupations and for each *
      * one with at least two particles add stride of size `norb^2`  *
      ****************************************************************/
+
     uint16_t  k;
     uint32_t  hash_i, possible_removals;
     uint32_t* map;
@@ -459,8 +459,7 @@ jump1_index(
     uint16_t  from_orb,
     uint16_t  to_orb)
 {
-    uint32_t map_index = inp_index + from_orb * dim + to_orb * dim * norb;
-    return map1jump[map_index];
+    return map1jump[inp_index + from_orb * dim + to_orb * dim * norb];
 }
 
 uint32_t

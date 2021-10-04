@@ -121,13 +121,13 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
 #pragma omp parallel for private(i, j, h, occ_k, occ_q, chunks, strideOrb, bose_fac) reduction(+ : rho_sum)
             for (i = 0; i < dim; i++)
             {
-                h = i * norb; // auxiliar stride for IF
-                if (ht[h + k] < 2) continue;
-                occ_k = ht[h + k];
-                occ_q = ht[h + q];
+                j = i * norb; // auxiliar stride for IF
+                if (ht[j + k] < 2) continue;
+                occ_k = ht[j + k];
+                occ_q = ht[j + q];
 
                 chunks = 0;
-                for (j = 0; j < k; j++)
+                for (h = 0; h < k; h++)
                 {
                     if (ht[h + j] > 1) chunks++;
                 }
@@ -201,15 +201,15 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
 #pragma omp parallel for private(i, j, h, occ_k, occ_q, occ_l, chunks, strideOrb, bose_fac) reduction(+ : rho_sum)
                 for (i = 0; i < dim; i++)
                 {
-                    h = i * norb;
-                    if (ht[h + k] < 2) continue;
-                    occ_k = ht[h + k];
-                    occ_q = ht[h + q];
-                    occ_l = ht[h + l];
+                    j = i * norb;
+                    if (ht[j + k] < 2) continue;
+                    occ_k = ht[j + k];
+                    occ_q = ht[j + q];
+                    occ_l = ht[j + l];
                     chunks = 0;
-                    for (j = 0; j < k; j++)
+                    for (h = 0; h < k; h++)
                     {
-                        if (ht[h + j] > 1) chunks++;
+                        if (ht[j + h] > 1) chunks++;
                     }
                     strideOrb = chunks * norb * norb;
                     j = mapot[strides_ot[i] + strideOrb + l + q * norb];
@@ -237,13 +237,13 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
 #pragma omp parallel for private(i, j, h, occ_k, occ_q, occ_l, chunks, strideOrb, bose_fac) reduction(+ : rho_sum)
                 for (i = 0; i < dim; i++)
                 {
-                    h = i * norb;
-                    if (ht[h + k] < 2) continue;
-                    occ_k = ht[h + k];
-                    occ_q = ht[h + q];
-                    occ_l = ht[h + l];
+                    j = i * norb;
+                    if (ht[j + k] < 2) continue;
+                    occ_k = ht[j + k];
+                    occ_q = ht[j + q];
+                    occ_l = ht[j + l];
                     chunks = 0;
-                    for (j = 0; j < k; j++)
+                    for (h = 0; h < k; h++)
                     {
                         if (ht[h + j] > 1) chunks++;
                     }
@@ -273,13 +273,13 @@ set_twobody_dm(MultiConfiguration multiconf, Carray coef, Carray rho)
 #pragma omp parallel for private(i, j, h, occ_k, occ_q, occ_l, chunks, strideOrb, bose_fac) reduction(+ : rho_sum)
                 for (i = 0; i < dim; i++)
                 {
-                    h = i * norb;
-                    if (ht[h + k] < 2) continue;
-                    occ_k = ht[h + k];
-                    occ_q = ht[h + q];
-                    occ_l = ht[h + l];
+                    j = i * norb;
+                    if (ht[j + k] < 2) continue;
+                    occ_k = ht[j + k];
+                    occ_q = ht[j + q];
+                    occ_l = ht[j + l];
                     chunks = 0;
-                    for (j = 0; j < k; j++)
+                    for (h = 0; h < k; h++)
                     {
                         if (ht[h + j] > 1) chunks++;
                     }
