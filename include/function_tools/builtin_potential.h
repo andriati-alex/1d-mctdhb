@@ -30,7 +30,15 @@ void
 potfunc_barrier(double t, uint16_t M, Rarray x, void* params, Rarray V);
 
 void
+potfunc_time_trapezoid_barrier(
+    double t, uint16_t npts, Rarray x, void* params, Rarray pot);
+
+void
 potfunc_opticallattice(double t, uint16_t M, Rarray x, void* params, Rarray V);
+
+void
+potfunc_time_trapezoid_opticallattice(
+    double t, uint16_t npts, Rarray x, void* params, Rarray pot);
 
 void
 potfunc_step(double t, uint16_t M, Rarray x, void* params, Rarray V);
