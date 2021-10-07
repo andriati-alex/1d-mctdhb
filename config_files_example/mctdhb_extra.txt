@@ -1,0 +1,32 @@
+# CONFIGURATION FILE FOR MONITORING INTEGRATION PROGRESS
+# ======================================================
+#
+# Set how to handle if multiple jobs are present
+# 0 => Common input always using job1
+# 1 => Use job number according to line of parameters
+# 2 => Use output of last job (analytic continuation)
+1
+#
+# Choose how many steps to wait to evaluate monitoring routines
+10
+#
+# Enable (1) or disable(0) verification for convergence in imag time
+1
+#
+# Choose how many digits needed to stabilize the energy in imag time (up to 13)
+12
+#
+# Choose Max eigenvalue residue rolerance (recommended 0.01 ~ 0.00001)
+1E-2
+#
+# Boolean(1) to evaluate fixed basis diagonalization if not converged
+1
+#
+# Choose how many steps to wait to record real time step data
+100
+#
+# Max accepted overlap residue to DON'T use inverse overlap matrix in projector
+1E-8
+#
+# Regularization factor to avoid singular density matrix
+1E-8

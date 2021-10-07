@@ -1,0 +1,38 @@
+# INTEGRATION FILE SETUP
+# ======================
+#
+# Time integration type as:
+# 10 - imaginary time for ground state convergence
+# 11 - real time for dynamics of initial state
+10
+#
+# Coefficients integration method as:
+# 20 - Short Iterative Lanczos(SIL) with customizable order
+# 21 - Runge-Kutta following the global integrator order
+20
+#
+# Orbital integration method as:
+# 30 - Full equation Runge-Kutta approach following the global integrator order
+# 31 - Split-Step with nonlinear using Runge-Kutta method
+30
+#
+# Specific approach to handle derivatives:
+# 300 - Discrete Variable Representation(DVR)
+# 301 - Fourier Transforms
+# 302 - Finite differences (2nd order schemes)
+302
+#
+# Global Runge-Kutta order wherever it is used:
+# 2 - Suitable for imaginary time with split-step method
+# 4 - Still not so good for real time with full equation Runge-Kutta
+# 5 - Suitable for real time calculations with full equation Runge-Kutta
+5
+#
+# Type of boundary conditions:
+# 1000 - Hard wall zero boundaries
+# 1001 - Periodic boundary conditions
+1001
+#
+# Number of Lanczos iterations to use in SIL method for coefficients
+# 2~15
+5
