@@ -41,10 +41,7 @@ sync_orbital_matrices(OrbitalEquation eq_desc, ManyBodyState psi)
 void
 sync_density_matrices(MultiConfiguration mc_space, ManyBodyState psi)
 {
-    Rarray nat_occ;
-    double scaled_reg_fac;
-
-    nat_occ = get_double_array(psi->norb);
+    double scaled_reg_fac, nat_occ[MAX_ORBITALS];
 
     set_onebody_dm(mc_space, psi->coef, psi->ob_denmat);
     set_twobody_dm(mc_space, psi->coef, psi->tb_denmat);
@@ -56,8 +53,6 @@ sync_density_matrices(MultiConfiguration mc_space, ManyBodyState psi)
         cmat_regularization(psi->norb, scaled_reg_fac, psi->ob_denmat);
     }
     cmat_hermitian_inversion(psi->norb, psi->ob_denmat, psi->inv_ob_denmat);
-
-    free(nat_occ);
 }
 
 void

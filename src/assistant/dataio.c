@@ -623,7 +623,7 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb)
     dcomplex energy, kine, inte;
     double   dx, t, tend, over_res, orb_norm, coef_norm, conf_eig_residue, mom;
     char     energy_fmt[STR_BUFF_SIZE];
-    Rarray   nat_occ;
+    double   nat_occ[MAX_ORBITALS];
 
     ManyBodyState psi;
 
@@ -634,7 +634,6 @@ screen_integration_monitor(MCTDHBDataStruct mctdhb)
     norb = mctdhb->state->norb;
     grid_size = mctdhb->orb_eq->grid_size;
     space_dim = mctdhb->state->space_dim;
-    nat_occ = get_double_array(norb);
     psi = mctdhb->state;
 
     sprintf(
