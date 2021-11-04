@@ -454,10 +454,10 @@ def manybody_operator_covariance(
     """Compute manybody covariances given single particle operator functions
 
     Covariances are defined as the average of product of two fluctuation
-    of many-body operators. The fluctuation of an arbitrary operator is
+    many-body operators. The fluctuation of an arbitrary operator is
     `dO = O - <O>` where `<>` denote the many-body average. Therefore, a
     covariance of operators `O` and `P` is `<dO dP> = <O P> - <O><P>`.
-    For computation purposes the action of the single particle operators
+    For computational purposes the action rule of single particle operators
     counterpart are required and eventually extra arguments. Be careful
     with the order passed, as in this example `O` stands for ``opleft``
     and `P` for ``opright``. The covariance is further divided by the
@@ -468,7 +468,7 @@ def manybody_operator_covariance(
     `npar` : ``int`` the number for particles to scale the result
     `ob_denmat` : ``numpy.array`` one-body density matrix
     `tb_denmat` : ``numpy.array`` two-body density matrix
-    `raw_orb` : ``numpy.array`` working orbitals output as matrix rows
+    `raw_orb` : ``numpy.array`` working orbitals as matrix rows
     `dx` : ``float`` grid spacing to evaluate integrals
     `opleft` : ``callable`` function to act as single particle operator(`O`)
     `opright` : ``callable`` function to act as single p operator(`P`)
@@ -486,8 +486,6 @@ def manybody_operator_covariance(
     overlap_mat_right = ft.overlap_meshgrid(
         raw_orb, np.array([opright(orb, *args_opright) for orb in raw_orb]), dx
     )
-    print(overlap_mat_left)
-    print(overlap_mat_right)
     tb_denmat_tensor = tb_denmat.reshape((norb, norb, norb, norb), order="F")
     tb_denmat_contract = np.tensordot(
         np.tensordot(tb_denmat_tensor, overlap_mat_left, ([0, 2], [0, 1])),
