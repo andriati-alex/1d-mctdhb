@@ -113,7 +113,7 @@ class DynamicsProcessing:
 
     def frame_from_time(self, t):
         """Get the closest frame index of a given time instant `t`"""
-        return abs(self.time_den - t).argmin()
+        return abs(self.time_arr - t).argmin()
 
     def ob_potential(self, frame_ind=0):
         self.__assert_frame_index(frame_ind)
