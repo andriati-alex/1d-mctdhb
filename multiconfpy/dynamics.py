@@ -379,7 +379,7 @@ class DynamicsProcessing:
         fig = plt.figure(figsize=(9, 7))
         ax = fig.add_subplot()
         im = ax.imshow(
-            abs(data) ** 2,
+            abs(data),
             extent=ext,
             origin="lower",
             aspect="equal",
