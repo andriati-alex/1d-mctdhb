@@ -3,6 +3,7 @@ import linecache
 import numpy as np
 import matplotlib.pyplot as plt
 
+from tqdm import trange
 from multiconfpy import observables as obs
 
 
@@ -298,7 +299,7 @@ class DynamicsProcessing:
                     args,
                     subset_ind,
                 )
-                for frame_ind in range(self.nframes)
+                for frame_ind in trange(self.nframes, desc="Obs in all times")
             ]
         )
 
@@ -335,7 +336,7 @@ class DynamicsProcessing:
                     args_left,
                     args_right,
                 )
-                for frame_ind in range(self.nframes)
+                for frame_ind in trange(self.nframes, desc="Cov in all times")
             ]
         )
 
